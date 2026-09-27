@@ -521,7 +521,13 @@ MODULE: FEED PAGE
         </div>
 
         <div class="secondary-header-actions">
-            <button class="icon-button">⌕</button>
+<button
+    class="icon-button"
+    id="feed-search-button"
+    aria-label="Search users"
+>
+    ⌕
+</button>
             <button class="icon-button">⚱</button>
         </div>
     </header>
@@ -624,6 +630,67 @@ MODULE: FEED PAGE
 
     </div>
 </section>
+
+<!-- =====================================================
+MODULE: FEED — USER SEARCH OVERLAY
+===================================================== -->
+<div
+    class="feed-user-search-view"
+    id="feed-user-search-view"
+    aria-hidden="true"
+>
+
+    <div
+        class="feed-user-search-backdrop"
+        id="feed-user-search-backdrop"
+    ></div>
+
+    <section class="feed-user-search-panel">
+
+        <header class="feed-user-search-header">
+
+            <button
+                type="button"
+                class="feed-user-search-back"
+                id="feed-user-search-back"
+                aria-label="Close search"
+            >
+                ‹
+            </button>
+
+            <div class="feed-user-search-input-wrap">
+
+                <span>⌕</span>
+
+                <input
+                    type="search"
+                    id="feed-user-search-input"
+                    placeholder="Search by name or username..."
+                    autocomplete="off"
+                >
+
+                <button
+                    type="button"
+                    id="feed-user-search-clear"
+                    aria-label="Clear search"
+                    hidden
+                >
+                    ×
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <div
+            class="feed-user-search-results"
+            id="feed-user-search-results"
+        ></div>
+
+    </section>
+
+</div>
 
 <!-- =====================================================
 MODULE: PROFILE PAGE

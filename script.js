@@ -14069,6 +14069,1836 @@ const mutualProfileBack =
 
 const mutualProfileContent =
     document.getElementById("mutual-profile-content");
+    
+    /* =====================================================
+MODULE: USER SEARCH + UNIVERSAL PROFILE VIEWER
+===================================================== */
+
+const feedSearchButton =
+    document.getElementById("feed-search-button");
+
+const feedUserSearchView =
+    document.getElementById("feed-user-search-view");
+
+const feedUserSearchBackdrop =
+    document.getElementById("feed-user-search-backdrop");
+
+const feedUserSearchBack =
+    document.getElementById("feed-user-search-back");
+
+const feedUserSearchInput =
+    document.getElementById("feed-user-search-input");
+
+const feedUserSearchClear =
+    document.getElementById("feed-user-search-clear");
+
+const feedUserSearchResults =
+    document.getElementById("feed-user-search-results");
+
+
+const SC_USER_SEARCH_RECENT_KEY =
+    "secretCrushUserSearchRecent";
+
+
+function SC_Search_NormalizeText(value){
+
+    return String(value || "")
+        .toLowerCase()
+        .trim();
+
+}
+
+
+function SC_Search_Slug(value){
+
+    return SC_Search_NormalizeText(value)
+        .replace(/[^a-z0-9]+/g,"-")
+        .replace(/^-+|-+$/g,"");
+
+}
+
+
+function SC_Search_ReadRecent(){
+
+    try{
+
+        const saved =
+            JSON.parse(
+                localStorage.getItem(
+                    SC_USER_SEARCH_RECENT_KEY
+                ) || "[]"
+            );
+
+        return Array.isArray(saved)
+            ? saved
+            : [];
+
+    }catch(error){
+
+        return [];
+
+    }
+
+}
+
+
+function SC_Search_SaveRecent(person){
+
+    const current =
+        SC_Search_ReadRecent()
+            .filter(
+                item =>
+                    item.id !== person.id
+            );
+
+
+    current.unshift({
+
+        id:person.id,
+
+        name:person.name,
+
+        username:person.username,
+
+        photo:person.photo,
+
+        school:person.school,
+
+        faculty:person.faculty,
+
+        year:person.year
+
+    });
+
+
+    localStorage.setItem(
+        SC_USER_SEARCH_RECENT_KEY,
+        JSON.stringify(
+            current.slice(0,6)
+        )
+    );
+
+}
+
+
+function SC_Search_ParseAcademicText(text){
+
+    const parts =
+        String(text || "")
+            .split("•")
+            .map(
+                part =>
+                    part.trim()
+            )
+            .filter(Boolean);
+
+
+    let school =
+        parts[0] || "";
+
+    let faculty =
+        parts.length >= 3
+            ? parts[1]
+            : "";
+
+    let year = "";
+
+
+    const yearMatch =
+        String(text || "").match(
+            /(\+6|[1-6](?:st|nd|rd|th))\s*Year/i
+        );
+
+
+    if(yearMatch){
+
+        year =
+            yearMatch[1];
+
+    }
+
+
+    if(!year && parts.length >= 2){
+
+        year =
+            parts[1]
+                .replace(
+                    /\s*Year/i,
+                    ""
+                )
+                .trim();
+
+    }
+
+
+    return {
+        school,
+        faculty,
+        year
+    };
+
+}
+
+
+function SC_Search_MakePublicDemoPerson(data){
+
+    const name =
+        data.name ||
+        "Secret Crush";
+
+
+    const id =
+        data.id ||
+        `user-${SC_Search_Slug(name)}`;
+
+
+    const hasRevealState =
+        !!(
+            data.revealed ||
+            data.revealedFields ||
+            data.revealedProfileFields ||
+            data.profileFullyRevealed !== undefined ||
+            data.revealComplete !== undefined ||
+            data.mutualRevealed !== undefined
+        );
+
+
+    return {
+
+        id,
+
+        name,
+
+        username:
+            data.username ||
+            name,
+
+        photo:
+            data.photo ||
+            data.profilePicture ||
+            "",
+
+        school:
+            data.school ||
+            data.institution ||
+            "",
+
+        faculty:
+            data.faculty ||
+            "",
+
+        year:
+            data.year ||
+            "",
+
+        gender:
+            data.gender ||
+            "",
+
+        about:
+            data.about ||
+            "",
+
+        interests:
+            Array.isArray(data.interests)
+                ? [...data.interests]
+                : [],
+
+        posts:
+            Array.isArray(data.posts)
+                ? [...data.posts]
+                : [],
+
+        revealed:
+            data.revealed ||
+            data.revealedFields ||
+            data.revealedProfileFields ||
+            (
+                hasRevealState
+                    ? {}
+                    : {
+                        name:true,
+                        school:true,
+                        faculty:true,
+                        year:true,
+                        picture:true,
+                        about:true,
+                        interests:true,
+                        posts:true,
+                        moments:true
+                    }
+            ),
+
+        fullyRevealed:
+            hasRevealState
+                ? data.fullyRevealed === true
+                : data.fullyRevealed !== false
+
+    };
+
+}
+
+
+function SC_Search_AddUser(
+    map,
+    person,
+    post=null
+){
+
+    if(
+        !person ||
+        !person.name
+    ){
+        return;
+    }
+
+
+    const key =
+        SC_Search_NormalizeText(
+            person.id ||
+            person.name
+        );
+
+
+    if(!key){
+        return;
+    }
+
+
+    if(!map.has(key)){
+
+        map.set(
+            key,
+            SC_Search_MakePublicDemoPerson(
+                person
+            )
+        );
+
+    }else{
+
+        const existing =
+            map.get(key);
+
+
+        existing.photo =
+            existing.photo ||
+            person.photo ||
+            person.profilePicture ||
+            "";
+
+
+        existing.school =
+            existing.school ||
+            person.school ||
+            person.institution ||
+            "";
+
+
+        existing.faculty =
+            existing.faculty ||
+            person.faculty ||
+            "";
+
+
+        existing.year =
+            existing.year ||
+            person.year ||
+            "";
+
+
+        existing.about =
+            existing.about ||
+            person.about ||
+            "";
+
+
+        if(
+            Array.isArray(
+                person.interests
+            ) &&
+            !existing.interests.length
+        ){
+
+            existing.interests =
+                [...person.interests];
+
+        }
+
+    }
+
+
+    if(post){
+
+        const existing =
+            map.get(key);
+
+
+        const postKey =
+            post.id ||
+            `${existing.id}-post-${
+                existing.posts.length
+            }`;
+
+
+        if(
+            !existing.posts.some(
+                item =>
+                    item &&
+                    item.id === postKey
+            )
+        ){
+
+            existing.posts.push({
+
+                id:postKey,
+
+                image:
+                    post.image ||
+                    post.media ||
+                    post.photo ||
+                    "",
+
+                caption:
+                    post.caption ||
+                    post.text ||
+                    "",
+
+                text:
+                    post.text ||
+                    "",
+
+                likes:
+                    Number(
+                        post.likes
+                    ) || 0,
+
+                createdAt:
+                    post.createdAt ||
+                    post.timestamp ||
+                    Date.now()
+
+            });
+
+        }
+
+    }
+
+}
+
+
+function SC_Search_IndexCurrentUsers(){
+
+    const users =
+        new Map();
+
+
+    /* HOMEPAGE RECOMMENDATIONS */
+
+    document
+        .querySelectorAll(
+            ".recommendation-grid .user-card"
+        )
+        .forEach(card => {
+
+            const name =
+                card.querySelector(
+                    "h3"
+                )?.textContent?.trim();
+
+
+            if(!name){
+                return;
+            }
+
+
+            const school =
+                card.querySelector(
+                    "p"
+                )?.textContent?.trim() ||
+                "";
+
+
+            const academic =
+                card.querySelector(
+                    "small"
+                )?.textContent?.trim() ||
+                "";
+
+
+            const parsed =
+                SC_Search_ParseAcademicText(
+                    academic
+                );
+
+
+            SC_Search_AddUser(
+                users,
+                {
+
+                    name,
+
+                    photo:
+                        card.querySelector(
+                            "img"
+                        )?.src ||
+                        "",
+
+                    school,
+
+                    faculty:
+                        parsed.faculty,
+
+                    year:
+                        parsed.year
+
+                }
+            );
+
+        });
+
+
+    /* FEED POSTS */
+
+    document
+        .querySelectorAll(
+            ".feed-content .feed-card"
+        )
+        .forEach(card => {
+
+            const name =
+                card.querySelector(
+                    ".feed-user-info h3"
+                )?.textContent?.trim();
+
+
+            if(!name){
+                return;
+            }
+
+
+            const academicText =
+                card.querySelector(
+                    ".feed-user-info p"
+                )?.textContent?.trim() ||
+                "";
+
+
+            const parsed =
+                SC_Search_ParseAcademicText(
+                    academicText
+                );
+
+
+            const school =
+                card.dataset.school ||
+                card.dataset.institution ||
+                parsed.school;
+
+
+            const faculty =
+                card.dataset.faculty ||
+                parsed.faculty;
+
+
+            const year =
+                card.dataset.year ||
+                parsed.year;
+
+
+            const person = {
+
+                id:
+                    card.dataset.userId ||
+                    `user-${SC_Search_Slug(name)}`,
+
+                name,
+
+                photo:
+                    card.querySelector(
+                        ".feed-user-info img"
+                    )?.src ||
+                    "",
+
+                school,
+
+                faculty,
+
+                year,
+
+                gender:
+                    card.dataset.gender ||
+                    ""
+
+            };
+
+
+            const media =
+                card.querySelector(
+                    ".feed-media img"
+                );
+
+
+            const caption =
+                card.querySelector(
+                    ".feed-caption"
+                )?.textContent?.trim() ||
+
+                card.querySelector(
+                    ".feed-post-text"
+                )?.textContent?.trim() ||
+
+                "";
+
+
+            SC_Search_AddUser(
+                users,
+                person,
+                {
+
+                    id:
+                        card.dataset.postId ||
+                        `${person.id}-feed-post`,
+
+                    image:
+                        media?.src ||
+                        "",
+
+                    caption,
+
+                    likes:
+                        card.querySelector(
+                            ".like-action span"
+                        )?.textContent ||
+                        0
+
+                }
+            );
+
+        });
+
+
+    /* HOME USER POSTS */
+
+    document
+        .querySelectorAll(
+            ".home-feed-content .home-user-post"
+        )
+        .forEach(card => {
+
+            const name =
+                card.querySelector(
+                    ".home-post-user-info h3"
+                )?.textContent?.trim();
+
+
+            if(!name){
+                return;
+            }
+
+
+            const academicText =
+                card.querySelector(
+                    ".home-post-user-info p"
+                )?.textContent?.trim() ||
+                "";
+
+
+            const parsed =
+                SC_Search_ParseAcademicText(
+                    academicText
+                );
+
+
+            SC_Search_AddUser(
+                users,
+                {
+
+                    id:
+                        card.dataset.userId ||
+                        `user-${SC_Search_Slug(name)}`,
+
+                    name,
+
+                    photo:
+                        card.querySelector(
+                            ".home-post-user-info img"
+                        )?.src ||
+                        "",
+
+                    school:
+                        parsed.school,
+
+                    faculty:
+                        parsed.faculty,
+
+                    year:
+                        parsed.year
+
+                },
+
+                {
+
+                    id:
+                        card.dataset.postId,
+
+                    image:
+                        card.querySelector(
+                            ".home-post-media img"
+                        )?.src ||
+                        "",
+
+                    caption:
+                        card.querySelector(
+                            ".home-post-caption"
+                        )?.textContent?.trim() ||
+
+                        card.querySelector(
+                            ".home-post-text"
+                        )?.textContent?.trim() ||
+
+                        ""
+
+                }
+
+            );
+
+        });
+
+
+    /* HOMEPAGE MOMENT PREVIEW */
+
+    document
+        .querySelectorAll(
+            ".moment-preview"
+        )
+        .forEach(card => {
+
+            const name =
+                card.querySelector(
+                    ".moment-user h3"
+                )?.textContent?.trim();
+
+
+            if(!name){
+                return;
+            }
+
+
+            SC_Search_AddUser(
+                users,
+                {
+
+                    id:
+                        `user-${SC_Search_Slug(name)}`,
+
+                    name,
+
+                    photo:
+                        card.querySelector(
+                            ".moment-user img"
+                        )?.src ||
+                        "",
+
+                    school:
+                        card.querySelector(
+                            ".moment-user p"
+                        )?.textContent?.trim() ||
+                        ""
+
+                },
+
+                {
+
+                    id:
+                        `moment-preview-${SC_Search_Slug(name)}`,
+
+                    image:
+                        card.querySelector(
+                            ".moment-image"
+                        )?.src ||
+                        "",
+
+                    caption:""
+
+                }
+
+            );
+
+        });
+
+
+    /* SAVED MOMENTS / REAL USER POSTS */
+
+    try{
+
+        const savedMoments =
+            JSON.parse(
+                localStorage.getItem(
+                    "secretCrushMoments"
+                ) || "[]"
+            );
+
+
+        if(Array.isArray(savedMoments)){
+
+            savedMoments.forEach(
+                moment => {
+
+                    if(!moment?.name){
+                        return;
+                    }
+
+
+                    SC_Search_AddUser(
+                        users,
+                        {
+
+                            id:
+                                moment.userId ||
+                                moment.username ||
+                                `user-${SC_Search_Slug(moment.name)}`,
+
+                            name:
+                                moment.name,
+
+                            username:
+                                moment.username ||
+                                moment.name,
+
+                            photo:
+                                moment.profilePicture ||
+                                "",
+
+                            school:
+                                moment.institution ||
+                                "",
+
+                            faculty:
+                                moment.faculty ||
+                                "",
+
+                            year:
+                                moment.year ||
+                                "",
+
+                            gender:
+                                moment.gender ||
+                                "",
+
+                            about:
+                                moment.about ||
+                                "",
+
+                            interests:
+                                moment.interests ||
+                                []
+
+                        },
+
+                        moment
+
+                    );
+
+                }
+            );
+
+        }
+
+    }catch(error){
+
+        console.warn(
+            "Secret Crush search: could not read saved moments.",
+            error
+        );
+
+    }
+
+
+    return Array.from(
+        users.values()
+    );
+
+}
+
+
+function SC_Search_UserCardHTML(person){
+
+    const photo =
+        person.photo ||
+
+        "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%2314141d'/%3E%3Ctext x='50' y='58' text-anchor='middle' fill='%23ffffff' font-size='40'%3E?%3C/text%3E%3C/svg%3E";
+
+
+    const school =
+        person.school ||
+        "Institution hidden";
+
+
+    const academic = [
+
+        person.year
+            ? `${person.year} Year`
+            : "",
+
+        person.faculty ||
+        ""
+
+    ]
+        .filter(Boolean)
+        .join(" • ");
+
+
+    return `
+
+        <button
+            type="button"
+            class="sc-search-user-card"
+            data-search-user-id="${escapePostHTML(
+                person.id
+            )}"
+        >
+
+            <img
+                src="${escapePostHTML(
+                    photo
+                )}"
+                alt=""
+                class="sc-search-user-photo"
+            >
+
+
+            <span
+                class="sc-search-user-copy"
+            >
+
+                <strong>
+                    ${escapePostHTML(
+                        person.name
+                    )}
+                </strong>
+
+
+                <small>
+                    ${escapePostHTML(
+                        school
+                    )}
+                </small>
+
+
+                ${
+                    academic
+
+                        ?
+
+                        `
+                        <small
+                            class="sc-search-user-academic"
+                        >
+                            ${escapePostHTML(
+                                academic
+                            )}
+                        </small>
+                        `
+
+                        :
+
+                        ""
+                }
+
+            </span>
+
+
+            <span
+                class="sc-search-user-arrow"
+            >
+                ›
+            </span>
+
+        </button>
+
+    `;
+
+}
+
+
+function SC_Search_AttachUserResults(){
+
+    feedUserSearchResults
+        ?.querySelectorAll(
+            "[data-search-user-id]"
+        )
+        .forEach(button => {
+
+            button.addEventListener(
+                "click",
+                () => {
+
+                    const id =
+                        button.dataset
+                            .searchUserId;
+
+
+                    const person =
+                        SC_Search_IndexCurrentUsers()
+                            .find(
+                                item =>
+                                    item.id === id
+                            );
+
+
+                    if(!person){
+                        return;
+                    }
+
+
+                    SC_Search_SaveRecent(
+                        person
+                    );
+
+
+                    openSecretCrushUserProfile(
+                        person
+                    );
+
+                }
+            );
+
+        });
+
+}
+
+
+function SC_Search_RenderUsers(
+    query=""
+){
+
+    if(!feedUserSearchResults){
+        return;
+    }
+
+
+    const normalizedQuery =
+        SC_Search_NormalizeText(
+            query
+        );
+
+
+    const users =
+        SC_Search_IndexCurrentUsers();
+
+
+    if(!normalizedQuery){
+
+        const recent =
+            SC_Search_ReadRecent();
+
+
+        feedUserSearchResults.innerHTML = `
+
+            <section
+                class="sc-search-section"
+            >
+
+                <h3>
+                    Recent searches
+                </h3>
+
+
+                <div
+                    class="sc-search-recent-list"
+                >
+
+                    ${
+                        recent.length
+
+                            ?
+
+                            recent
+                                .map(
+                                    person => `
+                                        <button
+                                            type="button"
+                                            class="sc-search-recent-chip"
+                                            data-search-user-id="${escapePostHTML(
+                                                person.id
+                                            )}"
+                                        >
+                                            ${escapePostHTML(
+                                                person.name
+                                            )}
+                                        </button>
+                                    `
+                                )
+                                .join("")
+
+                            :
+
+                            `
+                            <span
+                                class="sc-search-muted"
+                            >
+                                Your recent searches
+                                will appear here.
+                            </span>
+                            `
+                    }
+
+                </div>
+
+            </section>
+
+
+            <section
+                class="sc-search-section"
+            >
+
+                <h3>
+                    Suggested users
+                </h3>
+
+
+                <div
+                    class="sc-search-user-list"
+                >
+
+                    ${
+                        users
+                            .slice(0,6)
+                            .map(
+                                person =>
+                                    SC_Search_UserCardHTML(
+                                        person
+                                    )
+                            )
+                            .join("")
+                    }
+
+                </div>
+
+            </section>
+
+        `;
+
+
+        SC_Search_AttachUserResults();
+
+        return;
+
+    }
+
+
+    const matches =
+        users.filter(
+            person => {
+
+                const name =
+                    SC_Search_NormalizeText(
+                        person.name
+                    );
+
+
+                const username =
+                    SC_Search_NormalizeText(
+                        person.username
+                    );
+
+
+                return (
+                    name.includes(
+                        normalizedQuery
+                    ) ||
+
+                    username.includes(
+                        normalizedQuery
+                    )
+                );
+
+            }
+        );
+
+
+    if(!matches.length){
+
+        feedUserSearchResults.innerHTML = `
+
+            <div
+                class="sc-search-no-results"
+            >
+
+                <div
+                    class="sc-search-no-results-icon"
+                >
+                    ⌕
+                </div>
+
+
+                <strong>
+                    No users found
+                </strong>
+
+
+                <p>
+                    We couldn't find anyone
+                    matching
+                    "${escapePostHTML(
+                        query
+                    )}".
+                    Try a different name
+                    or check your spelling.
+                </p>
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+
+    feedUserSearchResults.innerHTML = `
+
+        <section
+            class="sc-search-section"
+        >
+
+            <h3>
+                Search results
+                (${matches.length})
+            </h3>
+
+
+            <div
+                class="sc-search-user-list"
+            >
+
+                ${
+                    matches
+                        .map(
+                            person =>
+                                SC_Search_UserCardHTML(
+                                    person
+                                )
+                        )
+                        .join("")
+                }
+
+            </div>
+
+        </section>
+
+    `;
+
+
+    SC_Search_AttachUserResults();
+
+}
+
+
+function openFeedUserSearch(){
+
+    if(!feedUserSearchView){
+        return;
+    }
+
+
+    feedUserSearchView.classList.add(
+        "active"
+    );
+
+    feedUserSearchView.setAttribute(
+        "aria-hidden",
+        "false"
+    );
+
+
+    if(feedUserSearchInput){
+
+        feedUserSearchInput.value =
+            "";
+
+        if(feedUserSearchClear){
+            feedUserSearchClear.hidden =
+                true;
+        }
+
+
+        SC_Search_RenderUsers("");
+
+
+        setTimeout(
+            () => {
+
+                feedUserSearchInput.focus();
+
+            },
+            80
+        );
+
+    }
+
+}
+
+
+function closeFeedUserSearch(){
+
+    if(!feedUserSearchView){
+        return;
+    }
+
+
+    feedUserSearchView.classList.remove(
+        "active"
+    );
+
+    feedUserSearchView.setAttribute(
+        "aria-hidden",
+        "true"
+    );
+
+}
+
+
+function openSecretCrushUserProfile(
+    person
+){
+
+    if(
+        !person ||
+        !mutualProfileView
+    ){
+        return;
+    }
+
+
+    const normalized =
+        SC_Search_MakePublicDemoPerson(
+            person
+        );
+
+
+    renderMutualProfileContent(
+        normalized,
+        {
+            mode:"public"
+        }
+    );
+
+
+    mutualProfileView.classList.add(
+        "active"
+    );
+
+    mutualProfileView.setAttribute(
+        "aria-hidden",
+        "false"
+    );
+
+}
+
+
+/* SEARCH OPEN / CLOSE */
+
+feedSearchButton?.addEventListener(
+    "click",
+    openFeedUserSearch
+);
+
+
+feedUserSearchBack?.addEventListener(
+    "click",
+    closeFeedUserSearch
+);
+
+
+feedUserSearchBackdrop?.addEventListener(
+    "click",
+    closeFeedUserSearch
+);
+
+
+feedUserSearchInput?.addEventListener(
+    "input",
+    () => {
+
+        const value =
+            feedUserSearchInput
+                .value
+                .trim();
+
+
+        if(feedUserSearchClear){
+
+            feedUserSearchClear.hidden =
+                !value;
+
+        }
+
+
+        SC_Search_RenderUsers(
+            value
+        );
+
+    }
+);
+
+
+feedUserSearchClear?.addEventListener(
+    "click",
+    () => {
+
+        if(!feedUserSearchInput){
+            return;
+        }
+
+
+        feedUserSearchInput.value =
+            "";
+
+        feedUserSearchClear.hidden =
+            true;
+
+        feedUserSearchInput.focus();
+
+
+        SC_Search_RenderUsers(
+            ""
+        );
+
+    }
+);
+
+
+/* =====================================================
+PROFILE OPENING FROM FEED / HOMEPAGE
+===================================================== */
+
+document.addEventListener(
+    "click",
+    event => {
+
+        const trigger =
+            event.target.closest(
+                ".feed-user-info img, " +
+                ".feed-user-info h3, " +
+                ".moment-user img, " +
+                ".moment-user h3, " +
+                ".home-post-user-info img, " +
+                ".home-post-user-info h3, " +
+                ".user-card > img, " +
+                ".user-card-info h3"
+            );
+
+
+        if(!trigger){
+            return;
+        }
+
+
+        const feedCard =
+            trigger.closest(
+                ".feed-card"
+            );
+
+
+        const homePost =
+            trigger.closest(
+                ".home-user-post"
+            );
+
+
+        const momentPreview =
+            trigger.closest(
+                ".moment-preview"
+            );
+
+
+        const recommendation =
+            trigger.closest(
+                ".user-card"
+            );
+
+
+        let name = "";
+        let photo = "";
+        let school = "";
+        let faculty = "";
+        let year = "";
+        let post = null;
+
+
+        if(feedCard){
+
+            name =
+                feedCard.querySelector(
+                    ".feed-user-info h3"
+                )?.textContent?.trim() ||
+                "";
+
+
+            photo =
+                feedCard.querySelector(
+                    ".feed-user-info img"
+                )?.src ||
+                "";
+
+
+            const academic =
+                feedCard.querySelector(
+                    ".feed-user-info p"
+                )?.textContent?.trim() ||
+                "";
+
+
+            const parsed =
+                SC_Search_ParseAcademicText(
+                    academic
+                );
+
+
+            school =
+                feedCard.dataset.school ||
+                feedCard.dataset.institution ||
+                parsed.school;
+
+
+            faculty =
+                feedCard.dataset.faculty ||
+                parsed.faculty;
+
+
+            year =
+                feedCard.dataset.year ||
+                parsed.year;
+
+
+            post = {
+
+                id:
+                    feedCard.dataset.postId,
+
+                image:
+                    feedCard.querySelector(
+                        ".feed-media img"
+                    )?.src ||
+                    "",
+
+                caption:
+                    feedCard.querySelector(
+                        ".feed-caption"
+                    )?.textContent?.trim() ||
+
+                    feedCard.querySelector(
+                        ".feed-post-text"
+                    )?.textContent?.trim() ||
+
+                    "",
+
+                likes:
+                    feedCard.querySelector(
+                        ".like-action span"
+                    )?.textContent ||
+                    0
+
+            };
+
+        }
+
+
+        else if(homePost){
+
+            name =
+                homePost.querySelector(
+                    ".home-post-user-info h3"
+                )?.textContent?.trim() ||
+                "";
+
+
+            photo =
+                homePost.querySelector(
+                    ".home-post-user-info img"
+                )?.src ||
+                "";
+
+
+            const parsed =
+                SC_Search_ParseAcademicText(
+                    homePost.querySelector(
+                        ".home-post-user-info p"
+                    )?.textContent ||
+                    ""
+                );
+
+
+            school =
+                parsed.school;
+
+            faculty =
+                parsed.faculty;
+
+            year =
+                parsed.year;
+
+
+            post = {
+
+                id:
+                    homePost.dataset.postId,
+
+                image:
+                    homePost.querySelector(
+                        ".home-post-media img"
+                    )?.src ||
+                    "",
+
+                caption:
+                    homePost.querySelector(
+                        ".home-post-caption"
+                    )?.textContent?.trim() ||
+
+                    homePost.querySelector(
+                        ".home-post-text"
+                    )?.textContent?.trim() ||
+
+                    ""
+
+            };
+
+        }
+
+
+        else if(momentPreview){
+
+            name =
+                momentPreview.querySelector(
+                    ".moment-user h3"
+                )?.textContent?.trim() ||
+                "";
+
+
+            photo =
+                momentPreview.querySelector(
+                    ".moment-user img"
+                )?.src ||
+                "";
+
+
+            school =
+                momentPreview.querySelector(
+                    ".moment-user p"
+                )?.textContent?.trim() ||
+                "";
+
+
+            post = {
+
+                id:
+                    `moment-preview-${SC_Search_Slug(name)}`,
+
+                image:
+                    momentPreview.querySelector(
+                        ".moment-image"
+                    )?.src ||
+                    "",
+
+                caption:""
+
+            };
+
+        }
+
+
+        else if(recommendation){
+
+            name =
+                recommendation.querySelector(
+                    "h3"
+                )?.textContent?.trim() ||
+                "";
+
+
+            photo =
+                recommendation.querySelector(
+                    "img"
+                )?.src ||
+                "";
+
+
+            school =
+                recommendation.querySelector(
+                    "p"
+                )?.textContent?.trim() ||
+                "";
+
+
+            const parsed =
+                SC_Search_ParseAcademicText(
+                    recommendation.querySelector(
+                        "small"
+                    )?.textContent ||
+                    ""
+                );
+
+
+            faculty =
+                parsed.faculty;
+
+            year =
+                parsed.year;
+
+        }
+
+
+        if(!name){
+            return;
+        }
+
+
+        const users =
+            SC_Search_IndexCurrentUsers();
+
+
+        const person =
+            users.find(
+                item =>
+                    SC_Search_NormalizeText(
+                        item.name
+                    ) ===
+                    SC_Search_NormalizeText(
+                        name
+                    )
+            ) ||
+
+            SC_Search_MakePublicDemoPerson({
+
+                id:
+                    `user-${SC_Search_Slug(name)}`,
+
+                name,
+
+                photo,
+
+                school,
+
+                faculty,
+
+                year,
+
+                posts:
+                    post
+                        ? [post]
+                        : []
+
+            });
+
+
+        if(
+            post &&
+            !person.posts.some(
+                item =>
+                    item?.id === post.id
+            )
+        ){
+
+            person.posts.push(
+                post
+            );
+
+        }
+
+
+        openSecretCrushUserProfile(
+            person
+        );
+
+    }
+);
+    
+    
+    /* =====================================================
+PROFILE → SEND CRUSH / SECRET NOTE
+===================================================== */
+
+function SC_OpenProfileSendComposer(
+    type,
+    person
+){
+
+    if(
+        !person ||
+        typeof openSendRevealModal !== "function"
+    ){
+        return;
+    }
+
+
+    /*
+     * The existing Secret Crush composer expects
+     * a feed-style article. We create a temporary
+     * profile article containing the same information.
+     *
+     * This means the existing composer can be reused
+     * instead of creating a second Secret Note /
+     * Secret Crush system.
+     */
+
+    const article =
+        document.createElement("article");
+
+
+    article.dataset.postId =
+        person.id;
+
+
+    article.innerHTML = `
+
+        <div class="feed-user-info">
+
+            <img
+                src="${escapePostHTML(
+                    person.photo || ""
+                )}"
+                alt=""
+            >
+
+            <div>
+
+                <h3>
+                    ${escapePostHTML(
+                        person.name ||
+                        "Secret Crush"
+                    )}
+                </h3>
+
+                <p>
+                    ${escapePostHTML(
+                        person.school || ""
+                    )}
+                    •
+                    ${escapePostHTML(
+                        person.faculty || ""
+                    )}
+                    •
+                    ${escapePostHTML(
+                        person.year || ""
+                    )}
+                </p>
+
+            </div>
+
+        </div>
+
+    `;
+
+
+    openSendRevealModal(
+        type,
+        article
+    );
+
+}
+
+
 
 
 /* =====================================================
@@ -15033,128 +16863,135 @@ const displayedYear =
             "
         >
 
-            <!-- FACULTY WALLPAPER SPACE -->
+<!-- FACULTY WALLPAPER SPACE -->
+
+<div
+    class="
+        mutual-profile-cover
+        faculty-profile-background
+    "
+    data-faculty="${escapePostHTML(
+        safeFaculty
+    )}"
+>
+
+</div>
+
+
+<div
+    class="mutual-profile-card-body"
+>
+
+    <div
+        class="mutual-profile-hero-top"
+    >
+
+        <div
+            class="mutual-profile-photo-wrap"
+        >
 
             <div
-                class="
-                    mutual-profile-cover
-                    faculty-profile-background
-                "
-                data-faculty="${escapePostHTML(
-                    safeFaculty
-                )}"
+                class="mutual-profile-photo"
             >
 
                 ${
-                    about
+                    photo
 
                     ?
 
                     `
-                    <div
-                        class="mutual-profile-about-chip"
+                    <img
+                        src="${escapePostHTML(
+                            photo
+                        )}"
+                        alt=""
                     >
-                        ${escapePostHTML(
-                            about
-                        )}
-                    </div>
                     `
 
                     :
 
-                    ""
+                    `
+                    <span>
+                        ?
+                    </span>
+                    `
                 }
 
             </div>
 
+        </div>
 
-            <div
-                class="mutual-profile-card-body"
+
+        ${
+            about
+
+            ?
+
+            `
+            <p
+                class="mutual-profile-about-chip"
             >
+                ${escapePostHTML(
+                    about
+                )}
+            </p>
+            `
 
-                <div
-                    class="mutual-profile-photo-wrap"
-                >
+            :
 
-                    <div
-                        class="mutual-profile-photo"
-                    >
+            ""
+        }
 
-                        ${
-                            photo
-
-                            ?
-
-                            `
-                            <img
-                                src="${escapePostHTML(
-                                    photo
-                                )}"
-                                alt=""
-                            >
-                            `
-
-                            :
-
-                            `
-                            <span>
-                                ?
-                            </span>
-                            `
-                        }
-
-                    </div>
-
-                </div>
+    </div>
 
 
-                <div
-                    class="mutual-profile-top-details"
-                >
+    <div
+        class="mutual-profile-top-details"
+    >
 
-                    <span
-                        class="mutual-profile-username"
-                    >
-                        ${escapePostHTML(
-                            username
-                        )}
-                    </span>
-
-
-                    <span
-                        class="mutual-profile-line"
-                    >
-                        🎓
-                        ${escapePostHTML(
-            displayedSchool
-                        )}
-                    </span>
+        <span
+            class="mutual-profile-username"
+        >
+            ${escapePostHTML(
+                username
+            )}
+        </span>
 
 
-                    <span
-                        class="mutual-profile-line"
-                    >
-                        📚
-                        ${escapePostHTML(
-displayedFaculty
-                        )}
-                    </span>
+        <span
+            class="mutual-profile-line"
+        >
+            🎓
+            ${escapePostHTML(
+                displayedSchool
+            )}
+        </span>
 
 
-                    <span
-                        class="mutual-profile-line"
-                    >
-                        🗓
-                        ${escapePostHTML(
-displayedYear
-                        )}
-                    </span>
+        <span
+            class="mutual-profile-line"
+        >
+            📚
+            ${escapePostHTML(
+                displayedFaculty
+            )}
+        </span>
 
-                </div>
 
-            </div>
+        <span
+            class="mutual-profile-line"
+        >
+            🗓
+            ${escapePostHTML(
+                displayedYear
+            )}
+        </span>
 
-        </section>
+    </div>
+
+</div>
+
+</section>
 
 
         <!-- INTERESTS -->
@@ -15628,67 +17465,56 @@ displayedYear
 
     }
 
+/* SECRET NOTE */
 
-    /* SECRET NOTE */
-
-    const secretNoteButton =
-        document.getElementById(
-            "mutual-profile-secret-note-button"
-        );
-
-
-    if(secretNoteButton){
-
-        secretNoteButton.addEventListener(
-            "click",
-            () => {
-
-                showSCMessage({
-
-                    type:"INFORMATION",
-
-                    title:"Secret Note",
-
-                    message:
-                        "The Secret Note composer will open here."
-
-                });
-
-            }
-        );
-
-    }
+const secretNoteButton =
+    document.getElementById(
+        "mutual-profile-secret-note-button"
+    );
 
 
-    /* SECRET CRUSH */
+if(secretNoteButton){
 
-    const secretCrushButton =
-        document.getElementById(
-            "mutual-profile-secret-crush-button"
-        );
+    secretNoteButton.addEventListener(
+        "click",
+        () => {
+
+            SC_OpenProfileSendComposer(
+                "note",
+                crush
+            );
+
+        }
+    );
+
+}
 
 
-    if(secretCrushButton){
+/* SECRET CRUSH */
 
-        secretCrushButton.addEventListener(
-            "click",
-            () => {
+const secretCrushButton =
+    document.getElementById(
+        "mutual-profile-secret-crush-button"
+    );
 
-                showSCMessage({
 
-                    type:"INFORMATION",
+if(secretCrushButton){
 
-                    title:"Secret Crush",
+    secretCrushButton.addEventListener(
+        "click",
+        () => {
 
-                    message:
-                        "The Secret Crush composer will open here."
+            SC_OpenProfileSendComposer(
+                "crush",
+                crush
+            );
 
-                });
+        }
+    );
 
-            }
-        );
+}
 
-    }
+
 
 
     /* OPEN POSTS */
