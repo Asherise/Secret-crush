@@ -1318,7 +1318,7 @@ function loadHomepageProfile(){
     if(schoolFilter){
 
         const savedSchools =
-            SC_activeFilters.school || [];
+            SC_activeFilters.home.school || [];
 
 
         if(savedSchools.length === 1){
@@ -1533,10 +1533,19 @@ const SC_PRIMARY_SCHOOL_MODES = {
 
 const SC_activeFilters = {
 
-    school: [],
-    faculty: [],
-    year: [],
-    gender: []
+    home: {
+        school: [],
+        faculty: [],
+        year: [],
+        gender: []
+    },
+
+    feed: {
+        school: [],
+        faculty: [],
+        year: [],
+        gender: []
+    }
 
 };
 
@@ -1544,7 +1553,9 @@ let SC_primarySchoolMode =
     SC_PRIMARY_SCHOOL_MODES.PLUS;
 
 let SC_filterPanel = null;
+let SC_filterDraftScope = null;
 let SC_filterDraftType = null;
+
 let SC_filterDraftSelection = [];
 let SC_filterTouched = false;
 let SC_filterDraftPrimaryMode = null;
@@ -1566,18 +1577,23 @@ function SC_Filters_LoadSavedState(){
                 ) || "{}"
             );
 
-        Object.keys(SC_activeFilters).forEach(type => {
+        ["home","feed"].forEach(scope => {
 
-            if(
-                Array.isArray(saved[type])
-            ){
+            Object.keys(SC_activeFilters[scope]).forEach(type => {
 
-                SC_activeFilters[type] =
-                    saved[type].slice();
+                if(
+                    saved[scope] &&
+                    Array.isArray(saved[scope][type])
+                ){
 
-            }
+                    SC_activeFilters[scope][type] =
+                        saved[scope][type].slice();
 
-        });
+                }
+
+            });
+
+});
 
     }catch(error){
 
@@ -1636,11 +1652,11 @@ function SC_Filters_SaveState(){
 FILTER LABEL LOGIC
 ===================================================== */
 
-function SC_Filters_GetPillLabel(type){
+function SC_Filters_GetPillLabel(scope, type){
 
     const selections =
-        SC_activeFilters[type];
-
+        SC_activeFilters[scope][type];
+        
     const baseLabel =
         SC_FILTER_LABELS[type];
 
@@ -1694,7 +1710,7 @@ function SC_Filters_UpdatePillLabels(){
 
 
         const selections =
-            SC_activeFilters.school;
+            SC_activeFilters.home.school;
 
 
         if(
@@ -1722,7 +1738,6 @@ function SC_Filters_UpdatePillLabels(){
 
     });
 
-
     /*
      * FEED — BEYOND MY SCHOOL
      */
@@ -1745,9 +1760,8 @@ function SC_Filters_UpdatePillLabels(){
             return;
         }
 
-
-        const selections =
-            SC_activeFilters.school;
+const selections =
+            SC_activeFilters.feed.school;
 
 
         if(
@@ -1767,17 +1781,17 @@ function SC_Filters_UpdatePillLabels(){
     });
 
 
-    /*
-     * FEED — FACULTY
+/*
+     * HOME — FACULTY
      */
 
-    const facultyPills =
+    const homeFacultyPills =
         document.querySelectorAll(
-            '[data-feed-filter="faculty"], [data-filter="faculty"]'
+            '[data-filter="faculty"]'
         );
 
 
-    facultyPills.forEach(pill => {
+    homeFacultyPills.forEach(pill => {
 
         const label =
             pill.querySelector(
@@ -1791,7 +1805,7 @@ function SC_Filters_UpdatePillLabels(){
 
 
         const selections =
-            SC_activeFilters.faculty;
+            SC_activeFilters.home.faculty;
 
 
         label.textContent =
@@ -1803,16 +1817,16 @@ function SC_Filters_UpdatePillLabels(){
 
 
     /*
-     * FEED — YEAR
+     * FEED — FACULTY
      */
 
-    const yearPills =
+    const feedFacultyPills =
         document.querySelectorAll(
-            '[data-feed-filter="year"], [data-filter="year"]'
+            '[data-feed-filter="faculty"]'
         );
 
 
-    yearPills.forEach(pill => {
+    feedFacultyPills.forEach(pill => {
 
         const label =
             pill.querySelector(
@@ -1826,7 +1840,42 @@ function SC_Filters_UpdatePillLabels(){
 
 
         const selections =
-            SC_activeFilters.year;
+            SC_activeFilters.feed.faculty;
+
+
+        label.textContent =
+            selections.length === 1
+                ? selections[0]
+                : "Faculty";
+
+    });
+    
+    
+/*
+     * HOME — YEAR
+     */
+
+    const homeYearPills =
+        document.querySelectorAll(
+            '[data-filter="year"]'
+        );
+
+
+    homeYearPills.forEach(pill => {
+
+        const label =
+            pill.querySelector(
+                ".sc-filter-pill-label"
+            );
+
+
+        if(!label){
+            return;
+        }
+
+
+        const selections =
+            SC_activeFilters.home.year;
 
 
         label.textContent =
@@ -1838,16 +1887,16 @@ function SC_Filters_UpdatePillLabels(){
 
 
     /*
-     * FEED — GENDER
+     * FEED — YEAR
      */
 
-    const genderPills =
+    const feedYearPills =
         document.querySelectorAll(
-            '[data-feed-filter="gender"], [data-filter="gender"]'
+            '[data-feed-filter="year"]'
         );
 
 
-    genderPills.forEach(pill => {
+    feedYearPills.forEach(pill => {
 
         const label =
             pill.querySelector(
@@ -1861,7 +1910,77 @@ function SC_Filters_UpdatePillLabels(){
 
 
         const selections =
-            SC_activeFilters.gender;
+            SC_activeFilters.feed.year;
+
+
+        label.textContent =
+            selections.length === 1
+                ? selections[0]
+                : "Year";
+
+    });
+
+
+    /*
+     * HOME — GENDER
+     */
+
+    const homeGenderPills =
+        document.querySelectorAll(
+            '[data-filter="gender"]'
+        );
+
+
+    homeGenderPills.forEach(pill => {
+
+        const label =
+            pill.querySelector(
+                ".sc-filter-pill-label"
+            );
+
+
+        if(!label){
+            return;
+        }
+
+
+        const selections =
+            SC_activeFilters.home.gender;
+
+
+        label.textContent =
+            selections.length === 1
+                ? selections[0]
+                : "Gender";
+
+    });
+
+
+    /*
+     * FEED — GENDER
+     */
+
+    const feedGenderPills =
+        document.querySelectorAll(
+            '[data-feed-filter="gender"]'
+        );
+
+
+    feedGenderPills.forEach(pill => {
+
+        const label =
+            pill.querySelector(
+                ".sc-filter-pill-label"
+            );
+
+
+        if(!label){
+            return;
+        }
+
+
+        const selections =
+            SC_activeFilters.feed.gender;
 
 
         label.textContent =
@@ -2352,9 +2471,9 @@ function SC_Filters_RefreshSelectButton(){
 /* =====================================================
 OPEN NORMAL FILTER
 ===================================================== */
-
 function SC_Filters_Open(
     pill,
+    scope,
     type
 ){
 
@@ -2364,11 +2483,15 @@ function SC_Filters_Open(
     SC_filterPanelMode =
         "filter";
 
+    SC_filterDraftScope =
+        scope;
+
     SC_filterDraftType =
         type;
 
     SC_filterDraftSelection =
-        SC_activeFilters[type].slice();
+        SC_activeFilters[scope][type].slice();
+        
 
     SC_filterTouched =
         false;
@@ -2548,7 +2671,6 @@ function SC_Filters_Close(){
 /* =====================================================
 PRIMARY SCHOOL MODE LABEL
 ===================================================== */
-
 function SC_Filters_UpdatePrimarySchoolLabel(){
 
     const profile =
@@ -2576,32 +2698,11 @@ function SC_Filters_UpdatePrimarySchoolLabel(){
 
     }
 
-if(
-    SC_primarySchoolMode ===
-    SC_PRIMARY_SCHOOL_MODES.ONLY
-){
 
-    const profile =
-        JSON.parse(
-            localStorage.getItem(
-                "secretCrushProfile"
-            ) || "{}"
-        );
-
-
-    matchesPrimarySchool =
-        Boolean(school) &&
-        school ===
-        profile.institution;
-
-}
-
-else{
-
-        feedSchool.textContent =
-            `${institution} +`;
-
-    }
+    feedSchool.textContent =
+        SC_primarySchoolMode === SC_PRIMARY_SCHOOL_MODES.ONLY
+            ? institution
+            : `${institution} +`;
 
 }
 
@@ -2630,14 +2731,13 @@ function SC_Filters_ConfirmPrimarySchool(){
      * If the user chooses ONLY their institution,
      * the broader school filter must be cleared.
      */
-
-    if(
+if(
         SC_primarySchoolMode ===
         SC_PRIMARY_SCHOOL_MODES.ONLY
     ){
 
-        SC_activeFilters.school =
-            [];
+        SC_activeFilters.home.school = [];
+        SC_activeFilters.feed.school = [];
 
         SC_Filters_UpdatePillLabels();
 
@@ -2646,7 +2746,11 @@ function SC_Filters_ConfirmPrimarySchool(){
 
     SC_Filters_Close();
 
-    SC_Filters_Apply();
+    SC_Filters_Apply("home");
+
+    SC_Filters_Apply("feed");
+
+
 
 }
 
@@ -2668,12 +2772,14 @@ function SC_Filters_Confirm(){
 
     }
 
+const scope =
+        SC_filterDraftScope;
 
     const type =
         SC_filterDraftType;
 
 
-    SC_activeFilters[type] =
+    SC_activeFilters[scope][type] =
         SC_filterDraftSelection.slice();
 
 
@@ -2683,7 +2789,7 @@ function SC_Filters_Confirm(){
 
     SC_Filters_Close();
 
-    SC_Filters_Apply();
+    SC_Filters_Apply(scope);
 
 }
 
@@ -2755,13 +2861,19 @@ function SC_Filters_ShowPrimarySchoolWarning(){
 /* =====================================================
 APPLY FILTERS TO CARDS
 ===================================================== */
-
-function SC_Filters_Apply(){
+function SC_Filters_Apply(scope){
 
     const cards =
-        document.querySelectorAll(
-            ".feed-card, .recommended-user-card, [data-filter-user-card]"
-        );
+        scope === "home"
+            ? document.querySelectorAll(
+                ".recommended-user-card, [data-filter-user-card]"
+            )
+            : document.querySelectorAll(
+                ".feed-card, [data-filter-user-card]"
+            );
+
+    const activeForScope =
+        SC_activeFilters[scope] || SC_activeFilters.feed;
 
 
     /*
@@ -2803,33 +2915,33 @@ function SC_Filters_Apply(){
             "";
 
 
-        const matchesSchool =
-            SC_activeFilters.school.length === 0 ||
-            SC_activeFilters.school.includes(
+const matchesSchool =
+            activeForScope.school.length === 0 ||
+            activeForScope.school.includes(
                 school
             );
 
 
         const matchesFaculty =
-            SC_activeFilters.faculty.length === 0 ||
-            SC_activeFilters.faculty.includes(
+            activeForScope.faculty.length === 0 ||
+            activeForScope.faculty.includes(
                 faculty
             );
 
 
         const matchesYear =
-            SC_activeFilters.year.length === 0 ||
-            SC_activeFilters.year.includes(
+            activeForScope.year.length === 0 ||
+            activeForScope.year.includes(
                 year
             );
 
 
         const matchesGender =
-            SC_activeFilters.gender.length === 0 ||
-            SC_activeFilters.gender.includes(
+            activeForScope.gender.length === 0 ||
+            activeForScope.gender.includes(
                 gender
             );
-
+            
 
         /*
          * Primary school mode.
@@ -2883,10 +2995,12 @@ function SC_Filters_Apply(){
     });
 
 
-    SC_Filters_UpdateNoResultsMessage(
+SC_Filters_UpdateNoResultsMessage(
+        scope,
         cards,
         visibleCount
     );
+
 
 }
 
@@ -2896,9 +3010,16 @@ NO RESULTS MESSAGE
 ===================================================== */
 
 function SC_Filters_UpdateNoResultsMessage(
+    scope,
     cards,
     visibleCount
 ){
+
+    if(scope !== "feed"){
+
+        return;
+
+    }
 
     const container =
         document.querySelector(
@@ -2919,15 +3040,19 @@ function SC_Filters_UpdateNoResultsMessage(
         );
 
 
+    const activeForScope =
+        SC_activeFilters[scope];
+
     if(
         visibleCount === 0 &&
         (
-            SC_activeFilters.school.length ||
-            SC_activeFilters.faculty.length ||
-            SC_activeFilters.year.length ||
-            SC_activeFilters.gender.length
+            activeForScope.school.length ||
+            activeForScope.faculty.length ||
+            activeForScope.year.length ||
+            activeForScope.gender.length
         )
     ){
+        
 
         if(!message){
 
@@ -3035,6 +3160,7 @@ function SC_Filters_Initialise(){
 
                     SC_Filters_Open(
                         pill,
+                        "home",
                         type
                     );
 
@@ -3115,6 +3241,7 @@ function SC_Filters_Initialise(){
 
                         SC_Filters_Open(
                             pill,
+                            "feed",
                             "school"
                         );
 
@@ -3142,8 +3269,9 @@ function SC_Filters_Initialise(){
                     event.preventDefault();
                     event.stopPropagation();
 
-                    SC_Filters_Open(
+SC_Filters_Open(
                         pill,
+                        "feed",
                         raw
                     );
 
@@ -3171,8 +3299,10 @@ function SC_Filters_OpenHomeInstitution(
 
     SC_Filters_Open(
         pill,
+        "home",
         "school"
     );
+
 
 }
 
@@ -3183,7 +3313,8 @@ START FILTER SYSTEM
 
 SC_Filters_Initialise();
 
-SC_Filters_Apply();
+SC_Filters_Apply("home");
+SC_Filters_Apply("feed");
 
 /* =====================================================
 MODULE: FEED — FILTER PILLS
@@ -4148,7 +4279,7 @@ if(typeof gameHistoryPage!=="undefined" && gameHistoryPage) {
         if(destination==="feed"){
 
             feedPage.classList.add("active");
-            SC_Filters_Apply();
+            SC_Filters_Apply("feed");
 
             feedPage.scrollTop=0;
 
