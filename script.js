@@ -1229,9 +1229,24 @@ createProfileButton.addEventListener("click",()=>{
         alert("Please select exactly 5 interests.");
         return;
     }
+const profileData={
 
-    const profileData={
-        name:document.getElementById("profile-name").value.trim(),
+    userId:
+        "user-" +
+        Date.now() +
+        "-" +
+        Math.random()
+            .toString(36)
+            .slice(2,8),
+
+    name:
+        document
+            .getElementById(
+                "profile-name"
+            )
+            .value
+            .trim(),
+            
         institution:document.getElementById("institution").value,
         faculty:document.getElementById("faculty").value,
         year:document.getElementById("study-year").value,
@@ -6180,22 +6195,29 @@ if(saveProfileChanges){
 
         }
 
+/* Save updated profile */
 
-        /* Save updated profile */
-
-        localStorage.setItem(
-            "secretCrushProfile",
-            JSON.stringify(profile)
-        );
+profile.updatedAt =
+    new Date().toISOString();
 
 
-/* Refresh profile page */
+localStorage.setItem(
+    "secretCrushProfile",
+    JSON.stringify(profile)
+);
 
-        loadProfilePage();
 
-        if(typeof loadHomepageProfile === "function"){
-            loadHomepageProfile();
-        }
+/*
+ * IMPORTANT:
+ * Do not manually refresh only one or two
+ * screens.
+ *
+ * Refresh the entire profile-dependent
+ * interface system.
+ */
+
+SC_ProfileSync_RefreshAll();
+
 
 
         /* Close editing panel */
@@ -6549,19 +6571,22 @@ if(saveInterestChanges){
         Save the updated profile.
         */
 
-        localStorage.setItem(
-            "secretCrushProfile",
-            JSON.stringify(profile)
-        );
+profile.updatedAt =
+    new Date().toISOString();
 
 
-        /*
-        Refresh the profile page
-        so the new interests appear
-        immediately.
-        */
+localStorage.setItem(
+    "secretCrushProfile",
+    JSON.stringify(profile)
+);
 
-        loadProfilePage();
+
+/*
+ * Interests are part of the canonical profile.
+ * Refresh every interface that can display them.
+ */
+
+SC_ProfileSync_RefreshAll();
 
 
         /*
@@ -14914,11 +14939,124 @@ function SC_Search_IndexCurrentUsers(){
     }
 
 
-    return Array.from(
-        users.values()
+/* =================================================
+   CURRENT USER OVERRIDE
+   =================================================
+   The current user's profile is ALWAYS authoritative.
+
+   This prevents an old post from becoming the
+   "identity" used by Search.
+   ================================================= */
+
+const currentProfile =
+    getCurrentProfile();
+
+
+if(currentProfile){
+
+    const currentUserId =
+        currentProfile.userId;
+
+
+    const canonicalUser =
+        SC_Search_MakePublicDemoPerson({
+
+            id:
+                currentUserId,
+
+            name:
+                currentProfile.name,
+
+            username:
+                currentProfile.username ||
+                currentProfile.name,
+
+            photo:
+                currentProfile.profilePicture,
+
+            school:
+                currentProfile.institution,
+
+            faculty:
+                currentProfile.faculty,
+
+            year:
+                currentProfile.year,
+
+            gender:
+                currentProfile.gender,
+
+            about:
+                currentProfile.about,
+
+            interests:
+                currentProfile.interests
+
+        });
+
+
+    /*
+     * Rebuild this user's posts from storage
+     * using the permanent owner ID.
+     */
+
+    try{
+
+        const savedMoments =
+            JSON.parse(
+                localStorage.getItem(
+                    "secretCrushMoments"
+                ) || "[]"
+            );
+
+
+        if(Array.isArray(savedMoments)){
+
+            canonicalUser.posts =
+                savedMoments
+
+                    .filter(
+                        post =>
+                            post.ownerId ===
+                                currentUserId ||
+
+                            (
+                                post.isUserPost === true &&
+                                !post.ownerId
+                            )
+                    )
+
+                    .map(
+                        post =>
+                            SC_ProfileSync_HydratePost(
+                                post
+                            )
+                    );
+
+        }
+
+    }catch(error){
+
+        canonicalUser.posts = [];
+
+    }
+
+
+    users.set(
+        currentUserId,
+        canonicalUser
     );
 
 }
+
+
+return Array.from(
+    users.values()
+);
+
+}
+
+
 
 
 function SC_Search_UserCardHTML(person){
@@ -22664,56 +22802,82 @@ if(postMomentButton){
             /* -----------------------------------------
                CREATE POST
             ----------------------------------------- */
+const post =
+    SC_ProfileSync_HydratePost({
 
-            const post = {
+        id:
+            "moment-" +
+            Date.now() +
+            "-" +
+            Math.random()
+                .toString(36)
+                .slice(2,8),
 
-                id:
-                    "moment-" +
-                    Date.now() +
-                    "-" +
-                    Math.random()
-                        .toString(36)
-                        .slice(2,8),
+        ownerId:
+            profile.userId,
 
-                name:
-                    profile.name ||
-                    "You",
+        userId:
+            profile.userId,
 
-                institution:
-                    profile.institution ||
-                    "My Institution",
+        name:
+            profile.name ||
+            "You",
 
-                faculty:
-                    profile.faculty ||
-                    "My Faculty",
+        username:
+            profile.username ||
+            "",
 
-                year:
-                    profile.year ||
-                    "My Year",
+        institution:
+            profile.institution ||
+            "",
 
-                profilePicture:
-                    profile.profilePicture ||
-                    "",
+        faculty:
+            profile.faculty ||
+            "",
 
-                text:
-                    text,
+        year:
+            profile.year ||
+            "",
 
-                image:
-                    image,
+        gender:
+            profile.gender ||
+            "",
 
-                caption:
-                    "",
+        profilePicture:
+            profile.profilePicture ||
+            "",
 
-                likes:
-                    0,
+        about:
+            profile.about ||
+            "",
 
-                createdAt:
-                    new Date().toISOString(),
+        interests:
+            Array.isArray(
+                profile.interests
+            )
+                ? [...profile.interests]
+                : [],
 
-                isUserPost:
-                    true
+        text:
+            text,
 
-            };
+        image:
+            image,
+
+        caption:
+            "",
+
+        likes:
+            0,
+
+        createdAt:
+            new Date().toISOString(),
+
+        isUserPost:
+            true
+
+    });
+    
 
 
             /* -----------------------------------------
@@ -22803,11 +22967,9 @@ if(!savedSuccessfully){
 }
 
 
-
-
 /* =====================================================
-CURRENT PROFILE
-===================================================== */
+   CURRENT PROFILE
+   ===================================================== */
 
 function getCurrentProfile(){
 
@@ -22824,17 +22986,516 @@ function getCurrentProfile(){
 
     try{
 
-        return JSON.parse(
-            savedProfile
-        );
+        const profile =
+            JSON.parse(
+                savedProfile
+            );
+
+
+        /*
+         * Every user needs one permanent identity.
+         *
+         * Older profiles created before this system
+         * existed will receive an ID automatically.
+         */
+
+        if(!profile.userId){
+
+            profile.userId =
+                "user-" +
+                Date.now() +
+                "-" +
+                Math.random()
+                    .toString(36)
+                    .slice(2,8);
+
+
+            localStorage.setItem(
+                "secretCrushProfile",
+                JSON.stringify(profile)
+            );
+
+        }
+
+
+        return profile;
 
     }catch(error){
+
+        console.error(
+            "Secret Crush: Could not read current profile.",
+            error
+        );
 
         return null;
 
     }
 
 }
+
+/* =====================================================
+   MODULE: GLOBAL PROFILE SYNCHRONIZATION
+
+   IMPORTANT:
+   Posts, moments, search results and profile cards
+   must reference the user's permanent ID rather than
+   treating profile information as permanent.
+
+   The current profile is the single source of truth.
+   ===================================================== */
+
+
+function SC_ProfileSync_GetCurrentProfile(){
+
+    return getCurrentProfile();
+
+}
+
+
+/* -----------------------------------------------------
+   HYDRATE A POST WITH THE CURRENT OWNER PROFILE
+   ----------------------------------------------------- */
+
+function SC_ProfileSync_HydratePost(post){
+
+    if(!post){
+        return null;
+    }
+
+
+    const profile =
+        SC_ProfileSync_GetCurrentProfile();
+
+
+    if(!profile){
+        return post;
+    }
+
+
+    const currentUserId =
+        profile.userId;
+
+
+    /*
+     * A post belongs to the current user when:
+     *
+     * 1. Its ownerId matches the current user, OR
+     * 2. It is an older user-created post that does
+     *    not yet have an ownerId.
+     */
+
+    const belongsToCurrentUser =
+        post.ownerId === currentUserId ||
+        (
+            post.isUserPost === true &&
+            !post.ownerId
+        );
+
+
+    if(!belongsToCurrentUser){
+
+        return post;
+
+    }
+
+
+    /*
+     * IMPORTANT:
+     * We intentionally overwrite the profile fields
+     * from the post with the CURRENT profile.
+     */
+
+    return {
+
+        ...post,
+
+        ownerId:
+            currentUserId,
+
+        userId:
+            currentUserId,
+
+        name:
+            profile.name || "You",
+
+        username:
+            profile.username || "",
+
+        institution:
+            profile.institution || "",
+
+        faculty:
+            profile.faculty || "",
+
+        year:
+            profile.year || "",
+
+        gender:
+            profile.gender || "",
+
+        profilePicture:
+            profile.profilePicture || "",
+
+        about:
+            profile.about || "",
+
+        interests:
+            Array.isArray(profile.interests)
+                ? [...profile.interests]
+                : [],
+
+        isUserPost:
+            true
+
+    };
+
+}
+
+
+/* -----------------------------------------------------
+   UPDATE ALL STORED USER POSTS
+   ----------------------------------------------------- */
+
+function SC_ProfileSync_UpdateStoredPosts(){
+
+    const profile =
+        SC_ProfileSync_GetCurrentProfile();
+
+
+    if(!profile){
+        return;
+    }
+
+
+    let saved = [];
+
+
+    try{
+
+        saved =
+            JSON.parse(
+                localStorage.getItem(
+                    "secretCrushMoments"
+                ) || "[]"
+            );
+
+
+    }catch(error){
+
+        saved = [];
+
+    }
+
+
+    if(!Array.isArray(saved)){
+        saved = [];
+    }
+
+
+    const updated =
+        saved.map(
+            post =>
+                SC_ProfileSync_HydratePost(
+                    post
+                )
+        );
+
+
+    localStorage.setItem(
+        "secretCrushMoments",
+        JSON.stringify(updated)
+    );
+
+}
+
+
+/* -----------------------------------------------------
+   UPDATE ALREADY-RENDERED FEED CARDS
+   ----------------------------------------------------- */
+
+function SC_ProfileSync_RefreshRenderedPosts(){
+
+    const profile =
+        SC_ProfileSync_GetCurrentProfile();
+
+
+    if(!profile){
+        return;
+    }
+
+
+    const userId =
+        profile.userId;
+
+
+    const academicParts = [
+
+        profile.institution || "",
+
+        profile.faculty || "",
+
+        profile.year
+            ? `${profile.year} Year`
+            : ""
+
+    ].filter(Boolean);
+
+
+    const academicText =
+        academicParts.join(" • ");
+
+
+    /*
+     * FEED
+     */
+
+    document
+        .querySelectorAll(
+            ".feed-card[data-owner-id]"
+        )
+        .forEach(card => {
+
+            if(
+                card.dataset.ownerId !==
+                userId
+            ){
+
+                return;
+
+            }
+
+
+            const image =
+                card.querySelector(
+                    ".feed-user-info img"
+                );
+
+
+            const name =
+                card.querySelector(
+                    ".feed-user-info h3"
+                );
+
+
+            const academic =
+                card.querySelector(
+                    ".feed-user-info p"
+                );
+
+
+            if(image){
+
+                image.src =
+                    profile.profilePicture ||
+                    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%2314141d'/%3E%3Ctext x='50' y='58' text-anchor='middle' fill='%23ffffff' font-size='40'%3E?%3C/text%3E%3C/svg%3E";
+
+                image.alt =
+                    profile.name ||
+                    "You";
+
+            }
+
+
+            if(name){
+
+                name.textContent =
+                    profile.name ||
+                    "You";
+
+            }
+
+
+            if(academic){
+
+                academic.textContent =
+                    academicText;
+
+            }
+
+
+            card.dataset.school =
+                profile.institution || "";
+
+            card.dataset.institution =
+                profile.institution || "";
+
+            card.dataset.faculty =
+                profile.faculty || "";
+
+            card.dataset.year =
+                profile.year || "";
+
+            card.dataset.gender =
+                profile.gender || "";
+
+        });
+
+
+    /*
+     * HOMEPAGE USER POSTS
+     */
+
+    document
+        .querySelectorAll(
+            ".home-user-post[data-owner-id]"
+        )
+        .forEach(card => {
+
+            if(
+                card.dataset.ownerId !==
+                userId
+            ){
+
+                return;
+
+            }
+
+
+            const image =
+                card.querySelector(
+                    ".home-post-user-info img"
+                );
+
+
+            const name =
+                card.querySelector(
+                    ".home-post-user-info h3"
+                );
+
+
+            const academic =
+                card.querySelector(
+                    ".home-post-user-info p"
+                );
+
+
+            if(image){
+
+                image.src =
+                    profile.profilePicture ||
+                    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%2314141d'/%3E%3Ctext x='50' y='58' text-anchor='middle' fill='%23ffffff' font-size='40'%3E?%3C/text%3E%3C/svg%3E";
+
+                image.alt =
+                    profile.name ||
+                    "You";
+
+            }
+
+
+            if(name){
+
+                name.textContent =
+                    profile.name ||
+                    "You";
+
+            }
+
+
+            if(academic){
+
+                academic.textContent =
+                    academicText;
+
+            }
+
+        });
+
+}
+
+
+/* -----------------------------------------------------
+   MASTER PROFILE SYNCHRONIZATION
+   ----------------------------------------------------- */
+
+function SC_ProfileSync_RefreshAll(){
+
+    const profile =
+        SC_ProfileSync_GetCurrentProfile();
+
+
+    if(!profile){
+        return;
+    }
+
+
+    /*
+     * First update stored posts.
+     */
+
+    SC_ProfileSync_UpdateStoredPosts();
+
+
+    /*
+     * Then update interfaces that directly display
+     * the current profile.
+     */
+
+    if(
+        typeof loadProfilePage ===
+        "function"
+    ){
+
+        loadProfilePage();
+
+    }
+
+
+    if(
+        typeof loadHomepageProfile ===
+        "function"
+    ){
+
+        loadHomepageProfile();
+
+    }
+
+
+    if(
+        typeof updateMomentProfileAbout ===
+        "function"
+    ){
+
+        updateMomentProfileAbout();
+
+    }
+
+
+    /*
+     * Finally update cards that are already visible
+     * on screen.
+     */
+
+    SC_ProfileSync_RefreshRenderedPosts();
+
+
+    /*
+     * Refresh search data if the search interface
+     * happens to be open.
+     */
+
+    if(
+        typeof SC_Search_RenderUsers ===
+        "function"
+    ){
+
+        const searchInput =
+            document.getElementById(
+                "feed-user-search-input"
+            );
+
+
+        if(searchInput){
+
+            SC_Search_RenderUsers(
+                searchInput.value || ""
+            );
+
+        }
+
+    }
+
+}
+
 
 /* =====================================================
    MOMENT PROFILE ABOUT
@@ -23236,6 +23897,9 @@ if(saveAboutButton){
                     "secretCrushProfile",
                     JSON.stringify(profile)
                 );
+                
+                
+                
 
             }catch(error){
 
@@ -23253,10 +23917,9 @@ if(saveAboutButton){
             }
 
 
-            loadProfileAbout();
-            if(typeof loadProfilePage === "function"){
-                loadProfilePage();
-            }
+            SC_ProfileSync_RefreshAll();
+            
+            
 
 /* SIDEQUEST — WRITE ABOUT */
 
@@ -24035,6 +24698,12 @@ function renderPostInFeed(
     post,
     prepend = true
 ){
+    
+        post =
+        SC_ProfileSync_HydratePost(
+            post
+        );
+        
 
     const feedContent =
         document.querySelector(
@@ -24073,6 +24742,10 @@ function renderPostInFeed(
 
 article.dataset.postId =
     post.id;
+    
+    article.dataset.ownerId =
+    post.ownerId ||
+    "";
 
 
 /* =====================================================
@@ -24251,6 +24924,12 @@ function renderPostInHome(
     post,
     prepend = true
 ){
+    
+        post =
+        SC_ProfileSync_HydratePost(
+            post
+        );
+        
 
     const homeContent =
         document.querySelector(
@@ -24298,6 +24977,9 @@ function renderPostInHome(
 
     article.dataset.postId =
         post.id;
+        article.dataset.ownerId =
+    post.ownerId ||
+    "";
 
 
     const academic =
