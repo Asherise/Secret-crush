@@ -291,6 +291,40 @@ MODULE: FEED — MAIN LAYOUT
 #feed-page.active{display:block}
 
 /* =====================================================
+   FEED — PREMIUM VERTICAL SCROLL
+===================================================== */
+
+#feed-page{
+
+    scroll-behavior:smooth;
+
+    scroll-snap-type:
+        y proximity;
+
+    scroll-padding-top:76px;
+
+    overscroll-behavior-y:
+        contain;
+
+    scrollbar-width:none;
+
+}
+
+#feed-page::-webkit-scrollbar{
+
+    display:none;
+
+}
+
+.feed-card{
+
+    scroll-snap-align:start;
+
+    scroll-margin-top:76px;
+
+}
+
+/* =====================================================
 MODULE: FEED — HEADER
 ===================================================== */
 .secondary-header{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 10px;position:sticky;top:0;z-index:20;background:rgba(5,5,7,.9);backdrop-filter:blur(14px)}
@@ -13705,15 +13739,26 @@ FACULTY BACKGROUND PLACEHOLDER
  */
 
 .mutual-profile-about-chip{
-    max-width:calc(100% - 106px);
+
+    position:absolute;
+
+    left:112px;
+    top:-22px;
+
+    width:min(
+        190px,
+        calc(100% - 125px)
+    );
+
+    max-width:none;
 
     margin:0;
+
+    box-sizing:border-box;
 
     padding:
         8px
         12px;
-
-    box-sizing:border-box;
 
     border:
         1px solid
@@ -13722,10 +13767,10 @@ FACULTY BACKGROUND PLACEHOLDER
     border-radius:14px;
 
     background:
-        rgba(5,5,14,.62);
+        rgba(5,5,14,.72);
 
-    backdrop-filter:blur(8px);
-    -webkit-backdrop-filter:blur(8px);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
 
     color:#eeeaff;
 
@@ -13738,8 +13783,11 @@ FACULTY BACKGROUND PLACEHOLDER
     overflow-wrap:anywhere;
 
     box-shadow:
-        0 5px 20px
-        rgba(0,0,0,.2);
+        0 7px 24px
+        rgba(0,0,0,.28);
+
+    z-index:5;
+
 }
 
 
@@ -13760,14 +13808,11 @@ FACULTY BACKGROUND PLACEHOLDER
         18px;
 }
 
+
 .mutual-profile-hero-top{
-    display:flex;
 
-    align-items:center;
+    display:contents;
 
-    gap:12px;
-
-    min-height:96px;
 }
 
 /* =====================================================

@@ -4239,6 +4239,42 @@ document.addEventListener(
                 }
             );
 
+/*
+ * UPDATE MY SPACE COPY
+ */
+
+document
+    .querySelectorAll(
+        `.my-post-card[data-post-id="${CSS.escape(postId)}"] .my-post-likes-count`
+    )
+    .forEach(
+        count => {
+
+            count.textContent =
+                state.count;
+
+        }
+    );
+    
+    
+/*
+ * UPDATE DETAILED PROFILE COPY
+ */
+
+document
+    .querySelectorAll(
+        `.mutual-profile-post-card[data-mutual-post-id="${CSS.escape(postId)}"] .mutual-profile-post-likes-count`
+    )
+    .forEach(
+        count => {
+
+            count.textContent =
+                state.count;
+
+        }
+    );
+    
+    
 
         /*
          * Quest tracking.
@@ -19365,12 +19401,15 @@ const displayedYear =
             return `
             
 
-                                    <article
-                                        class="
-                                            mutual-profile-post-card
-                                        "
-                                        data-mutual-post-index="${index}"
-                                    >
+                             <article
+    class="
+        mutual-profile-post-card
+    "
+    data-mutual-post-index="${index}"
+    data-mutual-post-id="${escapePostHTML(post.id || "")}"
+>
+
+
 
                                         <div
                                             class="
@@ -19409,18 +19448,21 @@ const displayedYear =
                                             }
 
 
-                                            <div
-                                                class="
-                                                    mutual-profile-post-likes
-                                                "
-                                            >
-                                                ♥
-                                                ${
-                                                    Number(
-                                                        post.likes
-                                                    ) || 0
-                                                }
-                                            </div>
+                             <div
+    class="
+        mutual-profile-post-likes
+    "
+>
+    ♥
+    <span class="mutual-profile-post-likes-count">
+        ${
+            Number(
+                post.likes
+            ) || 0
+        }
+    </span>
+</div>
+
 
                                         </div>
 
@@ -27633,6 +27675,12 @@ article.dataset.filterUserCard =
     const academic =
         `${post.institution} • ${post.faculty} • ${post.year}`;
 
+const likedByCurrentUser =
+    SC_Moment_IsLikedByCurrentUser(
+        post
+    );
+    
+    
 
     article.innerHTML = `
 
@@ -27663,9 +27711,18 @@ article.dataset.filterUserCard =
             </div>
 
 
-            <span>
-                Just now ⋮
-            </span>
+<span>
+    ${
+        post.createdAt
+            ? SC_Moment_FormatDateTime(
+                post.createdAt
+            )
+            : "Date unavailable"
+    }
+    ⋮
+</span>
+
+
 
         </div>
 
@@ -28302,12 +28359,12 @@ function renderMyPost(
                 "
             >
 
-                <span>
-                    ♥
-                    ${post.likes || 0}
-                </span>
-
-
+<span class="my-post-likes">
+    ♥
+    <span class="my-post-likes-count">
+        ${post.likes || 0}
+    </span>
+</span>
                 <small>
                     ${
                         post.createdAt
