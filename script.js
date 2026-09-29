@@ -3344,6 +3344,653 @@ document.querySelectorAll(".feed-filter").forEach(filter=>{
     });
 });
 
+
+/* =====================================================
+   MODULE: MOMENT LIKE ENGINE
+===================================================== */
+
+const SC_MOMENT_LIKE_STATE_KEY =
+    "secretCrushMomentLikeState";
+
+
+/* -----------------------------------------------------
+   GET A STABLE MOMENT ID
+----------------------------------------------------- */
+
+function SC_Moment_GetStablePostId(
+    post,
+    ownerId = "",
+    index = 0
+){
+
+    if(post?.id){
+
+        return String(
+            post.id
+        );
+
+    }
+
+
+    if(post?.postId){
+
+        return String(
+            post.postId
+        );
+
+    }
+
+
+    return (
+        ownerId ||
+        "moment"
+    ) +
+    "-post-" +
+    index;
+
+}
+
+
+/* -----------------------------------------------------
+   GET CURRENT USER
+----------------------------------------------------- */
+
+function SC_Moment_GetCurrentUser(){
+
+    const profile =
+        getCurrentProfile();
+
+
+    if(!profile){
+
+        return {
+
+            userId:
+                "local-user",
+
+            name:
+                "You",
+
+            username:
+                "",
+
+            photo:
+                ""
+
+        };
+
+    }
+
+
+    return {
+
+        userId:
+            profile.userId ||
+            "local-user",
+
+        name:
+            profile.name ||
+            "You",
+
+        username:
+            profile.username ||
+            "",
+
+        photo:
+            profile.profilePicture ||
+            ""
+
+    };
+
+}
+
+
+/* -----------------------------------------------------
+   READ LIKE STORAGE
+----------------------------------------------------- */
+
+function SC_Moment_ReadLikeStorage(){
+
+    try{
+
+        const stored =
+            JSON.parse(
+                localStorage.getItem(
+                    SC_MOMENT_LIKE_STATE_KEY
+                ) || "{}"
+            );
+
+
+        return (
+            stored &&
+            typeof stored === "object"
+        )
+            ? stored
+            : {};
+
+    }catch(error){
+
+        return {};
+
+    }
+
+}
+
+
+/* -----------------------------------------------------
+   SAVE LIKE STORAGE
+----------------------------------------------------- */
+
+function SC_Moment_SaveLikeStorage(
+    storage
+){
+
+    try{
+
+        localStorage.setItem(
+            SC_MOMENT_LIKE_STATE_KEY,
+            JSON.stringify(
+                storage
+            )
+        );
+
+    }catch(error){
+
+        console.error(
+            "Secret Crush: Could not save moment likes.",
+            error
+        );
+
+    }
+
+}
+
+
+/* -----------------------------------------------------
+   GET LIKE STATE FOR A MOMENT
+----------------------------------------------------- */
+
+function SC_Moment_GetLikeState(
+    post,
+    ownerId = "",
+    index = 0
+){
+
+    const postId =
+        SC_Moment_GetStablePostId(
+            post,
+            ownerId,
+            index
+        );
+
+
+    const storage =
+        SC_Moment_ReadLikeStorage();
+
+
+    const stored =
+        storage[postId];
+
+
+    const baseLikes =
+        Number(
+            post?.likes
+        ) || 0;
+
+
+    const likedBy =
+        Array.isArray(
+            stored?.likedBy
+        )
+            ? stored.likedBy
+            : [];
+
+
+    const count =
+        stored &&
+        Number.isFinite(
+            Number(
+                stored.count
+            )
+        )
+
+            ?
+
+            Number(
+                stored.count
+            )
+
+            :
+
+            baseLikes;
+
+
+    return {
+
+        postId,
+
+        count:
+
+            Math.max(
+                0,
+                count
+            ),
+
+        likedBy:
+            likedBy
+                .slice()
+                .sort(
+                    (
+                        a,
+                        b
+                    ) =>
+                        new Date(
+                            a.likedAt
+                        ) -
+                        new Date(
+                            b.likedAt
+                        )
+                )
+
+    };
+
+}
+
+
+/* -----------------------------------------------------
+   APPLY LIKE STATE TO A POST
+----------------------------------------------------- */
+
+function SC_Moment_ApplyLikeState(
+    post,
+    ownerId = "",
+    index = 0
+){
+
+    if(!post){
+
+        return post;
+
+    }
+
+
+    const state =
+        SC_Moment_GetLikeState(
+            post,
+            ownerId,
+            index
+        );
+
+
+    return {
+
+        ...post,
+
+        id:
+            state.postId,
+
+        likes:
+            state.count,
+
+        likedBy:
+            state.likedBy
+
+    };
+
+}
+
+
+/* -----------------------------------------------------
+   FORMAT DATE + TIME
+----------------------------------------------------- */
+
+function SC_Moment_FormatDateTime(
+    timestamp
+){
+
+    if(!timestamp){
+
+        return "Date unavailable";
+
+    }
+
+
+    const date =
+        new Date(
+            timestamp
+        );
+
+
+    if(
+        Number.isNaN(
+            date.getTime()
+        )
+    ){
+
+        return "Date unavailable";
+
+    }
+
+
+    return new Intl.DateTimeFormat(
+        "en-GB",
+        {
+            day:"2-digit",
+            month:"short",
+            year:"numeric",
+            hour:"numeric",
+            minute:"2-digit",
+            hour12:true
+        }
+    ).format(
+        date
+    );
+
+}
+
+
+/* -----------------------------------------------------
+   TOGGLE LIKE
+----------------------------------------------------- */
+
+function SC_Moment_ToggleLike(
+    post
+){
+
+    if(!post){
+
+        return null;
+
+    }
+
+
+    const currentUser =
+        SC_Moment_GetCurrentUser();
+
+
+    const state =
+        SC_Moment_GetLikeState(
+            post
+        );
+
+
+    const existingIndex =
+        state.likedBy.findIndex(
+            person =>
+                person.userId ===
+                currentUser.userId
+        );
+
+
+    /*
+     * ALREADY LIKED
+     *
+     * Tapping again removes that user's like.
+     *
+     * It can NEVER create a second like from
+     * the same user.
+     */
+
+    if(
+        existingIndex !== -1
+    ){
+
+        state.likedBy.splice(
+            existingIndex,
+            1
+        );
+
+        state.count =
+            Math.max(
+                0,
+                state.count - 1
+            );
+
+    }
+
+
+    /*
+     * NOT YET LIKED
+     */
+
+    else{
+
+        state.likedBy.push({
+
+            userId:
+                currentUser.userId,
+
+            name:
+                currentUser.name,
+
+            username:
+                currentUser.username,
+
+            photo:
+                currentUser.photo,
+
+            likedAt:
+                new Date()
+                    .toISOString()
+
+        });
+
+
+        state.count++;
+
+    }
+
+
+    /*
+     * Re-sort chronologically.
+     */
+
+    state.likedBy.sort(
+        (
+            a,
+            b
+        ) =>
+            new Date(
+                a.likedAt
+            ) -
+            new Date(
+                b.likedAt
+            )
+    );
+
+
+    const storage =
+        SC_Moment_ReadLikeStorage();
+
+
+    storage[
+        state.postId
+    ] = {
+
+        count:
+            state.count,
+
+        likedBy:
+            state.likedBy
+
+    };
+
+
+    SC_Moment_SaveLikeStorage(
+        storage
+    );
+
+
+    /*
+     * If this is one of the user's own stored
+     * moments, also write the like information
+     * into secretCrushMoments.
+     */
+
+    try{
+
+        const saved =
+            JSON.parse(
+                localStorage.getItem(
+                    "secretCrushMoments"
+                ) || "[]"
+            );
+
+
+        if(
+            Array.isArray(
+                saved
+            )
+        ){
+
+            const updated =
+                saved.map(
+                    savedPost => {
+
+                        if(
+                            String(
+                                savedPost.id
+                            ) !==
+                            String(
+                                state.postId
+                            )
+                        ){
+
+                            return savedPost;
+
+                        }
+
+
+                        return {
+
+                            ...savedPost,
+
+                            likes:
+                                state.count,
+
+                            likedBy:
+                                state.likedBy
+
+                        };
+
+                    }
+                );
+
+
+            localStorage.setItem(
+                "secretCrushMoments",
+                JSON.stringify(
+                    updated
+                )
+            );
+
+        }
+
+    }catch(error){
+
+        console.warn(
+            "Secret Crush: Could not update stored moment like data.",
+            error
+        );
+
+    }
+
+
+    return state;
+
+}
+
+
+/* -----------------------------------------------------
+   CHECK WHETHER CURRENT USER LIKED
+----------------------------------------------------- */
+
+function SC_Moment_IsLikedByCurrentUser(
+    post
+){
+
+    const currentUser =
+        SC_Moment_GetCurrentUser();
+
+
+    const state =
+        SC_Moment_GetLikeState(
+            post
+        );
+
+
+    return state.likedBy.some(
+        person =>
+            person.userId ===
+            currentUser.userId
+    );
+
+}
+
+
+/* -----------------------------------------------------
+   CREATE A TEMPORARY FEED ARTICLE FOR
+   SEND CRUSH / SECRET NOTE
+----------------------------------------------------- */
+
+function SC_Moment_CreateActionProxy(
+    post
+){
+
+    const proxy =
+        document.createElement(
+            "article"
+        );
+
+
+    proxy.dataset.postId =
+        post.id ||
+        "";
+
+
+    proxy.className =
+        "feed-card";
+
+
+    proxy.innerHTML = `
+
+        <div class="feed-user">
+
+            <div class="feed-user-info">
+
+                <img
+                    src="${
+                        post.profilePicture ||
+                        post.photo ||
+                        ""
+                    }"
+                    alt=""
+                >
+
+                <div>
+
+                    <h3>
+                        ${escapePostHTML(
+                            post.name ||
+                            post.username ||
+                            "Secret Crush"
+                        )}
+                    </h3>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    `;
+
+
+    return proxy;
+
+}
+
+
 /* =====================================================
 FEED POST ACTIONS
 ===================================================== */
@@ -3352,10 +3999,11 @@ function attachFeedPostActions(
     article
 ){
 
-    const likeButton =
-        article.querySelector(
-            ".like-action"
-        );
+    if(!article){
+
+        return;
+
+    }
 
 
     const crushButton =
@@ -3370,74 +4018,14 @@ function attachFeedPostActions(
         );
 
 
-    if(likeButton){
-
-        likeButton.addEventListener(
-            "click",
-            () => {
-
-                likeButton.classList.toggle(
-                    "liked"
-                );
-
-
-                const count =
-                    likeButton.querySelector(
-                        "span"
-                    );
-
-
-                if(!count){
-                    return;
-                }
-
-
-                let number =
-                    Number(
-                        count.textContent
-                    ) || 0;
-
-
-                if(
-    likeButton.classList.contains(
-        "liked"
-    )
-){
-
-    number++;
-
-    if(
-        typeof SCQ_RecordAction === "function"
-    ){
-        SCQ_RecordAction(
-            "moment_liked"
-        );
-    }
-
-}else{
-                    number =
-                        Math.max(
-                            0,
-                            number - 1
-                        );
-
-                }
-
-
-                count.textContent =
-                    number;
-
-            }
-        );
-
-    }
-
-
     if(crushButton){
 
         crushButton.addEventListener(
             "click",
-            () => {
+            event => {
+
+                event.stopPropagation();
+
 
                 openSendRevealModal(
                     "crush",
@@ -3454,7 +4042,10 @@ function attachFeedPostActions(
 
         noteButton.addEventListener(
             "click",
-            () => {
+            event => {
+
+                event.stopPropagation();
+
 
                 openSendRevealModal(
                     "note",
@@ -3468,6 +4059,210 @@ function attachFeedPostActions(
 
 }
 
+/* =====================================================
+   UNIVERSAL MOMENT LIKE HANDLER
+===================================================== */
+
+document.addEventListener(
+    "click",
+    event => {
+
+        const likeButton =
+            event.target.closest(
+                ".like-action"
+            );
+
+
+        if(!likeButton){
+
+            return;
+
+        }
+
+
+        event.preventDefault();
+        event.stopPropagation();
+
+
+        const postId =
+            likeButton.dataset.feedLike;
+
+
+        if(!postId){
+
+            return;
+
+        }
+
+
+        const postElement =
+            likeButton.closest(
+                "[data-post-id]"
+            );
+
+
+        let post = {
+
+            id:
+                postId,
+
+            likes:
+                Number(
+                    likeButton
+                        .querySelector("span")
+                        ?.textContent
+                ) || 0
+
+        };
+
+
+        /*
+         * Prefer the complete stored post when
+         * one exists.
+         */
+
+        try{
+
+            const saved =
+                JSON.parse(
+                    localStorage.getItem(
+                        "secretCrushMoments"
+                    ) || "[]"
+                );
+
+
+            if(
+                Array.isArray(
+                    saved
+                )
+            ){
+
+                const storedPost =
+                    saved.find(
+                        item =>
+                            String(
+                                item.id
+                            ) ===
+                            String(
+                                postId
+                            )
+                    );
+
+
+                if(storedPost){
+
+                    post =
+                        storedPost;
+
+                }
+
+            }
+
+        }catch(error){
+
+            /* Keep DOM fallback. */
+
+        }
+
+
+        const state =
+            SC_Moment_ToggleLike(
+                post
+            );
+
+
+        if(!state){
+
+            return;
+
+        }
+
+
+        /*
+         * Update every visible copy of this
+         * moment.
+         */
+
+        document
+            .querySelectorAll(
+                `.like-action[data-feed-like="${CSS.escape(postId)}"]`
+            )
+            .forEach(
+                button => {
+
+                    const count =
+                        button.querySelector(
+                            "span"
+                        );
+
+
+                    if(count){
+
+                        count.textContent =
+                            state.count;
+
+                    }
+
+
+                    const liked =
+                        state.likedBy.some(
+                            person =>
+                                person.userId ===
+                                SC_Moment_GetCurrentUser()
+                                    .userId
+                        );
+
+
+                    button.classList.toggle(
+                        "liked",
+                        liked
+                    );
+
+
+                    const icon =
+                        button.firstChild;
+
+
+                    if(
+                        icon &&
+                        icon.nodeType ===
+                        Node.TEXT_NODE
+                    ){
+
+                        icon.textContent =
+                            liked
+                                ? "♥ "
+                                : "♡ ";
+
+                    }
+
+                }
+            );
+
+
+        /*
+         * Quest tracking.
+         */
+
+        if(
+            state.likedBy.some(
+                person =>
+                    person.userId ===
+                    SC_Moment_GetCurrentUser()
+                        .userId
+            ) &&
+            typeof SCQ_RecordAction ===
+            "function"
+        ){
+
+            SCQ_RecordAction(
+                "moment_liked"
+            );
+
+        }
+
+    }
+);
 
 /* =====================================================
 HANDLE EXISTING DUMMY FEED BUTTONS
@@ -4135,14 +4930,6 @@ sendRevealBackdrop?.addEventListener(
 
 
 
-/* =====================================================
-MODULE: HOMEPAGE — LIKE ACTIONS
-===================================================== */
-document.querySelectorAll(".like-action").forEach(button=>{
-    button.addEventListener("click",()=>{
-        button.classList.toggle("liked");
-    });
-});
 
 
 /* =====================================================
@@ -4215,6 +5002,1178 @@ function setActiveNavigation(page){
     }
 
 }
+
+/* =====================================================
+   MODULE: FEED MOMENT FULL-SCREEN VIEWER
+===================================================== */
+
+let SC_FeedMomentViewer = null;
+
+let SC_FeedMomentItems = [];
+
+let SC_FeedMomentIndex = 0;
+
+let SC_FeedMomentTouchStartY = 0;
+
+let SC_FeedMomentTouchEndY = 0;
+
+let SC_FeedMomentLastTap = 0;
+
+
+/* -----------------------------------------------------
+   GET POST FROM A FEED CARD
+----------------------------------------------------- */
+
+function SC_Moment_ReadPostFromCard(
+    card
+){
+
+    if(!card){
+
+        return null;
+
+    }
+
+
+    const postId =
+        card.dataset.postId ||
+        "";
+
+
+    /*
+     * First try the permanent stored moment.
+     */
+
+    try{
+
+        const saved =
+            JSON.parse(
+                localStorage.getItem(
+                    "secretCrushMoments"
+                ) || "[]"
+            );
+
+
+        if(
+            Array.isArray(
+                saved
+            )
+        ){
+
+            const stored =
+                saved.find(
+                    post =>
+                        String(
+                            post.id
+                        ) ===
+                        String(
+                            postId
+                        )
+                );
+
+
+            if(stored){
+
+                return SC_Moment_ApplyLikeState(
+                    stored
+                );
+
+            }
+
+        }
+
+    }catch(error){
+
+        /* Continue with DOM fallback. */
+
+    }
+
+
+    const image =
+        card.querySelector(
+            ".feed-media img"
+        )?.src ||
+        "";
+
+
+    const caption =
+        card.querySelector(
+            ".feed-caption"
+        )?.textContent
+        ?.trim() ||
+        "";
+
+
+    const text =
+        card.querySelector(
+            ".feed-post-text"
+        )?.textContent
+        ?.trim() ||
+        "";
+
+
+    const name =
+        card.querySelector(
+            ".feed-user-info h3"
+        )?.textContent
+        ?.trim() ||
+        "Secret Crush";
+
+
+    const photo =
+        card.querySelector(
+            ".feed-user-info img"
+        )?.src ||
+        "";
+
+
+    return SC_Moment_ApplyLikeState({
+
+        id:
+            postId,
+
+        ownerId:
+            card.dataset.ownerId ||
+            "",
+
+        name:
+
+            name,
+
+        profilePicture:
+            photo,
+
+        institution:
+            card.dataset.institution ||
+            card.dataset.school ||
+            "",
+
+        faculty:
+            card.dataset.faculty ||
+            "",
+
+        year:
+            card.dataset.year ||
+            "",
+
+        gender:
+            card.dataset.gender ||
+            "",
+
+        image:
+            image,
+
+        caption:
+            caption,
+
+        text:
+            text,
+
+        likes:
+            Number(
+                card.querySelector(
+                    ".like-action span"
+                )?.textContent
+            ) || 0
+
+    });
+
+}
+
+
+/* -----------------------------------------------------
+   GET CURRENT FEED MOMENTS
+----------------------------------------------------- */
+
+function SC_FeedMoment_GetItems(){
+
+    const cards =
+        Array.from(
+            document.querySelectorAll(
+                ".feed-card[data-post-id]"
+            )
+        ).filter(
+            card =>
+                !card.hidden &&
+                getComputedStyle(
+                    card
+                ).display !== "none"
+        );
+
+
+    return cards
+        .map(
+            card =>
+                SC_Moment_ReadPostFromCard(
+                    card
+                )
+        )
+        .filter(Boolean);
+
+}
+
+
+/* -----------------------------------------------------
+   CREATE / OPEN VIEWER
+----------------------------------------------------- */
+
+function openFeedMomentViewer(
+    postId
+){
+
+    SC_FeedMomentItems =
+        SC_FeedMoment_GetItems();
+
+
+    const index =
+        SC_FeedMomentItems.findIndex(
+            post =>
+                String(
+                    post.id
+                ) ===
+                String(
+                    postId
+                )
+        );
+
+
+    if(index === -1){
+
+        return;
+
+    }
+
+
+    SC_FeedMomentIndex =
+        index;
+
+
+    if(
+        !SC_FeedMomentViewer
+    ){
+
+        SC_FeedMomentViewer =
+            document.createElement(
+                "div"
+            );
+
+
+        SC_FeedMomentViewer.id =
+            "sc-feed-moment-viewer";
+
+
+        SC_FeedMomentViewer.className =
+            "sc-feed-moment-viewer";
+
+
+        document.body.appendChild(
+            SC_FeedMomentViewer
+        );
+
+    }
+
+
+    SC_FeedMoment_Render();
+
+
+    SC_FeedMomentViewer.classList.add(
+        "active"
+    );
+
+
+    SC_FeedMomentViewer.setAttribute(
+        "aria-hidden",
+        "false"
+    );
+
+
+    document.body.classList.add(
+        "sc-moment-viewer-open"
+    );
+
+}
+
+
+/* -----------------------------------------------------
+   RENDER CURRENT MOMENT
+----------------------------------------------------- */
+
+function SC_FeedMoment_Render(){
+
+    if(
+        !SC_FeedMomentViewer
+    ){
+
+        return;
+
+    }
+
+
+    const post =
+        SC_FeedMomentItems[
+            SC_FeedMomentIndex
+        ];
+
+
+    if(!post){
+
+        return;
+
+    }
+
+
+    const state =
+        SC_Moment_GetLikeState(
+            post
+        );
+
+
+    const liked =
+        SC_Moment_IsLikedByCurrentUser(
+            post
+        );
+
+
+    const total =
+        SC_FeedMomentItems.length;
+
+
+    const profilePhoto =
+        post.profilePicture ||
+        post.photo ||
+        "";
+
+
+    SC_FeedMomentViewer.innerHTML = `
+
+        <div
+            class="sc-feed-moment-backdrop"
+            data-sc-moment-close
+        ></div>
+
+
+        <!-- BACK BUTTON -->
+        <button
+            type="button"
+            class="sc-feed-moment-back"
+            data-sc-moment-close
+            aria-label="Back"
+        >
+            ‹
+        </button>
+
+
+        <!-- FLOATING TOP TOOLS -->
+
+        <div
+            class="
+                sc-feed-moment-floating-tools
+            "
+            id="sc-feed-moment-floating-tools"
+        >
+
+            <button
+                type="button"
+                class="sc-feed-moment-tool"
+                aria-label="Search"
+            >
+                ⌕
+            </button>
+
+
+            <button
+                type="button"
+                class="sc-feed-moment-tool"
+                aria-label="More"
+            >
+                ♨
+            </button>
+
+        </div>
+
+
+        <!-- COUNTER -->
+
+        <div
+            class="sc-feed-moment-counter"
+        >
+            ${SC_FeedMomentIndex + 1}
+            /
+            ${total}
+        </div>
+
+
+        <!-- MOMENT -->
+
+        <section
+            class="
+                sc-feed-moment-panel
+            "
+            data-sc-feed-moment-swipe
+        >
+
+            <div
+                class="
+                    sc-feed-moment-media
+                "
+                data-sc-feed-moment-doubletap
+            >
+
+                ${
+                    post.image ||
+                    post.media ||
+                    post.photo
+
+                    ?
+
+                    `
+                    <img
+                        src="${escapePostHTML(
+                            post.image ||
+                            post.media ||
+                            post.photo
+                        )}"
+                        alt="Moment"
+                    >
+                    `
+
+                    :
+
+                    `
+                    <div
+                        class="
+                            sc-feed-moment-text-only
+                        "
+                    >
+                        ${escapePostHTML(
+                            post.text ||
+                            "Moment"
+                        )}
+                    </div>
+                    `
+                }
+
+
+                <div
+                    class="
+                        sc-feed-floating-heart
+                    "
+                    id="sc-feed-floating-heart"
+                >
+                    ♥
+                </div>
+
+            </div>
+
+
+            <!-- SIDE ACTIONS -->
+
+            <aside
+                class="
+                    sc-feed-moment-actions
+                "
+            >
+
+                <button
+                    type="button"
+                    class="
+                        sc-feed-moment-action
+                        ${
+                            liked
+                                ? "liked"
+                                : ""
+                        }
+                    "
+                    id="sc-feed-moment-like"
+                >
+
+                    <span>
+                        ${
+                            liked
+                                ? "♥"
+                                : "♡"
+                        }
+                    </span>
+
+                    <strong>
+                        ${state.count}
+                    </strong>
+
+                </button>
+
+
+                <button
+                    type="button"
+                    class="
+                        sc-feed-moment-action
+                    "
+                    id="sc-feed-moment-crush"
+                >
+
+                    <span>
+                        ♡
+                    </span>
+
+                    <small>
+                        Send Crush
+                    </small>
+
+                </button>
+
+
+                <button
+                    type="button"
+                    class="
+                        sc-feed-moment-action
+                    "
+                    id="sc-feed-moment-note"
+                >
+
+                    <span>
+                        ✉
+                    </span>
+
+                    <small>
+                        Send Note
+                    </small>
+
+                </button>
+
+            </aside>
+
+
+            <!-- BOTTOM INFORMATION -->
+
+            <div
+                class="
+                    sc-feed-moment-bottom
+                "
+            >
+
+                <div
+                    class="
+                        sc-feed-moment-person
+                    "
+                >
+
+                    ${
+                        profilePhoto
+
+                        ?
+
+                        `
+                        <img
+                            src="${escapePostHTML(
+                                profilePhoto
+                            )}"
+                            alt=""
+                        >
+                        `
+
+                        :
+
+                        `
+                        <div
+                            class="
+                                sc-feed-moment-avatar-fallback
+                            "
+                        >
+                            ?
+                        </div>
+                        `
+                    }
+
+
+                    <div>
+
+                        <strong>
+                            ${escapePostHTML(
+                                post.name ||
+                                post.username ||
+                                "Secret Crush"
+                            )}
+                        </strong>
+
+                        <small>
+                            ${
+                                post.createdAt
+                                    ? SC_Moment_FormatDateTime(
+                                        post.createdAt
+                                    )
+                                    : "Moment"
+                            }
+                        </small>
+
+                    </div>
+
+                </div>
+
+
+                ${
+                    post.caption ||
+                    post.text
+
+                    ?
+
+                    `
+                    <p
+                        class="
+                            sc-feed-moment-caption
+                        "
+                    >
+                        ${escapePostHTML(
+                            post.caption ||
+                            post.text ||
+                            ""
+                        )}
+                    </p>
+                    `
+
+                    :
+
+                    ""
+                }
+
+            </div>
+
+        </section>
+
+    `;
+
+
+    SC_FeedMoment_AttachEvents(
+        post
+    );
+
+}
+
+
+/* -----------------------------------------------------
+   ATTACH VIEWER EVENTS
+----------------------------------------------------- */
+
+function SC_FeedMoment_AttachEvents(
+    post
+){
+
+    if(!SC_FeedMomentViewer){
+
+        return;
+
+    }
+
+
+    /*
+     * CLOSE
+     */
+
+    SC_FeedMomentViewer
+        .querySelectorAll(
+            "[data-sc-moment-close]"
+        )
+        .forEach(
+            button => {
+
+                button.addEventListener(
+                    "click",
+                    closeFeedMomentViewer
+                );
+
+            }
+        );
+
+
+    /*
+     * LIKE
+     */
+
+    const likeButton =
+        document.getElementById(
+            "sc-feed-moment-like"
+        );
+
+
+    if(likeButton){
+
+        likeButton.addEventListener(
+            "click",
+            event => {
+
+                event.stopPropagation();
+
+
+                const state =
+                    SC_Moment_ToggleLike(
+                        post
+                    );
+
+
+                if(!state){
+
+                    return;
+
+                }
+
+
+                const liked =
+                    SC_Moment_IsLikedByCurrentUser(
+                        post
+                    );
+
+
+                likeButton.classList.toggle(
+                    "liked",
+                    liked
+                );
+
+
+                likeButton
+                    .querySelector(
+                        "span"
+                    )
+                    .textContent =
+                        liked
+                            ? "♥"
+                            : "♡";
+
+
+                likeButton
+                    .querySelector(
+                        "strong"
+                    )
+                    .textContent =
+                        state.count;
+
+
+                /*
+                 * Also update the feed behind
+                 * the overlay.
+                 */
+
+                document
+                    .querySelectorAll(
+                        `.like-action[data-feed-like="${CSS.escape(post.id)}"]`
+                    )
+                    .forEach(
+                        button => {
+
+                            const count =
+                                button.querySelector(
+                                    "span"
+                                );
+
+
+                            if(count){
+
+                                count.textContent =
+                                    state.count;
+
+                            }
+
+
+                            button.classList.toggle(
+                                "liked",
+                                liked
+                            );
+
+                        }
+                    );
+
+            }
+        );
+
+    }
+
+
+    /*
+     * SEND CRUSH
+     */
+
+    document
+        .getElementById(
+            "sc-feed-moment-crush"
+        )
+        ?.addEventListener(
+            "click",
+            event => {
+
+                event.stopPropagation();
+
+
+                openSendRevealModal(
+                    "crush",
+                    SC_Moment_CreateActionProxy(
+                        post
+                    )
+                );
+
+            }
+        );
+
+
+    /*
+     * SECRET NOTE
+     */
+
+    document
+        .getElementById(
+            "sc-feed-moment-note"
+        )
+        ?.addEventListener(
+            "click",
+            event => {
+
+                event.stopPropagation();
+
+
+                openSendRevealModal(
+                    "note",
+                    SC_Moment_CreateActionProxy(
+                        post
+                    )
+                );
+
+            }
+        );
+
+
+    /*
+     * DOUBLE TAP
+     */
+
+    const media =
+        SC_FeedMomentViewer.querySelector(
+            "[data-sc-feed-moment-doubletap]"
+        );
+
+
+    if(media){
+
+        media.addEventListener(
+            "click",
+            event => {
+
+                const now =
+                    Date.now();
+
+
+                if(
+                    now -
+                    SC_FeedMomentLastTap <
+                    320
+                ){
+
+                    const state =
+                        SC_Moment_ToggleLike(
+                            post
+                        );
+
+
+                    const liked =
+                        SC_Moment_IsLikedByCurrentUser(
+                            post
+                        );
+
+
+                    if(
+                        liked &&
+                        state
+                    ){
+
+                        const likeButton =
+                            document.getElementById(
+                                "sc-feed-moment-like"
+                            );
+
+
+                        if(likeButton){
+
+                            likeButton.classList.add(
+                                "liked"
+                            );
+
+                            likeButton
+                                .querySelector(
+                                    "span"
+                                )
+                                .textContent =
+                                "♥";
+
+                            likeButton
+                                .querySelector(
+                                    "strong"
+                                )
+                                .textContent =
+                                state.count;
+
+                        }
+
+
+                        const floatingHeart =
+                            document.getElementById(
+                                "sc-feed-floating-heart"
+                            );
+
+
+                        if(floatingHeart){
+
+                            floatingHeart.classList.remove(
+                                "show"
+                            );
+
+
+                            void floatingHeart.offsetWidth;
+
+
+                            floatingHeart.classList.add(
+                                "show"
+                            );
+
+                        }
+
+                    }
+
+
+                    SC_FeedMomentLastTap =
+                        0;
+
+                    return;
+
+                }
+
+
+                SC_FeedMomentLastTap =
+                    now;
+
+            }
+        );
+
+    }
+
+
+    /*
+     * VERTICAL SWIPE
+     */
+
+    const swipeArea =
+        SC_FeedMomentViewer.querySelector(
+            "[data-sc-feed-moment-swipe]"
+        );
+
+
+    if(swipeArea){
+
+        swipeArea.addEventListener(
+            "touchstart",
+            event => {
+
+                SC_FeedMomentTouchStartY =
+                    event.changedTouches[0]
+                        .clientY;
+
+            },
+            {
+                passive:true
+            }
+        );
+
+
+        swipeArea.addEventListener(
+            "touchend",
+            event => {
+
+                SC_FeedMomentTouchEndY =
+                    event.changedTouches[0]
+                        .clientY;
+
+
+                const difference =
+                    SC_FeedMomentTouchStartY -
+                    SC_FeedMomentTouchEndY;
+
+
+                if(
+                    Math.abs(
+                        difference
+                    ) <
+                    70
+                ){
+
+                    return;
+
+                }
+
+
+                if(
+                    difference >
+                    0
+                ){
+
+                    SC_FeedMoment_Next();
+
+                }else{
+
+                    SC_FeedMoment_Previous();
+
+                }
+
+            },
+            {
+                passive:true
+            }
+        );
+
+    }
+
+}
+
+
+/* -----------------------------------------------------
+   NEXT
+----------------------------------------------------- */
+
+function SC_FeedMoment_Next(){
+
+    if(
+        SC_FeedMomentIndex <
+        SC_FeedMomentItems.length - 1
+    ){
+
+        SC_FeedMomentIndex++;
+
+        SC_FeedMoment_Render();
+
+    }
+
+}
+
+
+/* -----------------------------------------------------
+   PREVIOUS
+----------------------------------------------------- */
+
+function SC_FeedMoment_Previous(){
+
+    if(
+        SC_FeedMomentIndex >
+        0
+    ){
+
+        SC_FeedMomentIndex--;
+
+        SC_FeedMoment_Render();
+
+    }
+
+}
+
+
+/* -----------------------------------------------------
+   CLOSE
+----------------------------------------------------- */
+
+function closeFeedMomentViewer(){
+
+    if(
+        !SC_FeedMomentViewer
+    ){
+
+        return;
+
+    }
+
+
+    SC_FeedMomentViewer.classList.remove(
+        "active"
+    );
+
+
+    SC_FeedMomentViewer.setAttribute(
+        "aria-hidden",
+        "true"
+    );
+
+
+    document.body.classList.remove(
+        "sc-moment-viewer-open"
+    );
+
+}
+
+
+/* -----------------------------------------------------
+   OPEN WHEN A FEED MOMENT IS TAPPED
+----------------------------------------------------- */
+
+document.addEventListener(
+    "click",
+    event => {
+
+        /*
+         * Do not open the viewer when the user is
+         * pressing one of the existing action buttons.
+         */
+
+        if(
+            event.target.closest(
+                ".feed-actions"
+            )
+        ){
+
+            return;
+
+        }
+
+
+        if(
+            event.target.closest(
+                ".feed-user"
+            )
+        ){
+
+            return;
+
+        }
+
+
+        const media =
+            event.target.closest(
+                ".feed-media"
+            );
+
+
+        const text =
+            event.target.closest(
+                ".feed-caption, .feed-post-text"
+            );
+
+
+        const card =
+            event.target.closest(
+                ".feed-card[data-post-id]"
+            );
+
+
+        if(
+            !card ||
+            (!media && !text)
+        ){
+
+            return;
+
+        }
+
+
+        event.preventDefault();
+
+
+        openFeedMomentViewer(
+            card.dataset.postId
+        );
+
+    }
+);
+
 
 
 
@@ -17380,11 +19339,31 @@ const displayedYear =
 
                     ${
                         posts
-                            .map(
-                                (
-                                    post,
-                                    index
-                                ) => `
+    .map(
+        (
+            post,
+            index
+        ) => {
+
+            post =
+                SC_Moment_ApplyLikeState(
+                    {
+                        ...post,
+
+                        id:
+                            SC_Moment_GetStablePostId(
+                                post,
+                                crush.id,
+                                index
+                            )
+                    },
+                    crush.id,
+                    index
+                );
+
+
+            return `
+            
 
                                     <article
                                         class="
@@ -17446,24 +19425,44 @@ const displayedYear =
                                         </div>
 
 
-                                        <div
-                                            class="
-                                                mutual-profile-post-caption
-                                            "
-                                        >
-                                            ${escapePostHTML(
-                                                post.caption ||
-                                                post.text ||
-                                                ""
-                                            )}
-                                        </div>
+                                 <div
+    class="
+        mutual-profile-post-caption
+    "
+>
 
-                                    </article>
+    ${escapePostHTML(
+        post.caption ||
+        post.text ||
+        ""
+    )}
 
-                                `
-                            )
-                            .join("")
+
+    <small
+        class="
+            mutual-profile-post-date
+        "
+    >
+        ${
+            post.createdAt
+                ? SC_Moment_FormatDateTime(
+                    post.createdAt
+                )
+                : "Date unavailable"
+        }
+    </small>
+
+</div>
+
+</article>
+
+`;
+
+        }
+    )
+    .join("")
                     }
+                    
 
                 </div>
 
@@ -17702,12 +19701,96 @@ if(secretCrushButton){
 PROFILE POST — WIDESCREEN VIEWER
 ===================================================== */
 
+/* =====================================================
+   PROFILE MOMENT VIEWER
+   Horizontal swipe / next / previous
+===================================================== */
+
+let SC_ProfileMomentViewerData = {
+
+    crush:
+        null,
+
+    posts:
+        [],
+
+    index:
+        0
+
+};
+
+
+let SC_ProfileMomentTouchStartX =
+    0;
+
+
+let SC_ProfileMomentTouchEndX =
+    0;
+
+
+/* -----------------------------------------------------
+   OPEN
+----------------------------------------------------- */
+
 function openMutualProfilePostViewer(
     crush,
     post,
     index,
     total
 ){
+
+    const posts =
+        Array.isArray(
+            crush.posts
+        )
+
+            ?
+
+            crush.posts.map(
+                (
+                    item,
+                    itemIndex
+                ) =>
+                    SC_Moment_ApplyLikeState(
+                        {
+                            ...item,
+
+                            id:
+                                SC_Moment_GetStablePostId(
+                                    item,
+                                    crush.id,
+                                    itemIndex
+                                )
+                        },
+                        crush.id,
+                        itemIndex
+                    )
+            )
+
+            :
+
+            [];
+
+
+    SC_ProfileMomentViewerData = {
+
+        crush:
+            crush,
+
+        posts:
+            posts,
+
+        index:
+            Math.max(
+                0,
+                Math.min(
+                    index,
+                    posts.length - 1
+                )
+            )
+
+    };
+
 
     let viewer =
         document.getElementById(
@@ -17738,6 +19821,85 @@ function openMutualProfilePostViewer(
     }
 
 
+    SC_ProfileMoment_Render();
+
+
+    viewer.classList.add(
+        "active"
+    );
+
+
+    viewer.setAttribute(
+        "aria-hidden",
+        "false"
+    );
+
+}
+
+
+/* -----------------------------------------------------
+   RENDER
+----------------------------------------------------- */
+
+function SC_ProfileMoment_Render(){
+
+    const viewer =
+        document.getElementById(
+            "mutual-profile-post-viewer"
+        );
+
+
+    if(!viewer){
+
+        return;
+
+    }
+
+
+    const data =
+        SC_ProfileMomentViewerData;
+
+
+    const post =
+        data.posts[
+            data.index
+        ];
+
+
+    if(!post){
+
+        return;
+
+    }
+
+
+    const state =
+        SC_Moment_GetLikeState(
+            post,
+            data.crush?.id,
+            data.index
+        );
+
+
+    const liked =
+        SC_Moment_IsLikedByCurrentUser(
+            post
+        );
+
+
+    const currentProfile =
+        getCurrentProfile();
+
+
+    const isOwnPost =
+        Boolean(
+            currentProfile &&
+            post.ownerId &&
+            post.ownerId ===
+                currentProfile.userId
+        );
+
+
     viewer.innerHTML = `
 
         <div
@@ -17751,6 +19913,7 @@ function openMutualProfilePostViewer(
         <section
             class="
                 mutual-profile-post-viewer-panel
+                sc-profile-horizontal-panel
             "
         >
 
@@ -17765,19 +19928,49 @@ function openMutualProfilePostViewer(
             </button>
 
 
+            <button
+                type="button"
+                class="
+                    sc-profile-viewer-arrow
+                    sc-profile-viewer-arrow-left
+                "
+                id="sc-profile-viewer-prev"
+                aria-label="Previous moment"
+            >
+                ‹
+            </button>
+
+
+            <button
+                type="button"
+                class="
+                    sc-profile-viewer-arrow
+                    sc-profile-viewer-arrow-right
+                "
+                id="sc-profile-viewer-next"
+                aria-label="Next moment"
+            >
+                ›
+            </button>
+
+
             <span
                 class="
                     mutual-profile-post-viewer-counter
                 "
             >
-                ${index + 1} / ${total}
+                ${data.index + 1}
+                /
+                ${data.posts.length}
             </span>
 
 
             <div
                 class="
                     mutual-profile-post-viewer-media
+                    sc-profile-viewer-swipe-area
                 "
+                id="sc-profile-viewer-swipe-area"
             >
 
                 ${
@@ -17794,16 +19987,21 @@ function openMutualProfilePostViewer(
                             post.media ||
                             post.photo
                         )}"
-                        alt=""
+                        alt="Moment"
                     >
                     `
 
                     :
 
                     `
-                    <span>
+                    <span
+                        class="
+                            mutual-profile-post-viewer-placeholder
+                        "
+                    >
                         ${escapePostHTML(
                             post.emoji ||
+                            post.text ||
                             "📷"
                         )}
                     </span>
@@ -17823,13 +20021,25 @@ function openMutualProfilePostViewer(
                     type="button"
                     class="
                         mutual-profile-post-viewer-like
+                        ${
+                            liked
+                                ? "liked"
+                                : ""
+                        }
                     "
-                    id="
-                        mutual-profile-post-viewer-like
-                    "
+                    id="mutual-profile-post-viewer-like"
                 >
-                    ♥
-                    ${Number(post.likes) || 0}
+
+                    ${
+                        liked
+                            ? "♥"
+                            : "♡"
+                    }
+
+                    <span>
+                        ${state.count}
+                    </span>
+
                 </button>
 
 
@@ -17841,11 +20051,27 @@ function openMutualProfilePostViewer(
 
                     <strong>
                         ${escapePostHTML(
-                            crush.username ||
-                            crush.name ||
+                            data.crush?.username ||
+                            data.crush?.name ||
                             "Secret Crush"
                         )}
                     </strong>
+
+
+                    <small
+                        class="
+                            sc-profile-viewer-date
+                        "
+                    >
+                        ${
+                            post.createdAt
+                                ? SC_Moment_FormatDateTime(
+                                    post.createdAt
+                                )
+                                : "Date unavailable"
+                        }
+                    </small>
+
 
                     <p>
                         ${escapePostHTML(
@@ -17859,6 +20085,623 @@ function openMutualProfilePostViewer(
 
             </div>
 
+
+            ${
+                isOwnPost
+
+                ?
+
+                `
+                <div
+                    class="
+                        sc-own-moment-controls
+                    "
+                >
+
+                    <button
+                        type="button"
+                        id="sc-own-edit-caption"
+                    >
+                        ✎ Edit Caption
+                    </button>
+
+
+                    <button
+                        type="button"
+                        id="sc-own-view-likes"
+                    >
+                        ♥ View Likes
+                    </button>
+
+                </div>
+                `
+
+                :
+
+                ""
+            }
+
+        </section>
+
+    `;
+
+
+    SC_ProfileMoment_AttachEvents(
+        post
+    );
+
+}
+
+
+/* -----------------------------------------------------
+   EVENTS
+----------------------------------------------------- */
+
+function SC_ProfileMoment_AttachEvents(
+    post
+){
+
+    const viewer =
+        document.getElementById(
+            "mutual-profile-post-viewer"
+        );
+
+
+    if(!viewer){
+
+        return;
+
+    }
+
+
+    viewer
+        .querySelectorAll(
+            "[data-close-profile-post-viewer]"
+        )
+        .forEach(
+            button => {
+
+                button.addEventListener(
+                    "click",
+                    () => {
+
+                        viewer.classList.remove(
+                            "active"
+                        );
+
+                        viewer.setAttribute(
+                            "aria-hidden",
+                            "true"
+                        );
+
+                    }
+                );
+
+            }
+        );
+
+
+    /*
+     * LIKE
+     */
+
+    const likeButton =
+        document.getElementById(
+            "mutual-profile-post-viewer-like"
+        );
+
+
+    likeButton?.addEventListener(
+        "click",
+        event => {
+
+            event.stopPropagation();
+
+
+            const state =
+                SC_Moment_ToggleLike(
+                    post
+                );
+
+
+            if(!state){
+
+                return;
+
+            }
+
+
+            const liked =
+                SC_Moment_IsLikedByCurrentUser(
+                    post
+                );
+
+
+            likeButton.classList.toggle(
+                "liked",
+                liked
+            );
+
+
+            likeButton.firstChild.textContent =
+                liked
+                    ? "♥"
+                    : "♡";
+
+
+            likeButton
+                .querySelector(
+                    "span"
+                )
+                .textContent =
+                    state.count;
+
+        }
+    );
+
+
+    /*
+     * PREVIOUS
+     */
+
+    document
+        .getElementById(
+            "sc-profile-viewer-prev"
+        )
+        ?.addEventListener(
+            "click",
+            () => {
+
+                SC_ProfileMoment_Previous();
+
+            }
+        );
+
+
+    /*
+     * NEXT
+     */
+
+    document
+        .getElementById(
+            "sc-profile-viewer-next"
+        )
+        ?.addEventListener(
+            "click",
+            () => {
+
+                SC_ProfileMoment_Next();
+
+            }
+        );
+
+
+    /*
+     * EDIT CAPTION
+     */
+
+    document
+        .getElementById(
+            "sc-own-edit-caption"
+        )
+        ?.addEventListener(
+            "click",
+            () => {
+
+                const card =
+                    document.querySelector(
+                        `.my-post-card[data-post-id="${CSS.escape(post.id)}"]`
+                    );
+
+
+                if(card){
+
+                    openMomentCaptionEditor(
+                        card
+                    );
+
+                }
+
+            }
+        );
+
+
+    /*
+     * VIEW LIKES
+     */
+
+    document
+        .getElementById(
+            "sc-own-view-likes"
+        )
+        ?.addEventListener(
+            "click",
+            () => {
+
+                openMomentLikesViewer(
+                    post
+                );
+
+            }
+        );
+
+
+    /*
+     * HORIZONTAL SWIPE
+     */
+
+    const swipeArea =
+        document.getElementById(
+            "sc-profile-viewer-swipe-area"
+        );
+
+
+    if(swipeArea){
+
+        swipeArea.addEventListener(
+            "touchstart",
+            event => {
+
+                SC_ProfileMomentTouchStartX =
+                    event
+                        .changedTouches[0]
+                        .clientX;
+
+            },
+            {
+                passive:true
+            }
+        );
+
+
+        swipeArea.addEventListener(
+            "touchend",
+            event => {
+
+                SC_ProfileMomentTouchEndX =
+                    event
+                        .changedTouches[0]
+                        .clientX;
+
+
+                const difference =
+                    SC_ProfileMomentTouchStartX -
+                    SC_ProfileMomentTouchEndX;
+
+
+                if(
+                    Math.abs(
+                        difference
+                    ) <
+                    60
+                ){
+
+                    return;
+
+                }
+
+
+                if(
+                    difference >
+                    0
+                ){
+
+                    SC_ProfileMoment_Next();
+
+                }else{
+
+                    SC_ProfileMoment_Previous();
+
+                }
+
+            },
+            {
+                passive:true
+            }
+        );
+
+    }
+
+}
+
+
+/* -----------------------------------------------------
+   NEXT
+----------------------------------------------------- */
+
+function SC_ProfileMoment_Next(){
+
+    const data =
+        SC_ProfileMomentViewerData;
+
+
+    if(
+        data.index <
+        data.posts.length - 1
+    ){
+
+        data.index++;
+
+        SC_ProfileMoment_Render();
+
+    }
+
+}
+
+
+/* -----------------------------------------------------
+   PREVIOUS
+----------------------------------------------------- */
+
+function SC_ProfileMoment_Previous(){
+
+    const data =
+        SC_ProfileMomentViewerData;
+
+
+    if(
+        data.index >
+        0
+    ){
+
+        data.index--;
+
+        SC_ProfileMoment_Render();
+
+    }
+
+}
+
+
+/* =====================================================
+   MOMENT LIKES VIEWER
+===================================================== */
+
+function openMomentLikesViewer(
+    post
+){
+
+    const state =
+        SC_Moment_GetLikeState(
+            post
+        );
+
+
+    let viewer =
+        document.getElementById(
+            "sc-moment-likes-viewer"
+        );
+
+
+    if(!viewer){
+
+        viewer =
+            document.createElement(
+                "div"
+            );
+
+
+        viewer.id =
+            "sc-moment-likes-viewer";
+
+
+        viewer.className =
+            "sc-moment-likes-viewer";
+
+
+        document.body.appendChild(
+            viewer
+        );
+
+    }
+
+
+    const likes =
+        state.likedBy
+            .slice()
+            .sort(
+                (
+                    a,
+                    b
+                ) =>
+                    new Date(
+                        a.likedAt
+                    ) -
+                    new Date(
+                        b.likedAt
+                    )
+            );
+
+
+    viewer.innerHTML = `
+
+        <div
+            class="
+                sc-moment-likes-backdrop
+            "
+            data-close-moment-likes
+        ></div>
+
+
+        <section
+            class="
+                sc-moment-likes-panel
+            "
+        >
+
+            <header
+                class="
+                    sc-moment-likes-header
+                "
+            >
+
+                <div>
+
+                    <strong>
+                        Likes
+                    </strong>
+
+                    <small>
+                        ${state.count}
+                        ${
+                            state.count === 1
+                                ? "like"
+                                : "likes"
+                        }
+                    </small>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    data-close-moment-likes
+                    aria-label="Close likes"
+                >
+                    ×
+                </button>
+
+            </header>
+
+
+            <div
+                class="
+                    sc-moment-likes-list
+                "
+            >
+
+                ${
+                    likes.length
+
+                    ?
+
+                    likes
+                        .map(
+                            person => `
+
+                                <article
+                                    class="
+                                        sc-moment-like-card
+                                    "
+                                >
+
+                                    ${
+                                        person.photo
+
+                                        ?
+
+                                        `
+                                        <img
+                                            src="${escapePostHTML(
+                                                person.photo
+                                            )}"
+                                            alt=""
+                                        >
+                                        `
+
+                                        :
+
+                                        `
+                                        <div
+                                            class="
+                                                sc-moment-like-avatar
+                                            "
+                                        >
+                                            ?
+                                        </div>
+                                        `
+                                    }
+
+
+                                    <div
+                                        class="
+                                            sc-moment-like-person
+                                        "
+                                    >
+
+                                        <strong>
+                                            ${escapePostHTML(
+                                                person.name ||
+                                                person.username ||
+                                                "Secret Crush"
+                                            )}
+                                        </strong>
+
+
+                                        ${
+                                            person.username
+                                                ? `
+                                                    <span>
+                                                        ${escapePostHTML(
+                                                            person.username
+                                                        )}
+                                                    </span>
+                                                `
+                                                : ""
+                                        }
+
+
+                                        <small>
+                                            ${SC_Moment_FormatDateTime(
+                                                person.likedAt
+                                            )}
+                                        </small>
+
+                                    </div>
+
+                                </article>
+
+                            `
+                        )
+                        .join("")
+
+                    :
+
+                    `
+                    <div
+                        class="
+                            sc-moment-no-likes
+                        "
+                    >
+
+                        ${
+                            state.count > 0
+
+                            ?
+
+                            `
+                            <strong>
+                                ${state.count}
+                                ${
+                                    state.count === 1
+                                        ? "like"
+                                        : "likes"
+                                }
+                            </strong>
+
+                            <p>
+                                Some of these likes were
+                                recorded before the detailed
+                                like registry was introduced.
+                            </p>
+                            `
+
+                            :
+
+                            `
+                            <p>
+                                Nobody has liked this moment yet.
+                            </p>
+                            `
+                        }
+
+                    </div>
+                    `
+
+                }
+
+            </div>
+
         </section>
 
     `;
@@ -17869,71 +20712,30 @@ function openMutualProfilePostViewer(
     );
 
 
-    viewer.setAttribute(
-        "aria-hidden",
-        "false"
-    );
-
-
     viewer
         .querySelectorAll(
-            "[data-close-profile-post-viewer]"
+            "[data-close-moment-likes]"
         )
-        .forEach(button => {
+        .forEach(
+            button => {
 
-            button.addEventListener(
-                "click",
-                () => {
+                button.addEventListener(
+                    "click",
+                    () => {
 
-                    viewer.classList.remove(
-                        "active"
-                    );
+                        viewer.classList.remove(
+                            "active"
+                        );
 
-                    viewer.setAttribute(
-                        "aria-hidden",
-                        "true"
-                    );
-
-                }
-            );
-
-        });
-
-
-    const likeButton =
-        viewer.querySelector(
-            "#mutual-profile-post-viewer-like"
-        );
-
-
-    if(likeButton){
-
-        likeButton.addEventListener(
-            "click",
-            () => {
-
-                post.likes =
-                    (
-                        Number(
-                            post.likes
-                        ) || 0
-                    ) + 1;
-
-
-                likeButton.textContent =
-                    `♥ ${post.likes}`;
-
-
-                likeButton.classList.add(
-                    "liked"
+                    }
                 );
 
             }
         );
 
-    }
-
 }
+
+
 
 
 
@@ -24402,6 +27204,47 @@ document.addEventListener(
 
         }
 
+/* ---------------------------------------------
+   VIEW LIKES
+--------------------------------------------- */
+
+const viewLikesButton =
+    event.target.closest(
+        ".sc-my-post-likes-option"
+    );
+
+
+if(viewLikesButton){
+
+    event.stopPropagation();
+
+
+    const postId =
+        viewLikesButton.dataset.viewLikes;
+
+
+    const post =
+        SC_Moment_GetStoredPostById(
+            postId
+        );
+
+
+    if(post){
+
+        openMomentLikesViewer(
+            post
+        );
+
+    }
+
+
+    return;
+
+}
+
+
+
+
 
         /* ---------------------------------------------
            DELETE POST
@@ -24704,6 +27547,12 @@ function renderPostInFeed(
             post
         );
         
+        post =
+    SC_Moment_ApplyLikeState(
+        post
+    );
+        
+        
 
     const feedContent =
         document.querySelector(
@@ -24745,6 +27594,10 @@ article.dataset.postId =
     
     article.dataset.ownerId =
     post.ownerId ||
+    "";
+    
+    article.dataset.createdAt =
+    post.createdAt ||
     "";
 
 
@@ -24930,6 +27783,11 @@ function renderPostInHome(
             post
         );
         
+        post =
+    SC_Moment_ApplyLikeState(
+        post
+    );
+        
 
     const homeContent =
         document.querySelector(
@@ -24979,6 +27837,10 @@ function renderPostInHome(
         post.id;
         article.dataset.ownerId =
     post.ownerId ||
+    "";
+    
+    article.dataset.createdAt =
+    post.createdAt ||
     "";
 
 
@@ -25205,19 +28067,127 @@ function loadSavedMoments(){
 RENDER MY POST
 ===================================================== */
 
+
+/* =====================================================
+   MY STORED MOMENT HELPERS
+===================================================== */
+
+function SC_Moment_GetStoredPostById(
+    postId
+){
+
+    try{
+
+        const saved =
+            JSON.parse(
+                localStorage.getItem(
+                    "secretCrushMoments"
+                ) || "[]"
+            );
+
+
+        if(
+            Array.isArray(
+                saved
+            )
+        ){
+
+            return saved.find(
+                post =>
+                    String(
+                        post.id
+                    ) ===
+                    String(
+                        postId
+                    )
+            ) || null;
+
+        }
+
+    }catch(error){
+
+        return null;
+
+    }
+
+
+    return null;
+
+}
+
+
+function SC_Moment_GetOwnStoredPosts(){
+
+    try{
+
+        const saved =
+            JSON.parse(
+                localStorage.getItem(
+                    "secretCrushMoments"
+                ) || "[]"
+            );
+
+
+        if(
+            Array.isArray(
+                saved
+            )
+        ){
+
+            return saved
+                .map(
+                    post =>
+                        SC_Moment_ApplyLikeState(
+                            post
+                        )
+                )
+                .sort(
+                    (
+                        a,
+                        b
+                    ) =>
+                        new Date(
+                            b.createdAt ||
+                            0
+                        ) -
+                        new Date(
+                            a.createdAt ||
+                            0
+                        )
+                );
+
+        }
+
+    }catch(error){
+
+        return [];
+
+    }
+
+
+    return [];
+
+}
+
+
+
 function renderMyPost(
     post,
     prepend = true
 ){
 
     if(!myPostsGrid){
+
         return;
+
     }
 
 
-    /*
-     * Don't render the same real post twice.
-     */
+    post =
+        SC_Moment_ApplyLikeState(
+            post
+        );
+
 
     const existing =
         myPostsGrid.querySelector(
@@ -25226,12 +28196,16 @@ function renderMyPost(
 
 
     if(existing){
+
         return;
+
     }
 
 
     const article =
-        document.createElement("article");
+        document.createElement(
+            "article"
+        );
 
 
     article.className =
@@ -25246,57 +28220,105 @@ function renderMyPost(
         "true";
 
 
+    article.dataset.createdAt =
+        post.createdAt ||
+        "";
+
+
     article.innerHTML = `
 
         <div
             class="my-post-image"
             ${
                 post.image
-                    ? `
-                        style="
-                            background-image:url('${post.image}');
-                            background-size:cover;
-                            background-position:center;
-                        "
+
+                    ?
+
                     `
-                    : ""
+                    style="
+                        background-image:url('${post.image}');
+                        background-size:cover;
+                        background-position:center;
+                    "
+                    `
+
+                    :
+
+                    ""
             }
         >
+
             ${
                 post.image
                     ? ""
                     : "💭"
             }
+
         </div>
 
 
-        <div class="my-post-card-content">
+        <div
+            class="my-post-card-content"
+        >
 
             ${
                 post.caption
-                    ? `
-                        <p class="my-post-caption">
-                            ${escapePostHTML(post.caption)}
-                        </p>
+
+                    ?
+
                     `
-                    : ""
-            }
+                    <p
+                        class="my-post-caption"
+                    >
+                        ${escapePostHTML(
+                            post.caption
+                        )}
+                    </p>
+                    `
 
+                    :
 
-            ${
-                post.text
-                    ? `
+                    post.text
+
+                        ?
+
+                        `
                         <p>
-                            ${escapePostHTML(post.text)}
+                            ${escapePostHTML(
+                                post.text
+                            )}
                         </p>
-                    `
-                    : ""
+                        `
+
+                        :
+
+                        ""
             }
 
 
-            <small>
-                Just now
-            </small>
+            <div
+                class="
+                    my-post-card-meta
+                "
+            >
+
+                <span>
+                    ♥
+                    ${post.likes || 0}
+                </span>
+
+
+                <small>
+                    ${
+                        post.createdAt
+                            ? SC_Moment_FormatDateTime(
+                                post.createdAt
+                            )
+                            : "Date unavailable"
+                    }
+                </small>
+
+            </div>
 
         </div>
 
@@ -25323,6 +28345,15 @@ function renderMyPost(
                 data-edit-caption="${post.id}"
             >
                 ✎ Add / Edit Caption
+            </button>
+
+
+            <button
+                type="button"
+                class="sc-my-post-likes-option"
+                data-view-likes="${post.id}"
+            >
+                ♥ View Likes
             </button>
 
 
@@ -25363,9 +28394,60 @@ function renderMyPost(
     }
 
 
+    /*
+     * Tapping the actual moment opens the
+     * horizontal moment viewer.
+     */
+
+    const image =
+        article.querySelector(
+            ".my-post-image"
+        );
+
+
+    image?.addEventListener(
+        "click",
+        () => {
+
+            const saved =
+                SC_Moment_GetStoredPostById(
+                    post.id
+                );
+
+
+            openMutualProfilePostViewer(
+                {
+                    id:
+                        post.ownerId,
+
+                    name:
+                        post.name,
+
+                    username:
+                        post.username,
+
+                    posts:
+                        saved
+                            ? SC_Moment_GetOwnStoredPosts()
+                            : [post]
+
+                },
+                post,
+                0,
+                saved
+                    ? SC_Moment_GetOwnStoredPosts()
+                        .length
+                    : 1
+            );
+
+        }
+    );
+
+
     updateMyPostCount();
 
 }
+
 
 /* =====================================================
 LOAD USER MOMENTS ON STARTUP

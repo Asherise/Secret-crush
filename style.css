@@ -26275,3 +26275,1045 @@ SEARCH FILTER — NO RESULTS
     line-height: 1.5;
 
 }
+
+
+/* =====================================================
+   SECRET CRUSH — MOMENT INTERACTION UI
+===================================================== */
+
+
+/* =====================================================
+   MY POST META
+===================================================== */
+
+.my-post-card-meta{
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+    gap:8px;
+
+    margin-top:8px;
+
+    color:#a9a3b5;
+
+    font-size:9px;
+
+}
+
+
+.my-post-card-meta span{
+
+    color:#ff78b7;
+
+    font-weight:700;
+
+}
+
+
+.my-post-card-meta small{
+
+    margin:0;
+
+    color:#6e6879;
+
+    font-size:8px;
+
+}
+
+
+/* =====================================================
+   PROFILE POST DATE
+===================================================== */
+
+.mutual-profile-post-date{
+
+    display:block;
+
+    margin-top:5px;
+
+    color:#716b7c;
+
+    font-size:8px;
+
+}
+
+
+/* =====================================================
+   FULL SCREEN FEED MOMENT VIEWER
+===================================================== */
+
+.sc-feed-moment-viewer{
+
+    position:fixed;
+
+    inset:0;
+
+    z-index:5000;
+
+    visibility:hidden;
+
+    pointer-events:none;
+
+    opacity:0;
+
+    transition:
+        opacity .22s ease;
+
+    background:#000;
+
+}
+
+
+.sc-feed-moment-viewer.active{
+
+    visibility:visible;
+
+    pointer-events:auto;
+
+    opacity:1;
+
+}
+
+
+.sc-feed-moment-backdrop{
+
+    position:absolute;
+
+    inset:0;
+
+    background:#000;
+
+}
+
+
+.sc-feed-moment-panel{
+
+    position:absolute;
+
+    inset:0;
+
+    overflow:hidden;
+
+    background:#000;
+
+}
+
+
+.sc-feed-moment-media{
+
+    position:absolute;
+
+    inset:0;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    overflow:hidden;
+
+    background:#030307;
+
+}
+
+
+.sc-feed-moment-media img{
+
+    width:100%;
+
+    height:100%;
+
+    display:block;
+
+    object-fit:cover;
+
+}
+
+
+.sc-feed-moment-text-only{
+
+    max-width:80%;
+
+    color:#fff;
+
+    font-size:24px;
+
+    line-height:1.5;
+
+    text-align:center;
+
+}
+
+
+/* =====================================================
+   BACK BUTTON
+===================================================== */
+
+.sc-feed-moment-back{
+
+    position:absolute;
+
+    top:18px;
+
+    left:14px;
+
+    z-index:20;
+
+    width:42px;
+
+    height:42px;
+
+    border:
+        1px solid
+        rgba(255,255,255,.18);
+
+    border-radius:50%;
+
+    background:
+        rgba(0,0,0,.42);
+
+    backdrop-filter:blur(8px);
+
+    color:#fff;
+
+    font-size:29px;
+
+    line-height:1;
+
+}
+
+
+/* =====================================================
+   FLOATING SEARCH / VASE
+===================================================== */
+
+.sc-feed-moment-floating-tools{
+
+    position:absolute;
+
+    top:18px;
+
+    right:14px;
+
+    z-index:20;
+
+    display:flex;
+
+    gap:8px;
+
+}
+
+
+.sc-feed-moment-tool{
+
+    width:40px;
+
+    height:40px;
+
+    border:
+        1px solid
+        rgba(255,255,255,.16);
+
+    border-radius:50%;
+
+    background:
+        rgba(0,0,0,.42);
+
+    backdrop-filter:blur(8px);
+
+    color:#fff;
+
+    font-size:20px;
+
+}
+
+
+/* =====================================================
+   COUNTER
+===================================================== */
+
+.sc-feed-moment-counter{
+
+    position:absolute;
+
+    top:69px;
+
+    left:50%;
+
+    z-index:20;
+
+    transform:translateX(-50%);
+
+    padding:
+        5px
+        10px;
+
+    border-radius:999px;
+
+    background:
+        rgba(0,0,0,.48);
+
+    color:#fff;
+
+    font-size:9px;
+
+}
+
+
+/* =====================================================
+   SIDE ACTIONS
+===================================================== */
+
+.sc-feed-moment-actions{
+
+    position:absolute;
+
+    right:12px;
+
+    bottom:135px;
+
+    z-index:20;
+
+    display:flex;
+
+    flex-direction:column;
+
+    align-items:center;
+
+    gap:20px;
+
+}
+
+
+.sc-feed-moment-action{
+
+    width:54px;
+
+    min-height:58px;
+
+    display:flex;
+
+    flex-direction:column;
+
+    align-items:center;
+
+    justify-content:center;
+
+    gap:4px;
+
+    border:0;
+
+    background:transparent;
+
+    color:#fff;
+
+}
+
+
+.sc-feed-moment-action span{
+
+    font-size:31px;
+
+    line-height:1;
+
+    text-shadow:
+        0 3px 12px
+        rgba(0,0,0,.6);
+
+}
+
+
+.sc-feed-moment-action strong{
+
+    font-size:11px;
+
+}
+
+
+.sc-feed-moment-action small{
+
+    font-size:8px;
+
+    line-height:1.15;
+
+    text-align:center;
+
+}
+
+
+.sc-feed-moment-action.liked{
+
+    color:#ff275f;
+
+}
+
+
+.sc-feed-moment-action.liked span{
+
+    color:#ff275f;
+
+}
+
+
+/* =====================================================
+   BOTTOM INFORMATION
+===================================================== */
+
+.sc-feed-moment-bottom{
+
+    position:absolute;
+
+    left:0;
+
+    right:72px;
+
+    bottom:0;
+
+    z-index:20;
+
+    padding:
+        70px
+        18px
+        24px;
+
+    background:
+        linear-gradient(
+            to top,
+            rgba(0,0,0,.86),
+            rgba(0,0,0,.48),
+            transparent
+        );
+
+}
+
+
+.sc-feed-moment-person{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:9px;
+
+}
+
+
+.sc-feed-moment-person img,
+.sc-feed-moment-avatar-fallback{
+
+    width:40px;
+
+    height:40px;
+
+    flex:0 0 40px;
+
+    border-radius:50%;
+
+    object-fit:cover;
+
+    border:
+        2px solid
+        rgba(255,255,255,.8);
+
+}
+
+
+.sc-feed-moment-avatar-fallback{
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    background:#171321;
+
+    color:#fff;
+
+}
+
+
+.sc-feed-moment-person strong{
+
+    display:block;
+
+    color:#fff;
+
+    font-size:13px;
+
+}
+
+
+.sc-feed-moment-person small{
+
+    display:block;
+
+    margin-top:3px;
+
+    color:#c1bbc9;
+
+    font-size:9px;
+
+}
+
+
+.sc-feed-moment-caption{
+
+    margin:
+        11px
+        0
+        0;
+
+    color:#fff;
+
+    font-size:12px;
+
+    line-height:1.5;
+
+}
+
+
+/* =====================================================
+   DOUBLE TAP HEART
+===================================================== */
+
+.sc-feed-floating-heart{
+
+    position:absolute;
+
+    left:50%;
+
+    top:50%;
+
+    z-index:30;
+
+    transform:
+        translate(
+            -50%,
+            -50%
+        )
+        scale(.25);
+
+    opacity:0;
+
+    color:#ff245c;
+
+    font-size:100px;
+
+    pointer-events:none;
+
+    text-shadow:
+        0
+        8px
+        30px
+        rgba(255,0,80,.45);
+
+}
+
+
+.sc-feed-floating-heart.show{
+
+    animation:
+        scMomentHeartPop
+        .8s
+        ease-out
+        forwards;
+
+}
+
+
+@keyframes scMomentHeartPop{
+
+    0%{
+
+        opacity:0;
+
+        transform:
+            translate(
+                -50%,
+                -50%
+            )
+            scale(.25);
+
+    }
+
+    20%{
+
+        opacity:1;
+
+        transform:
+            translate(
+                -50%,
+                -50%
+            )
+            scale(1.18);
+
+    }
+
+    55%{
+
+        opacity:1;
+
+        transform:
+            translate(
+                -50%,
+                -50%
+            )
+            scale(1);
+
+    }
+
+    100%{
+
+        opacity:0;
+
+        transform:
+            translate(
+                -50%,
+                -58%
+            )
+            scale(1.25);
+
+    }
+
+}
+
+
+/* =====================================================
+   PROFILE HORIZONTAL VIEWER
+===================================================== */
+
+.sc-profile-horizontal-panel{
+
+    width:min(
+        100%,
+        760px
+    );
+
+}
+
+
+.sc-profile-viewer-arrow{
+
+    position:absolute;
+
+    top:50%;
+
+    z-index:10;
+
+    transform:translateY(-50%);
+
+    width:38px;
+
+    height:58px;
+
+    border:0;
+
+    background:
+        rgba(0,0,0,.35);
+
+    color:#fff;
+
+    font-size:38px;
+
+}
+
+
+.sc-profile-viewer-arrow-left{
+
+    left:4px;
+
+}
+
+
+.sc-profile-viewer-arrow-right{
+
+    right:4px;
+
+}
+
+
+.sc-profile-viewer-swipe-area{
+
+    touch-action:
+        pan-y;
+
+    user-select:none;
+
+}
+
+
+.sc-profile-viewer-date{
+
+    display:block;
+
+    margin:
+        2px
+        0
+        5px;
+
+    color:#716b7c;
+
+    font-size:8px;
+
+}
+
+
+/* =====================================================
+   OWN MOMENT CONTROLS
+===================================================== */
+
+.sc-own-moment-controls{
+
+    display:grid;
+
+    grid-template-columns:
+        1fr
+        1fr;
+
+    gap:8px;
+
+    padding:
+        0
+        15px
+        15px;
+
+}
+
+
+.sc-own-moment-controls button{
+
+    min-height:38px;
+
+    border:
+        1px solid
+        rgba(167,139,250,.28);
+
+    border-radius:12px;
+
+    background:
+        rgba(167,139,250,.08);
+
+    color:#fff;
+
+    font-size:10px;
+
+    font-weight:700;
+
+}
+
+
+/* =====================================================
+   LIKES VIEWER
+===================================================== */
+
+.sc-moment-likes-viewer{
+
+    position:fixed;
+
+    inset:0;
+
+    z-index:6000;
+
+    visibility:hidden;
+
+    pointer-events:none;
+
+    opacity:0;
+
+    transition:
+        opacity .2s ease;
+
+}
+
+
+.sc-moment-likes-viewer.active{
+
+    visibility:visible;
+
+    pointer-events:auto;
+
+    opacity:1;
+
+}
+
+
+.sc-moment-likes-backdrop{
+
+    position:absolute;
+
+    inset:0;
+
+    background:
+        rgba(0,0,0,.72);
+
+    backdrop-filter:blur(9px);
+
+}
+
+
+.sc-moment-likes-panel{
+
+    position:absolute;
+
+    left:50%;
+
+    bottom:0;
+
+    width:min(
+        100%,
+        560px
+    );
+
+    max-height:
+        78vh;
+
+    overflow:hidden;
+
+    transform:
+        translateX(-50%);
+
+    border:
+        1px solid
+        rgba(167,139,250,.22);
+
+    border-radius:
+        24px
+        24px
+        0
+        0;
+
+    background:
+        #090812;
+
+    box-shadow:
+        0
+        -20px
+        70px
+        rgba(0,0,0,.55);
+
+}
+
+
+.sc-moment-likes-header{
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+    padding:
+        18px;
+
+    border-bottom:
+        1px solid
+        rgba(255,255,255,.07);
+
+}
+
+
+.sc-moment-likes-header strong{
+
+    display:block;
+
+    color:#fff;
+
+    font-size:15px;
+
+}
+
+
+.sc-moment-likes-header small{
+
+    display:block;
+
+    margin-top:3px;
+
+    color:#8d8798;
+
+    font-size:9px;
+
+}
+
+
+.sc-moment-likes-header button{
+
+    width:34px;
+
+    height:34px;
+
+    border:0;
+
+    border-radius:50%;
+
+    background:
+        rgba(255,255,255,.06);
+
+    color:#fff;
+
+    font-size:22px;
+
+}
+
+
+.sc-moment-likes-list{
+
+    max-height:
+        calc(78vh - 76px);
+
+    overflow-y:auto;
+
+    padding:
+        8px
+        12px
+        20px;
+
+}
+
+
+.sc-moment-like-card{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:11px;
+
+    padding:
+        11px
+        8px;
+
+    border-bottom:
+        1px solid
+        rgba(255,255,255,.045);
+
+}
+
+
+.sc-moment-like-card img,
+.sc-moment-like-avatar{
+
+    width:43px;
+
+    height:43px;
+
+    flex:0 0 43px;
+
+    border-radius:50%;
+
+    object-fit:cover;
+
+}
+
+
+.sc-moment-like-avatar{
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    background:
+        #191526;
+
+    color:#fff;
+
+    font-size:16px;
+
+}
+
+
+.sc-moment-like-person{
+
+    min-width:0;
+
+}
+
+
+.sc-moment-like-person strong{
+
+    display:block;
+
+    color:#fff;
+
+    font-size:11px;
+
+}
+
+
+.sc-moment-like-person span{
+
+    display:block;
+
+    margin-top:2px;
+
+    color:#8f899b;
+
+    font-size:8px;
+
+}
+
+
+.sc-moment-like-person small{
+
+    display:block;
+
+    margin-top:4px;
+
+    color:#6f6979;
+
+    font-size:8px;
+
+}
+
+
+.sc-moment-no-likes{
+
+    padding:
+        40px
+        20px;
+
+    text-align:center;
+
+    color:#817b8b;
+
+    font-size:11px;
+
+}
+
+
+.sc-moment-no-likes strong{
+
+    color:#fff;
+
+}
+
+
+.sc-moment-no-likes p{
+
+    margin:
+        8px
+        0
+        0;
+
+    line-height:1.5;
+
+}
+
+
+/* =====================================================
+   PREVENT PAGE SCROLL BEHIND MOMENT VIEWER
+===================================================== */
+
+body.sc-moment-viewer-open{
+
+    overflow:hidden;
+
+}
