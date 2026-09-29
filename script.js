@@ -19740,12 +19740,8 @@ if(secretCrushButton){
 
 
 /* =====================================================
-PROFILE POST — WIDESCREEN VIEWER
-===================================================== */
-
-/* =====================================================
    PROFILE MOMENT VIEWER
-   Horizontal swipe / next / previous
+   VERTICAL FULL-SCREEN MOMENT FEED
 ===================================================== */
 
 let SC_ProfileMomentViewerData = {
@@ -19762,14 +19758,6 @@ let SC_ProfileMomentViewerData = {
 };
 
 
-let SC_ProfileMomentTouchStartX =
-    0;
-
-
-let SC_ProfileMomentTouchEndX =
-    0;
-
-
 /* -----------------------------------------------------
    OPEN
 ----------------------------------------------------- */
@@ -19781,37 +19769,135 @@ function openMutualProfilePostViewer(
     total
 ){
 
-    const posts =
+    const sourcePosts =
         Array.isArray(
-            crush.posts
+            crush?.posts
         )
 
             ?
 
-            crush.posts.map(
-                (
-                    item,
-                    itemIndex
-                ) =>
-                    SC_Moment_ApplyLikeState(
-                        {
-                            ...item,
-
-                            id:
-                                SC_Moment_GetStablePostId(
-                                    item,
-                                    crush.id,
-                                    itemIndex
-                                )
-                        },
-                        crush.id,
-                        itemIndex
-                    )
-            )
+            crush.posts
 
             :
 
             [];
+
+
+    const posts =
+        sourcePosts.map(
+            (
+                item,
+                itemIndex
+            ) => {
+
+                const stableId =
+                    SC_Moment_GetStablePostId(
+                        item,
+                        crush?.id,
+                        itemIndex
+                    );
+
+
+                return SC_Moment_ApplyLikeState(
+                    {
+                        ...item,
+
+                        id:
+                            stableId,
+
+                        ownerId:
+                            item.ownerId ||
+                            crush?.id ||
+                            ""
+                    },
+
+                    crush?.id,
+
+                    itemIndex
+
+                );
+
+            }
+        );
+
+
+    /*
+     * If the supplied post is not already inside
+     * the supplied post list, add it so the viewer
+     * always has something to display.
+     */
+
+    if(
+        post &&
+        posts.length === 0
+    ){
+
+        const fallbackPost =
+            SC_Moment_ApplyLikeState(
+                {
+                    ...post,
+
+                    id:
+                        SC_Moment_GetStablePostId(
+                            post,
+                            crush?.id,
+                            0
+                        ),
+
+                    ownerId:
+                        post.ownerId ||
+                        crush?.id ||
+                        ""
+                },
+
+                crush?.id,
+
+                0
+
+            );
+
+
+        posts.push(
+            fallbackPost
+        );
+
+    }
+
+
+    /*
+     * Locate the actual post by ID.
+     * This is safer than relying only on an index.
+     */
+
+    let startIndex =
+        posts.findIndex(
+            item =>
+                item.id ===
+                post?.id
+        );
+
+
+    /*
+     * Fall back to the supplied index.
+     */
+
+    if(
+        startIndex < 0
+    ){
+
+        startIndex =
+            Math.max(
+                0,
+                Math.min(
+                    Number(index) || 0,
+                    Math.max(
+                        0,
+                        posts.length - 1
+                    )
+                )
+            );
+
+    }
 
 
     SC_ProfileMomentViewerData = {
@@ -19823,13 +19909,7 @@ function openMutualProfilePostViewer(
             posts,
 
         index:
-            Math.max(
-                0,
-                Math.min(
-                    index,
-                    posts.length - 1
-                )
-            )
+            startIndex
 
     };
 
@@ -19876,6 +19956,32 @@ function openMutualProfilePostViewer(
         "false"
     );
 
+
+    /*
+     * Lock the page underneath the viewer.
+     */
+
+    document.body.classList.add(
+        "sc-moment-viewer-open"
+    );
+
+
+    /*
+     * Put the requested post at the top of the
+     * vertical feed.
+     */
+
+    requestAnimationFrame(
+        () => {
+
+            SC_ProfileMoment_ScrollToIndex(
+                startIndex,
+                false
+            );
+
+        }
+    );
+
 }
 
 
@@ -19902,24 +20008,124 @@ function SC_ProfileMoment_Render(){
         SC_ProfileMomentViewerData;
 
 
-    const post =
-        data.posts[
-            data.index
-        ];
-
-
-    if(!post){
+    if(
+        !data ||
+        !Array.isArray(data.posts) ||
+        !data.posts.length
+    ){
 
         return;
 
     }
 
 
+    const currentProfile =
+        getCurrentProfile();
+
+
+    viewer.innerHTML = `
+
+        <div
+            class="
+                sc-profile-moment-backdrop
+            "
+            data-close-profile-post-viewer
+        ></div>
+
+
+        <section
+            class="
+                sc-profile-moment-shell
+            "
+            role="dialog"
+            aria-modal="true"
+            aria-label="Moments"
+        >
+
+            <button
+                type="button"
+                class="
+                    sc-profile-moment-close
+                "
+                data-close-profile-post-viewer
+                aria-label="Close moments"
+            >
+                ×
+            </button>
+
+
+            <div
+                class="
+                    sc-profile-moment-counter
+                "
+                id="sc-profile-moment-counter"
+            >
+                ${data.index + 1}
+                /
+                ${data.posts.length}
+            </div>
+
+
+            <div
+                class="
+                    sc-profile-moment-scroll
+                "
+                id="sc-profile-moment-scroll"
+            >
+
+                ${
+                    data.posts
+                        .map(
+                            (
+                                item,
+                                itemIndex
+                            ) =>
+                                SC_ProfileMoment_CreateCard(
+                                    item,
+                                    itemIndex,
+                                    data,
+                                    currentProfile
+                                )
+                        )
+                        .join("")
+                }
+
+            </div>
+
+        </section>
+
+    `;
+
+
+    SC_ProfileMoment_AttachEvents();
+
+
+    /*
+     * Observe which card is currently closest
+     * to the centre of the viewer.
+     */
+
+    SC_ProfileMoment_SetupObserver();
+
+}
+
+
+/* -----------------------------------------------------
+   CREATE ONE VERTICAL MOMENT CARD
+----------------------------------------------------- */
+
+function SC_ProfileMoment_CreateCard(
+    post,
+    index,
+    data,
+    currentProfile
+){
+
     const state =
         SC_Moment_GetLikeState(
             post,
             data.crush?.id,
-            data.index
+            index
         );
 
 
@@ -19929,116 +20135,83 @@ function SC_ProfileMoment_Render(){
         );
 
 
-    const currentProfile =
-        getCurrentProfile();
+    const ownerId =
+        post.ownerId ||
+        data.crush?.id ||
+        "";
 
 
     const isOwnPost =
         Boolean(
             currentProfile &&
-            post.ownerId &&
-            post.ownerId ===
+            ownerId &&
+            (
+                ownerId ===
                 currentProfile.userId
+            )
         );
 
 
-    viewer.innerHTML = `
+    const imageSource =
+        post.image ||
+        post.media ||
+        post.photo ||
+        "";
 
-        <div
+
+    const username =
+        data.crush?.username ||
+        post.username ||
+        data.crush?.name ||
+        post.name ||
+        "Secret Crush";
+
+
+    const caption =
+        post.caption ||
+        post.text ||
+        "";
+
+
+    return `
+
+        <article
             class="
-                mutual-profile-post-viewer-backdrop
+                sc-profile-moment-card
             "
-            data-close-profile-post-viewer
-        ></div>
-
-
-        <section
-            class="
-                mutual-profile-post-viewer-panel
-                sc-profile-horizontal-panel
-            "
+            data-profile-moment-index="${index}"
+            data-profile-moment-id="${escapePostHTML(
+                post.id || ""
+            )}"
         >
-
-            <button
-                type="button"
-                class="
-                    mutual-profile-post-viewer-close
-                "
-                data-close-profile-post-viewer
-            >
-                ×
-            </button>
-
-
-            <button
-                type="button"
-                class="
-                    sc-profile-viewer-arrow
-                    sc-profile-viewer-arrow-left
-                "
-                id="sc-profile-viewer-prev"
-                aria-label="Previous moment"
-            >
-                ‹
-            </button>
-
-
-            <button
-                type="button"
-                class="
-                    sc-profile-viewer-arrow
-                    sc-profile-viewer-arrow-right
-                "
-                id="sc-profile-viewer-next"
-                aria-label="Next moment"
-            >
-                ›
-            </button>
-
-
-            <span
-                class="
-                    mutual-profile-post-viewer-counter
-                "
-            >
-                ${data.index + 1}
-                /
-                ${data.posts.length}
-            </span>
-
 
             <div
                 class="
-                    mutual-profile-post-viewer-media
-                    sc-profile-viewer-swipe-area
+                    sc-profile-moment-media
                 "
-                id="sc-profile-viewer-swipe-area"
             >
 
                 ${
-                    post.image ||
-                    post.media ||
-                    post.photo
+                    imageSource
 
                     ?
 
                     `
                     <img
                         src="${escapePostHTML(
-                            post.image ||
-                            post.media ||
-                            post.photo
+                            imageSource
                         )}"
                         alt="Moment"
+                        draggable="false"
                     >
                     `
 
                     :
 
                     `
-                    <span
+                    <div
                         class="
-                            mutual-profile-post-viewer-placeholder
+                            sc-profile-moment-placeholder
                         "
                     >
                         ${escapePostHTML(
@@ -20046,131 +20219,187 @@ function SC_ProfileMoment_Render(){
                             post.text ||
                             "📷"
                         )}
-                    </span>
+                    </div>
                     `
                 }
 
-            </div>
-
-
-            <div
-                class="
-                    mutual-profile-post-viewer-bottom
-                "
-            >
-
-                <button
-                    type="button"
-                    class="
-                        mutual-profile-post-viewer-like
-                        ${
-                            liked
-                                ? "liked"
-                                : ""
-                        }
-                    "
-                    id="mutual-profile-post-viewer-like"
-                >
-
-                    ${
-                        liked
-                            ? "♥"
-                            : "♡"
-                    }
-
-                    <span>
-                        ${state.count}
-                    </span>
-
-                </button>
-
 
                 <div
                     class="
-                        mutual-profile-post-viewer-caption
+                        sc-profile-moment-top
                     "
                 >
 
-                    <strong>
-                        ${escapePostHTML(
-                            data.crush?.username ||
-                            data.crush?.name ||
-                            "Secret Crush"
-                        )}
-                    </strong>
-
-
-                    <small
+                    <div
                         class="
-                            sc-profile-viewer-date
+                            sc-profile-moment-position
                         "
                     >
-                        ${
-                            post.createdAt
-                                ? SC_Moment_FormatDateTime(
-                                    post.createdAt
-                                )
-                                : "Date unavailable"
-                        }
-                    </small>
-
-
-                    <p>
-                        ${escapePostHTML(
-                            post.caption ||
-                            post.text ||
-                            ""
-                        )}
-                    </p>
+                        ${index + 1}
+                        /
+                        ${data.posts.length}
+                    </div>
 
                 </div>
 
-            </div>
 
-
-            ${
-                isOwnPost
-
-                ?
-
-                `
                 <div
                     class="
-                        sc-own-moment-controls
+                        sc-profile-moment-side-actions
                     "
                 >
 
                     <button
                         type="button"
-                        id="sc-own-edit-caption"
+                        class="
+                            sc-profile-moment-like
+                            ${
+                                liked
+                                    ? "liked"
+                                    : ""
+                            }
+                        "
+                        data-profile-moment-like
+                        data-post-id="${escapePostHTML(
+                            post.id || ""
+                        )}"
+                        aria-label="Like moment"
                     >
-                        ✎ Edit Caption
-                    </button>
 
+                        <span
+                            class="
+                                sc-profile-moment-like-icon
+                            "
+                        >
+                            ${
+                                liked
+                                    ? "♥"
+                                    : "♡"
+                            }
+                        </span>
 
-                    <button
-                        type="button"
-                        id="sc-own-view-likes"
-                    >
-                        ♥ View Likes
+                        <span
+                            class="
+                                sc-profile-moment-like-count
+                            "
+                        >
+                            ${state.count}
+                        </span>
+
                     </button>
 
                 </div>
-                `
 
-                :
 
-                ""
-            }
+                <div
+                    class="
+                        sc-profile-moment-gradient
+                    "
+                ></div>
 
-        </section>
+
+                <div
+                    class="
+                        sc-profile-moment-info
+                    "
+                >
+
+                    <div
+                        class="
+                            sc-profile-moment-user
+                        "
+                    >
+
+                        <strong>
+                            ${escapePostHTML(
+                                username
+                            )}
+                        </strong>
+
+                        <small>
+                            ${
+                                post.createdAt
+                                    ? SC_Moment_FormatDateTime(
+                                        post.createdAt
+                                    )
+                                    : "Date unavailable"
+                            }
+                        </small>
+
+                    </div>
+
+
+                    ${
+                        caption
+
+                        ?
+
+                        `
+                        <p
+                            class="
+                                sc-profile-moment-caption
+                            "
+                        >
+                            ${escapePostHTML(
+                                caption
+                            )}
+                        </p>
+                        `
+
+                        :
+
+                        ""
+                    }
+
+
+                    ${
+                        isOwnPost
+
+                        ?
+
+                        `
+                        <div
+                            class="
+                                sc-profile-moment-own-actions
+                            "
+                        >
+
+                            <button
+                                type="button"
+                                data-own-edit-caption
+                                data-post-id="${escapePostHTML(
+                                    post.id || ""
+                                )}"
+                            >
+                                ✎ Edit Caption
+                            </button>
+
+
+                            <button
+                                type="button"
+                                data-own-view-likes
+                                data-post-id="${escapePostHTML(
+                                    post.id || ""
+                                )}"
+                            >
+                                ♥ View Likes
+                            </button>
+
+                        </div>
+                        `
+
+                        :
+
+                        ""
+                    }
+
+                </div>
+
+            </div>
+
+        </article>
 
     `;
-
-
-    SC_ProfileMoment_AttachEvents(
-        post
-    );
 
 }
 
@@ -20179,8 +20408,381 @@ function SC_ProfileMoment_Render(){
    EVENTS
 ----------------------------------------------------- */
 
-function SC_ProfileMoment_AttachEvents(
-    post
+function SC_ProfileMoment_AttachEvents(){
+
+    const viewer =
+        document.getElementById(
+            "mutual-profile-post-viewer"
+        );
+
+
+    if(!viewer){
+
+        return;
+
+    }
+
+
+    /*
+     * CLOSE
+     */
+
+    viewer
+        .querySelectorAll(
+            "[data-close-profile-post-viewer]"
+        )
+        .forEach(
+            button => {
+
+                button.addEventListener(
+                    "click",
+                    () => {
+
+                        SC_ProfileMoment_Close();
+
+                    }
+                );
+
+            }
+        );
+
+
+    /*
+     * LIKE
+     */
+
+    viewer
+        .querySelectorAll(
+            "[data-profile-moment-like]"
+        )
+        .forEach(
+            button => {
+
+                button.addEventListener(
+                    "click",
+                    event => {
+
+                        event.stopPropagation();
+
+
+                        const postId =
+                            button.dataset.postId;
+
+
+                        const post =
+                            SC_ProfileMoment_FindPost(
+                                postId
+                            );
+
+
+                        if(!post){
+
+                            return;
+
+                        }
+
+
+                        const state =
+                            SC_Moment_ToggleLike(
+                                post
+                            );
+
+
+                        if(!state){
+
+                            return;
+
+                        }
+
+
+                        SC_ProfileMoment_UpdateLikeUI(
+                            postId,
+                            state
+                        );
+
+                    }
+                );
+
+            }
+        );
+
+
+    /*
+     * DOUBLE-TAP TO LIKE
+     */
+
+    viewer
+        .querySelectorAll(
+            ".sc-profile-moment-media"
+        )
+        .forEach(
+            media => {
+
+                let lastTap =
+                    0;
+
+
+                media.addEventListener(
+                    "touchend",
+                    event => {
+
+                        const now =
+                            Date.now();
+
+
+                        if(
+                            now -
+                            lastTap <
+                            320
+                        ){
+
+                            event.preventDefault();
+
+
+                            const card =
+                                media.closest(
+                                    ".sc-profile-moment-card"
+                                );
+
+
+                            if(!card){
+
+                                return;
+
+                            }
+
+
+                            const postId =
+                                card.dataset
+                                    .profileMomentId;
+
+
+                            const post =
+                                SC_ProfileMoment_FindPost(
+                                    postId
+                                );
+
+
+                            if(!post){
+
+                                return;
+
+                            }
+
+
+                            const alreadyLiked =
+                                SC_Moment_IsLikedByCurrentUser(
+                                    post
+                                );
+
+
+                            if(!alreadyLiked){
+
+                                const state =
+                                    SC_Moment_ToggleLike(
+                                        post
+                                    );
+
+
+                                if(state){
+
+                                    SC_ProfileMoment_UpdateLikeUI(
+                                        postId,
+                                        state
+                                    );
+
+                                }
+
+                            }
+
+
+                            SC_ProfileMoment_ShowHeart(
+                                media
+                            );
+
+                        }
+
+
+                        lastTap =
+                            now;
+
+                    },
+                    {
+                        passive:false
+                    }
+                );
+
+            }
+        );
+
+
+    /*
+     * OWN POST — EDIT CAPTION
+     */
+
+    viewer
+        .querySelectorAll(
+            "[data-own-edit-caption]"
+        )
+        .forEach(
+            button => {
+
+                button.addEventListener(
+                    "click",
+                    event => {
+
+                        event.stopPropagation();
+
+
+                        const postId =
+                            button.dataset.postId;
+
+
+                        const card =
+                            document.querySelector(
+                                `.my-post-card[data-post-id="${CSS.escape(postId)}"]`
+                            );
+
+
+                        if(card){
+
+                            openMomentCaptionEditor(
+                                card
+                            );
+
+                        }
+
+                    }
+                );
+
+            }
+        );
+
+
+    /*
+     * OWN POST — VIEW LIKES
+     */
+
+    viewer
+        .querySelectorAll(
+            "[data-own-view-likes]"
+        )
+        .forEach(
+            button => {
+
+                button.addEventListener(
+                    "click",
+                    event => {
+
+                        event.stopPropagation();
+
+
+                        const postId =
+                            button.dataset.postId;
+
+
+                        const post =
+                            SC_ProfileMoment_FindPost(
+                                postId
+                            );
+
+
+                        if(post){
+
+                            openMomentLikesViewer(
+                                post
+                            );
+
+                        }
+
+                    }
+                );
+
+            }
+        );
+
+
+    /*
+     * ESCAPE TO CLOSE
+     */
+
+    if(
+        !viewer.dataset
+            .escapeBound
+    ){
+
+        document.addEventListener(
+            "keydown",
+            event => {
+
+                if(
+                    event.key ===
+                    "Escape"
+                ){
+
+                    const activeViewer =
+                        document.getElementById(
+                            "mutual-profile-post-viewer"
+                        );
+
+
+                    if(
+                        activeViewer &&
+                        activeViewer.classList.contains(
+                            "active"
+                        )
+                    ){
+
+                        SC_ProfileMoment_Close();
+
+                    }
+
+                }
+
+            }
+        );
+
+
+        viewer.dataset.escapeBound =
+            "true";
+
+    }
+
+}
+
+
+/* -----------------------------------------------------
+   FIND POST
+----------------------------------------------------- */
+
+function SC_ProfileMoment_FindPost(
+    postId
+){
+
+    const posts =
+        SC_ProfileMomentViewerData.posts;
+
+
+    return posts.find(
+        post =>
+            String(
+                post.id
+            ) ===
+            String(
+                postId
+            )
+    ) || null;
+
+}
+
+
+/* -----------------------------------------------------
+   UPDATE LIKE UI
+----------------------------------------------------- */
+
+function SC_ProfileMoment_UpdateLikeUI(
+    postId,
+    state
 ){
 
     const viewer =
@@ -20198,224 +20800,208 @@ function SC_ProfileMoment_AttachEvents(
 
     viewer
         .querySelectorAll(
-            "[data-close-profile-post-viewer]"
+            `[data-profile-moment-like][data-post-id="${CSS.escape(postId)}"]`
         )
         .forEach(
             button => {
 
-                button.addEventListener(
-                    "click",
-                    () => {
-
-                        viewer.classList.remove(
-                            "active"
-                        );
-
-                        viewer.setAttribute(
-                            "aria-hidden",
-                            "true"
-                        );
-
-                    }
-                );
-
-            }
-        );
-
-
-    /*
-     * LIKE
-     */
-
-    const likeButton =
-        document.getElementById(
-            "mutual-profile-post-viewer-like"
-        );
-
-
-    likeButton?.addEventListener(
-        "click",
-        event => {
-
-            event.stopPropagation();
-
-
-            const state =
-                SC_Moment_ToggleLike(
-                    post
-                );
-
-
-            if(!state){
-
-                return;
-
-            }
-
-
-            const liked =
-                SC_Moment_IsLikedByCurrentUser(
-                    post
-                );
-
-
-            likeButton.classList.toggle(
-                "liked",
-                liked
-            );
-
-
-            likeButton.firstChild.textContent =
-                liked
-                    ? "♥"
-                    : "♡";
-
-
-            likeButton
-                .querySelector(
-                    "span"
-                )
-                .textContent =
-                    state.count;
-
-        }
-    );
-
-
-    /*
-     * PREVIOUS
-     */
-
-    document
-        .getElementById(
-            "sc-profile-viewer-prev"
-        )
-        ?.addEventListener(
-            "click",
-            () => {
-
-                SC_ProfileMoment_Previous();
-
-            }
-        );
-
-
-    /*
-     * NEXT
-     */
-
-    document
-        .getElementById(
-            "sc-profile-viewer-next"
-        )
-        ?.addEventListener(
-            "click",
-            () => {
-
-                SC_ProfileMoment_Next();
-
-            }
-        );
-
-
-    /*
-     * EDIT CAPTION
-     */
-
-    document
-        .getElementById(
-            "sc-own-edit-caption"
-        )
-        ?.addEventListener(
-            "click",
-            () => {
-
-                const card =
-                    document.querySelector(
-                        `.my-post-card[data-post-id="${CSS.escape(post.id)}"]`
+                const post =
+                    SC_ProfileMoment_FindPost(
+                        postId
                     );
 
 
-                if(card){
+                const liked =
+                    post
+                        ? SC_Moment_IsLikedByCurrentUser(
+                            post
+                        )
+                        : false;
 
-                    openMomentCaptionEditor(
-                        card
+
+                button.classList.toggle(
+                    "liked",
+                    liked
+                );
+
+
+                const icon =
+                    button.querySelector(
+                        ".sc-profile-moment-like-icon"
                     );
+
+
+                if(icon){
+
+                    icon.textContent =
+                        liked
+                            ? "♥"
+                            : "♡";
+
+                }
+
+
+                const count =
+                    button.querySelector(
+                        ".sc-profile-moment-like-count"
+                    );
+
+
+                if(count){
+
+                    count.textContent =
+                        state.count;
 
                 }
 
             }
         );
 
+}
 
-    /*
-     * VIEW LIKES
-     */
 
-    document
-        .getElementById(
-            "sc-own-view-likes"
-        )
-        ?.addEventListener(
-            "click",
-            () => {
+/* -----------------------------------------------------
+   HEART ANIMATION
+----------------------------------------------------- */
 
-                openMomentLikesViewer(
-                    post
+function SC_ProfileMoment_ShowHeart(
+    media
+){
+
+    if(!media){
+
+        return;
+
+    }
+
+
+    const heart =
+        document.createElement(
+            "div"
+        );
+
+
+    heart.className =
+        "sc-profile-moment-floating-heart";
+
+
+    heart.textContent =
+        "♥";
+
+
+    media.appendChild(
+        heart
+    );
+
+
+    requestAnimationFrame(
+        () => {
+
+            heart.classList.add(
+                "show"
+            );
+
+        }
+    );
+
+
+    setTimeout(
+        () => {
+
+            heart.remove();
+
+        },
+        650
+    );
+
+}
+
+
+/* -----------------------------------------------------
+   ACTIVE CARD OBSERVER
+----------------------------------------------------- */
+
+function SC_ProfileMoment_SetupObserver(){
+
+    const scroll =
+        document.getElementById(
+            "sc-profile-moment-scroll"
+        );
+
+
+    if(!scroll){
+
+        return;
+
+    }
+
+
+    const cards =
+        scroll.querySelectorAll(
+            ".sc-profile-moment-card"
+        );
+
+
+    if(
+        !cards.length
+    ){
+
+        return;
+
+    }
+
+
+    const observer =
+        new IntersectionObserver(
+            entries => {
+
+                let bestEntry =
+                    null;
+
+
+                entries.forEach(
+                    entry => {
+
+                        if(
+                            !entry.isIntersecting
+                        ){
+
+                            return;
+
+                        }
+
+
+                        if(
+                            !bestEntry ||
+                            entry.intersectionRatio >
+                            bestEntry.intersectionRatio
+                        ){
+
+                            bestEntry =
+                                entry;
+
+                        }
+
+                    }
                 );
 
-            }
-        );
+
+                if(!bestEntry){
+
+                    return;
+
+                }
 
 
-    /*
-     * HORIZONTAL SWIPE
-     */
-
-    const swipeArea =
-        document.getElementById(
-            "sc-profile-viewer-swipe-area"
-        );
-
-
-    if(swipeArea){
-
-        swipeArea.addEventListener(
-            "touchstart",
-            event => {
-
-                SC_ProfileMomentTouchStartX =
-                    event
-                        .changedTouches[0]
-                        .clientX;
-
-            },
-            {
-                passive:true
-            }
-        );
-
-
-        swipeArea.addEventListener(
-            "touchend",
-            event => {
-
-                SC_ProfileMomentTouchEndX =
-                    event
-                        .changedTouches[0]
-                        .clientX;
-
-
-                const difference =
-                    SC_ProfileMomentTouchStartX -
-                    SC_ProfileMomentTouchEndX;
+                const index =
+                    Number(
+                        bestEntry.target.dataset
+                            .profileMomentIndex
+                    );
 
 
                 if(
-                    Math.abs(
-                        difference
-                    ) <
-                    60
+                    Number.isNaN(index)
                 ){
 
                     return;
@@ -20423,78 +21009,134 @@ function SC_ProfileMoment_AttachEvents(
                 }
 
 
-                if(
-                    difference >
-                    0
-                ){
+                SC_ProfileMomentViewerData.index =
+                    index;
 
-                    SC_ProfileMoment_Next();
 
-                }else{
+                const counter =
+                    document.getElementById(
+                        "sc-profile-moment-counter"
+                    );
 
-                    SC_ProfileMoment_Previous();
+
+                if(counter){
+
+                    counter.textContent =
+                        `${index + 1} / ${cards.length}`;
 
                 }
 
             },
             {
-                passive:true
+                root:
+                    scroll,
+
+                threshold:[
+                    .55,
+                    .7,
+                    .85
+                ]
+
             }
         );
 
-    }
+
+    cards.forEach(
+        card =>
+            observer.observe(
+                card
+            )
+    );
 
 }
 
 
 /* -----------------------------------------------------
-   NEXT
+   SCROLL TO CARD
 ----------------------------------------------------- */
 
-function SC_ProfileMoment_Next(){
+function SC_ProfileMoment_ScrollToIndex(
+    index,
+    smooth = true
+){
 
-    const data =
-        SC_ProfileMomentViewerData;
+    const scroll =
+        document.getElementById(
+            "sc-profile-moment-scroll"
+        );
 
 
-    if(
-        data.index <
-        data.posts.length - 1
-    ){
+    if(!scroll){
 
-        data.index++;
-
-        SC_ProfileMoment_Render();
+        return;
 
     }
+
+
+    const card =
+        scroll.querySelector(
+            `.sc-profile-moment-card[data-profile-moment-index="${index}"]`
+        );
+
+
+    if(!card){
+
+        return;
+
+    }
+
+
+    card.scrollIntoView(
+        {
+            behavior:
+                smooth
+                    ? "smooth"
+                    : "auto",
+
+            block:
+                "start"
+
+        }
+    );
 
 }
 
 
 /* -----------------------------------------------------
-   PREVIOUS
+   CLOSE
 ----------------------------------------------------- */
 
-function SC_ProfileMoment_Previous(){
+function SC_ProfileMoment_Close(){
 
-    const data =
-        SC_ProfileMomentViewerData;
+    const viewer =
+        document.getElementById(
+            "mutual-profile-post-viewer"
+        );
 
 
-    if(
-        data.index >
-        0
-    ){
+    if(!viewer){
 
-        data.index--;
-
-        SC_ProfileMoment_Render();
+        return;
 
     }
 
+
+    viewer.classList.remove(
+        "active"
+    );
+
+
+    viewer.setAttribute(
+        "aria-hidden",
+        "true"
+    );
+
+
+    document.body.classList.remove(
+        "sc-moment-viewer-open"
+    );
+
 }
-
-
 /* =====================================================
    MOMENT LIKES VIEWER
 ===================================================== */
