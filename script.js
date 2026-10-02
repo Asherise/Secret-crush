@@ -5498,35 +5498,14 @@ function openFeedMomentViewer(
     );
 
 }
-
-
 /* -----------------------------------------------------
-   RENDER CURRENT MOMENT
+   CREATE ONE FULLSCREEN FEED MOMENT
 ----------------------------------------------------- */
 
-function SC_FeedMoment_Render(){
-
-    if(
-        !SC_FeedMomentViewer
-    ){
-
-        return;
-
-    }
-
-
-    const post =
-        SC_FeedMomentItems[
-            SC_FeedMomentIndex
-        ];
-
-
-    if(!post){
-
-        return;
-
-    }
-
+function SC_FeedMoment_CreateCard(
+    post,
+    index
+){
 
     const state =
         SC_Moment_GetLikeState(
@@ -5540,89 +5519,34 @@ function SC_FeedMoment_Render(){
         );
 
 
-    const total =
-        SC_FeedMomentItems.length;
-
-
     const profilePhoto =
         post.profilePicture ||
         post.photo ||
         "";
 
 
-    SC_FeedMomentViewer.innerHTML = `
-
-        <div
-            class="sc-feed-moment-backdrop"
-            data-sc-moment-close
-        ></div>
-
-
-        <!-- BACK BUTTON -->
-        <button
-            type="button"
-            class="sc-feed-moment-back"
-            data-sc-moment-close
-            aria-label="Back"
-        >
-            ‹
-        </button>
-
-
-        <!-- FLOATING TOP TOOLS -->
-
-        <div
-            class="
-                sc-feed-moment-floating-tools
-            "
-            id="sc-feed-moment-floating-tools"
-        >
-
-            <button
-                type="button"
-                class="sc-feed-moment-tool"
-                aria-label="Search"
-            >
-                ⌕
-            </button>
-
-
-            <button
-                type="button"
-                class="sc-feed-moment-tool"
-                aria-label="More"
-            >
-                ♨
-            </button>
-
-        </div>
-
-
-        <!-- COUNTER -->
-
-        <div
-            class="sc-feed-moment-counter"
-        >
-            ${SC_FeedMomentIndex + 1}
-            /
-            ${total}
-        </div>
-
-
-        <!-- MOMENT -->
+    return `
 
         <section
             class="
                 sc-feed-moment-panel
             "
-            data-sc-feed-moment-swipe
+            data-feed-moment-index="${index}"
+            data-feed-moment-id="${escapePostHTML(
+                post.id || ""
+            )}"
         >
+
+            <!-- MOMENT MEDIA -->
 
             <div
                 class="
                     sc-feed-moment-media
                 "
                 data-sc-feed-moment-doubletap
+                data-post-id="${escapePostHTML(
+                    post.id || ""
+                )}"
             >
 
                 ${
@@ -5640,6 +5564,7 @@ function SC_FeedMoment_Render(){
                             post.photo
                         )}"
                         alt="Moment"
+                        draggable="false"
                     >
                     `
 
@@ -5664,7 +5589,7 @@ function SC_FeedMoment_Render(){
                     class="
                         sc-feed-floating-heart
                     "
-                    id="sc-feed-floating-heart"
+                    data-floating-heart
                 >
                     ♥
                 </div>
@@ -5690,10 +5615,14 @@ function SC_FeedMoment_Render(){
                                 : ""
                         }
                     "
-                    id="sc-feed-moment-like"
+                    data-feed-moment-like="${escapePostHTML(
+                        post.id || ""
+                    )}"
                 >
 
-                    <span>
+                    <span
+                        class="sc-feed-moment-like-icon"
+                    >
                         ${
                             liked
                                 ? "♥"
@@ -5701,7 +5630,9 @@ function SC_FeedMoment_Render(){
                         }
                     </span>
 
-                    <strong>
+                    <strong
+                        class="sc-feed-moment-like-count"
+                    >
                         ${state.count}
                     </strong>
 
@@ -5713,7 +5644,9 @@ function SC_FeedMoment_Render(){
                     class="
                         sc-feed-moment-action
                     "
-                    id="sc-feed-moment-crush"
+                    data-feed-moment-crush="${escapePostHTML(
+                        post.id || ""
+                    )}"
                 >
 
                     <span>
@@ -5732,7 +5665,9 @@ function SC_FeedMoment_Render(){
                     class="
                         sc-feed-moment-action
                     "
-                    id="sc-feed-moment-note"
+                    data-feed-moment-note="${escapePostHTML(
+                        post.id || ""
+                    )}"
                 >
 
                     <span>
@@ -5846,10 +5781,297 @@ function SC_FeedMoment_Render(){
 
     `;
 
+}
+/* -----------------------------------------------------
+   ACTIVE FEED MOMENT OBSERVER
+----------------------------------------------------- */
 
-    SC_FeedMoment_AttachEvents(
-        post
+function SC_FeedMoment_SetupObserver(){
+
+    const scroll =
+        document.getElementById(
+            "sc-feed-moment-scroll"
+        );
+
+
+    if(!scroll){
+
+        return;
+
+    }
+
+
+    const cards =
+        scroll.querySelectorAll(
+            ".sc-feed-moment-panel"
+        );
+
+
+    if(!cards.length){
+
+        return;
+
+    }
+
+
+    const observer =
+        new IntersectionObserver(
+            entries => {
+
+                let bestEntry =
+                    null;
+
+
+                entries.forEach(
+                    entry => {
+
+                        if(
+                            !entry.isIntersecting
+                        ){
+
+                            return;
+
+                        }
+
+
+                        if(
+                            !bestEntry ||
+                            entry.intersectionRatio >
+                            bestEntry.intersectionRatio
+                        ){
+
+                            bestEntry =
+                                entry;
+
+                        }
+
+                    }
+                );
+
+
+                if(!bestEntry){
+
+                    return;
+
+                }
+
+
+                const index =
+                    Number(
+                        bestEntry.target.dataset
+                            .feedMomentIndex
+                    );
+
+
+                if(
+                    Number.isNaN(index)
+                ){
+
+                    return;
+
+                }
+
+
+                SC_FeedMomentIndex =
+                    index;
+
+            },
+            {
+
+                root:
+                    scroll,
+
+                threshold:[
+                    .55,
+                    .7,
+                    .85
+                ]
+
+            }
+        );
+
+
+    cards.forEach(
+        card =>
+            observer.observe(
+                card
+            )
     );
+
+}
+
+/* -----------------------------------------------------
+   SCROLL TO FEED MOMENT
+----------------------------------------------------- */
+
+function SC_FeedMoment_ScrollToIndex(
+    index,
+    smooth = true
+){
+
+    const scroll =
+        document.getElementById(
+            "sc-feed-moment-scroll"
+        );
+
+
+    if(!scroll){
+
+        return;
+
+    }
+
+
+    const cards =
+        scroll.querySelectorAll(
+            ".sc-feed-moment-panel"
+        );
+
+
+    const card =
+        cards[index];
+
+
+    if(!card){
+
+        return;
+
+    }
+
+
+    card.scrollIntoView({
+        behavior:
+            smooth
+                ? "smooth"
+                : "auto",
+
+        block:
+            "start"
+    });
+
+}
+
+
+
+/* -----------------------------------------------------
+   RENDER CURRENT MOMENT
+----------------------------------------------------- */
+function SC_FeedMoment_Render(){
+
+    if(
+        !SC_FeedMomentViewer
+    ){
+
+        return;
+
+    }
+
+
+    /*
+     * Render ALL Feed moments into one
+     * vertical fullscreen scroll container.
+     */
+
+    SC_FeedMomentViewer.innerHTML = `
+
+        <div
+            class="sc-feed-moment-backdrop"
+            data-sc-moment-close
+        ></div>
+
+
+        <!-- BACK BUTTON -->
+
+        <button
+            type="button"
+            class="sc-feed-moment-back"
+            data-sc-moment-close
+            aria-label="Back"
+        >
+            ‹
+        </button>
+
+
+        <!-- FLOATING TOP TOOLS -->
+
+        <div
+            class="
+                sc-feed-moment-floating-tools
+            "
+            id="sc-feed-moment-floating-tools"
+        >
+
+            <button
+                type="button"
+                class="sc-feed-moment-tool"
+                aria-label="Search"
+            >
+                ⌕
+            </button>
+
+
+            <button
+                type="button"
+                class="sc-feed-moment-tool"
+                aria-label="More"
+            >
+                ♨
+            </button>
+
+        </div>
+
+
+        <!-- VERTICAL MOMENT SCROLL -->
+
+        <div
+            class="sc-feed-moment-scroll"
+            id="sc-feed-moment-scroll"
+        >
+
+            ${
+                SC_FeedMomentItems
+                    .map(
+                        (
+                            post,
+                            index
+                        ) =>
+                            SC_FeedMoment_CreateCard(
+                                post,
+                                index
+                            )
+                    )
+                    .join("")
+            }
+
+        </div>
+
+    `;
+
+
+    /*
+     * Attach all interactions.
+     */
+
+    SC_FeedMoment_AttachEvents();
+
+
+    /*
+     * Move to the moment that was
+     * originally tapped.
+     */
+
+    SC_FeedMoment_ScrollToIndex(
+        SC_FeedMomentIndex,
+        false
+    );
+
+
+    /*
+     * Track which moment is currently
+     * visible.
+     */
+
+    SC_FeedMoment_SetupObserver();
 
 }
 
@@ -6179,44 +6401,6 @@ SC_Moment_SyncLikeUI(
 }
 
 
-/* -----------------------------------------------------
-   NEXT
------------------------------------------------------ */
-
-function SC_FeedMoment_Next(){
-
-    if(
-        SC_FeedMomentIndex <
-        SC_FeedMomentItems.length - 1
-    ){
-
-        SC_FeedMomentIndex++;
-
-        SC_FeedMoment_Render();
-
-    }
-
-}
-
-
-/* -----------------------------------------------------
-   PREVIOUS
------------------------------------------------------ */
-
-function SC_FeedMoment_Previous(){
-
-    if(
-        SC_FeedMomentIndex >
-        0
-    ){
-
-        SC_FeedMomentIndex--;
-
-        SC_FeedMoment_Render();
-
-    }
-
-}
 
 
 /* -----------------------------------------------------

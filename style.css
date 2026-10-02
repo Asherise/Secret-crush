@@ -26954,12 +26954,59 @@ SEARCH FILTER — NO RESULTS
 
 }
 
-
-.sc-feed-moment-panel{
+.sc-feed-moment-scroll{
 
     position:absolute;
 
     inset:0;
+
+    width:100%;
+
+    height:100%;
+
+    overflow-y:auto;
+
+    overflow-x:hidden;
+
+    scroll-behavior:smooth;
+
+    scroll-snap-type:y mandatory;
+
+    scroll-padding:0;
+
+    overscroll-behavior-y:contain;
+
+    -webkit-overflow-scrolling:touch;
+
+    scrollbar-width:none;
+
+    touch-action:pan-y;
+
+}
+
+
+.sc-feed-moment-scroll::-webkit-scrollbar{
+
+    display:none;
+
+}
+
+
+.sc-feed-moment-panel{
+
+    position:relative;
+
+    width:100%;
+
+    height:100dvh;
+
+    min-height:100dvh;
+
+    flex:none;
+
+    scroll-snap-align:start;
+
+    scroll-snap-stop:always;
 
     overflow:hidden;
 
@@ -27098,36 +27145,6 @@ SEARCH FILTER — NO RESULTS
 }
 
 
-/* =====================================================
-   COUNTER
-===================================================== */
-
-.sc-feed-moment-counter{
-
-    position:absolute;
-
-    top:69px;
-
-    left:50%;
-
-    z-index:20;
-
-    transform:translateX(-50%);
-
-    padding:
-        5px
-        10px;
-
-    border-radius:999px;
-
-    background:
-        rgba(0,0,0,.48);
-
-    color:#fff;
-
-    font-size:9px;
-
-}
 
 
 /* =====================================================
