@@ -4059,10 +4059,259 @@ function attachFeedPostActions(
 
 }
 
+
+
+/* =====================================================
+   UNIVERSAL MOMENT LIKE UI SYNC
+===================================================== */
+
+function SC_Moment_SyncLikeUI(
+    postId,
+    state
+){
+
+    if(
+        !postId ||
+        !state
+    ){
+
+        return;
+
+    }
+
+
+    const currentUser =
+        SC_Moment_GetCurrentUser();
+
+
+    const liked =
+        state.likedBy.some(
+            person =>
+                person.userId ===
+                currentUser.userId
+        );
+
+
+    /*
+     * ---------------------------------------------
+     * FEED / HOME PREVIEWS
+     * ---------------------------------------------
+     */
+
+    document
+        .querySelectorAll(
+            `.like-action[data-feed-like="${CSS.escape(postId)}"]`
+        )
+        .forEach(
+            button => {
+
+                const icon =
+                    button.querySelector(
+                        ".like-icon"
+                    );
+
+
+                const count =
+                    button.querySelector(
+                        ".like-count"
+                    );
+
+
+                if(icon){
+
+                    icon.textContent =
+                        liked
+                            ? "♥"
+                            : "♡";
+
+                }
+
+
+                if(count){
+
+                    count.textContent =
+                        state.count;
+
+                }
+
+
+                button.classList.toggle(
+                    "liked",
+                    liked
+                );
+
+            }
+        );
+
+
+    /*
+     * ---------------------------------------------
+     * MY SPACE / MY POSTS
+     * ---------------------------------------------
+     */
+
+    document
+        .querySelectorAll(
+            `.my-post-card[data-post-id="${CSS.escape(postId)}"] .my-post-likes-count`
+        )
+        .forEach(
+            count => {
+
+                count.textContent =
+                    state.count;
+
+            }
+        );
+
+
+    /*
+     * ---------------------------------------------
+     * DETAILED PROFILE POST PREVIEW
+     * ---------------------------------------------
+     */
+
+    document
+        .querySelectorAll(
+            `.mutual-profile-post-card[data-mutual-post-id="${CSS.escape(postId)}"] .mutual-profile-post-likes-count`
+        )
+        .forEach(
+            count => {
+
+                count.textContent =
+                    state.count;
+
+            }
+        );
+
+
+    /*
+     * ---------------------------------------------
+     * FEED FULLSCREEN VIEWER
+     * ---------------------------------------------
+     */
+
+    const feedViewerLike =
+        document.getElementById(
+            "sc-feed-moment-like"
+        );
+
+
+    if(feedViewerLike){
+
+        const feedViewerPost =
+            SC_FeedMomentItems?.[
+                SC_FeedMomentIndex
+            ];
+
+
+        if(
+            feedViewerPost &&
+            String(
+                feedViewerPost.id
+            ) ===
+            String(
+                postId
+            )
+        ){
+
+            feedViewerLike.classList.toggle(
+                "liked",
+                liked
+            );
+
+
+            const icon =
+                feedViewerLike.querySelector(
+                    "span"
+                );
+
+
+            const count =
+                feedViewerLike.querySelector(
+                    "strong"
+                );
+
+
+            if(icon){
+
+                icon.textContent =
+                    liked
+                        ? "♥"
+                        : "♡";
+
+            }
+
+
+            if(count){
+
+                count.textContent =
+                    state.count;
+
+            }
+
+        }
+
+    }
+
+
+    /*
+     * ---------------------------------------------
+     * DETAILED PROFILE FULLSCREEN VIEWER
+     * ---------------------------------------------
+     */
+
+    document
+        .querySelectorAll(
+            `[data-profile-moment-like][data-post-id="${CSS.escape(postId)}"]`
+        )
+        .forEach(
+            button => {
+
+                button.classList.toggle(
+                    "liked",
+                    liked
+                );
+
+
+                const icon =
+                    button.querySelector(
+                        ".sc-profile-moment-like-icon"
+                    );
+
+
+                const count =
+                    button.querySelector(
+                        ".sc-profile-moment-like-count"
+                    );
+
+
+                if(icon){
+
+                    icon.textContent =
+                        liked
+                            ? "♥"
+                            : "♡";
+
+                }
+
+
+                if(count){
+
+                    count.textContent =
+                        state.count;
+
+                }
+
+            }
+        );
+
+}
+
+
+
 /* =====================================================
    UNIVERSAL MOMENT LIKE HANDLER
 ===================================================== */
-
 document.addEventListener(
     "click",
     event => {
@@ -4095,12 +4344,6 @@ document.addEventListener(
         }
 
 
-        const postElement =
-            likeButton.closest(
-                "[data-post-id]"
-            );
-
-
         let post = {
 
             id:
@@ -4109,7 +4352,9 @@ document.addEventListener(
             likes:
                 Number(
                     likeButton
-                        .querySelector("span")
+                        .querySelector(
+                            ".like-count"
+                        )
                         ?.textContent
                 ) || 0
 
@@ -4117,8 +4362,9 @@ document.addEventListener(
 
 
         /*
-         * Prefer the complete stored post when
-         * one exists.
+         * -----------------------------------------
+         * GET COMPLETE STORED POST
+         * -----------------------------------------
          */
 
         try{
@@ -4160,10 +4406,18 @@ document.addEventListener(
 
         }catch(error){
 
-            /* Keep DOM fallback. */
+            /*
+             * Keep DOM fallback.
+             */
 
         }
 
+
+        /*
+         * -----------------------------------------
+         * TOGGLE LIKE
+         * -----------------------------------------
+         */
 
         const state =
             SC_Moment_ToggleLike(
@@ -4179,105 +4433,21 @@ document.addEventListener(
 
 
         /*
-         * Update every visible copy of this
-         * moment.
+         * -----------------------------------------
+         * SYNCHRONIZE EVERY VISIBLE COPY
+         * -----------------------------------------
          */
 
-        document
-            .querySelectorAll(
-                `.like-action[data-feed-like="${CSS.escape(postId)}"]`
-            )
-            .forEach(
-                button => {
+        SC_Moment_SyncLikeUI(
+            postId,
+            state
+        );
 
-                    const count =
-                        button.querySelector(
-                            "span"
-                        );
-
-
-                    if(count){
-
-                        count.textContent =
-                            state.count;
-
-                    }
-
-
-                    const liked =
-                        state.likedBy.some(
-                            person =>
-                                person.userId ===
-                                SC_Moment_GetCurrentUser()
-                                    .userId
-                        );
-
-
-                    button.classList.toggle(
-                        "liked",
-                        liked
-                    );
-
-
-                    const icon =
-                        button.firstChild;
-
-
-                    if(
-                        icon &&
-                        icon.nodeType ===
-                        Node.TEXT_NODE
-                    ){
-
-                        icon.textContent =
-                            liked
-                                ? "♥ "
-                                : "♡ ";
-
-                    }
-
-                }
-            );
-
-/*
- * UPDATE MY SPACE COPY
- */
-
-document
-    .querySelectorAll(
-        `.my-post-card[data-post-id="${CSS.escape(postId)}"] .my-post-likes-count`
-    )
-    .forEach(
-        count => {
-
-            count.textContent =
-                state.count;
-
-        }
-    );
-    
-    
-/*
- * UPDATE DETAILED PROFILE COPY
- */
-
-document
-    .querySelectorAll(
-        `.mutual-profile-post-card[data-mutual-post-id="${CSS.escape(postId)}"] .mutual-profile-post-likes-count`
-    )
-    .forEach(
-        count => {
-
-            count.textContent =
-                state.count;
-
-        }
-    );
-    
-    
 
         /*
-         * Quest tracking.
+         * -----------------------------------------
+         * QUEST TRACKING
+         * -----------------------------------------
          */
 
         if(
@@ -5737,83 +5907,28 @@ function SC_FeedMoment_AttachEvents(
 
                 event.stopPropagation();
 
-
-                const state =
-                    SC_Moment_ToggleLike(
-                        post
-                    );
-
-
-                if(!state){
-
-                    return;
-
-                }
+const state =
+    SC_Moment_ToggleLike(
+        post
+    );
 
 
-                const liked =
-                    SC_Moment_IsLikedByCurrentUser(
-                        post
-                    );
+if(!state){
+
+    return;
+
+}
 
 
-                likeButton.classList.toggle(
-                    "liked",
-                    liked
-                );
+/*
+ * Synchronize every visible copy
+ * of this moment.
+ */
 
-
-                likeButton
-                    .querySelector(
-                        "span"
-                    )
-                    .textContent =
-                        liked
-                            ? "♥"
-                            : "♡";
-
-
-                likeButton
-                    .querySelector(
-                        "strong"
-                    )
-                    .textContent =
-                        state.count;
-
-
-                /*
-                 * Also update the feed behind
-                 * the overlay.
-                 */
-
-                document
-                    .querySelectorAll(
-                        `.like-action[data-feed-like="${CSS.escape(post.id)}"]`
-                    )
-                    .forEach(
-                        button => {
-
-                            const count =
-                                button.querySelector(
-                                    "span"
-                                );
-
-
-                            if(count){
-
-                                count.textContent =
-                                    state.count;
-
-                            }
-
-
-                            button.classList.toggle(
-                                "liked",
-                                liked
-                            );
-
-                        }
-                    );
+SC_Moment_SyncLikeUI(
+    post.id,
+    state
+);
 
             }
         );
@@ -20482,23 +20597,28 @@ function SC_ProfileMoment_AttachEvents(){
                         }
 
 
-                        const state =
-                            SC_Moment_ToggleLike(
-                                post
-                            );
+const state =
+    SC_Moment_ToggleLike(
+        post
+    );
 
 
-                        if(!state){
+if(!state){
 
-                            return;
+    return;
 
-                        }
+}
 
 
-                        SC_ProfileMoment_UpdateLikeUI(
-                            postId,
-                            state
-                        );
+/*
+ * Synchronize every visible copy
+ * of this moment.
+ */
+
+SC_Moment_SyncLikeUI(
+    postId,
+    state
+);
 
                     }
                 );
@@ -28414,16 +28534,24 @@ const likedByCurrentUser =
 
         <div class="feed-actions">
 
-            <button
-                type="button"
-                class="like-action"
-                data-feed-like="${post.id}"
-            >
-                ♡
-                <span>
-                    ${post.likes || 0}
-                </span>
-            </button>
+<button
+    type="button"
+    class="like-action"
+    data-feed-like="${post.id}"
+>
+    <span class="like-icon">
+        ${
+            SC_Moment_IsLikedByCurrentUser(post)
+                ? "♥"
+                : "♡"
+        }
+    </span>
+
+    <span class="like-count">
+        ${post.likes || 0}
+    </span>
+</button>
+
 
 
             <button
@@ -28618,16 +28746,24 @@ function renderPostInHome(
 
         <div class="home-post-actions">
 
-            <button
-                type="button"
-                class="like-action"
-                data-feed-like="${post.id}"
-            >
-                ♡
-                <span>
-                    ${post.likes || 0}
-                </span>
-            </button>
+<button
+    type="button"
+    class="like-action"
+    data-feed-like="${post.id}"
+>
+    <span class="like-icon">
+        ${
+            SC_Moment_IsLikedByCurrentUser(post)
+                ? "♥"
+                : "♡"
+        }
+    </span>
+
+    <span class="like-count">
+        ${post.likes || 0}
+    </span>
+</button>
+
 
 
             <button

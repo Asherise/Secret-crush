@@ -291,20 +291,10 @@ MODULE: FEED — MAIN LAYOUT
 #feed-page.active{display:block}
 
 /* =====================================================
-   FEED — PREMIUM VERTICAL SCROLL
+   FEED — NORMAL PAGE SCROLL
 ===================================================== */
 
 #feed-page{
-
-    scroll-behavior:smooth;
-
-    scroll-snap-type:
-        y proximity;
-
-    scroll-padding-top:76px;
-
-    overscroll-behavior-y:
-        contain;
 
     scrollbar-width:none;
 
@@ -313,14 +303,6 @@ MODULE: FEED — MAIN LAYOUT
 #feed-page::-webkit-scrollbar{
 
     display:none;
-
-}
-
-.feed-card{
-
-    scroll-snap-align:start;
-
-    scroll-margin-top:76px;
 
 }
 
