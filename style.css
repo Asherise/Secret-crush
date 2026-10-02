@@ -26953,12 +26953,9 @@ SEARCH FILTER — NO RESULTS
     background:#000;
 
 }
-
 .sc-feed-moment-scroll{
 
-    position:absolute;
-
-    inset:0;
+    position:relative;
 
     width:100%;
 
@@ -26968,7 +26965,7 @@ SEARCH FILTER — NO RESULTS
 
     overflow-x:hidden;
 
-    scroll-behavior:smooth;
+    scroll-behavior:auto;
 
     scroll-snap-type:y mandatory;
 
@@ -26991,7 +26988,6 @@ SEARCH FILTER — NO RESULTS
 
 }
 
-
 .sc-feed-moment-panel{
 
     position:relative;
@@ -27005,8 +27001,6 @@ SEARCH FILTER — NO RESULTS
     flex:none;
 
     scroll-snap-align:start;
-
-    scroll-snap-stop:always;
 
     overflow:hidden;
 

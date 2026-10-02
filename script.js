@@ -6055,15 +6055,21 @@ function SC_FeedMoment_Render(){
     SC_FeedMoment_AttachEvents();
 
 
-    /*
-     * Move to the moment that was
-     * originally tapped.
-     */
+/*
+ * Move to the moment that was
+ * originally tapped.
+ */
 
-    SC_FeedMoment_ScrollToIndex(
-        SC_FeedMomentIndex,
-        false
-    );
+requestAnimationFrame(
+    () => {
+
+        SC_FeedMoment_ScrollToIndex(
+            SC_FeedMomentIndex,
+            false
+        );
+
+    }
+);
 
 
     /*
@@ -6079,12 +6085,15 @@ function SC_FeedMoment_Render(){
 /* -----------------------------------------------------
    ATTACH VIEWER EVENTS
 ----------------------------------------------------- */
+/* -----------------------------------------------------
+   ATTACH VIEWER EVENTS
+----------------------------------------------------- */
 
-function SC_FeedMoment_AttachEvents(
-    post
-){
+function SC_FeedMoment_AttachEvents(){
 
-    if(!SC_FeedMomentViewer){
+    if(
+        !SC_FeedMomentViewer
+    ){
 
         return;
 
@@ -6092,7 +6101,9 @@ function SC_FeedMoment_AttachEvents(
 
 
     /*
+     * =================================================
      * CLOSE
+     * =================================================
      */
 
     SC_FeedMomentViewer
@@ -6112,293 +6123,349 @@ function SC_FeedMoment_AttachEvents(
 
 
     /*
-     * LIKE
+     * =================================================
+     * LIKE BUTTONS
+     * =================================================
      */
 
-    const likeButton =
-        document.getElementById(
-            "sc-feed-moment-like"
-        );
-
-
-    if(likeButton){
-
-        likeButton.addEventListener(
-            "click",
-            event => {
-
-                event.stopPropagation();
-
-const state =
-    SC_Moment_ToggleLike(
-        post
-    );
-
-
-if(!state){
-
-    return;
-
-}
-
-
-/*
- * Synchronize every visible copy
- * of this moment.
- */
-
-SC_Moment_SyncLikeUI(
-    post.id,
-    state
-);
-
-            }
-        );
-
-    }
-
-
-    /*
-     * SEND CRUSH
-     */
-
-    document
-        .getElementById(
-            "sc-feed-moment-crush"
+    SC_FeedMomentViewer
+        .querySelectorAll(
+            "[data-feed-moment-like]"
         )
-        ?.addEventListener(
-            "click",
-            event => {
+        .forEach(
+            button => {
 
-                event.stopPropagation();
+                button.addEventListener(
+                    "click",
+                    event => {
 
-
-                openSendRevealModal(
-                    "crush",
-                    SC_Moment_CreateActionProxy(
-                        post
-                    )
-                );
-
-            }
-        );
+                        event.stopPropagation();
 
 
-    /*
-     * SECRET NOTE
-     */
-
-    document
-        .getElementById(
-            "sc-feed-moment-note"
-        )
-        ?.addEventListener(
-            "click",
-            event => {
-
-                event.stopPropagation();
+                        const postId =
+                            button.dataset
+                                .feedMomentLike;
 
 
-                openSendRevealModal(
-                    "note",
-                    SC_Moment_CreateActionProxy(
-                        post
-                    )
-                );
-
-            }
-        );
-
-
-    /*
-     * DOUBLE TAP
-     */
-
-    const media =
-        SC_FeedMomentViewer.querySelector(
-            "[data-sc-feed-moment-doubletap]"
-        );
-
-
-    if(media){
-
-        media.addEventListener(
-            "click",
-            event => {
-
-                const now =
-                    Date.now();
-
-
-                if(
-                    now -
-                    SC_FeedMomentLastTap <
-                    320
-                ){
-
-                    const state =
-                        SC_Moment_ToggleLike(
-                            post
-                        );
-
-
-                    const liked =
-                        SC_Moment_IsLikedByCurrentUser(
-                            post
-                        );
-
-
-                    if(
-                        liked &&
-                        state
-                    ){
-
-                        const likeButton =
-                            document.getElementById(
-                                "sc-feed-moment-like"
+                        const post =
+                            SC_FeedMomentItems.find(
+                                item =>
+                                    String(
+                                        item.id
+                                    ) ===
+                                    String(
+                                        postId
+                                    )
                             );
 
 
-                        if(likeButton){
+                        if(!post){
 
-                            likeButton.classList.add(
-                                "liked"
-                            );
-
-                            likeButton
-                                .querySelector(
-                                    "span"
-                                )
-                                .textContent =
-                                "♥";
-
-                            likeButton
-                                .querySelector(
-                                    "strong"
-                                )
-                                .textContent =
-                                state.count;
+                            return;
 
                         }
 
 
-                        const floatingHeart =
-                            document.getElementById(
-                                "sc-feed-floating-heart"
+                        const state =
+                            SC_Moment_ToggleLike(
+                                post
                             );
 
 
-                        if(floatingHeart){
+                        if(!state){
 
-                            floatingHeart.classList.remove(
-                                "show"
-                            );
-
-
-                            void floatingHeart.offsetWidth;
-
-
-                            floatingHeart.classList.add(
-                                "show"
-                            );
+                            return;
 
                         }
+
+
+                        /*
+                         * Update Feed preview,
+                         * fullscreen,
+                         * My Posts,
+                         * profile preview,
+                         * etc.
+                         */
+
+                        SC_Moment_SyncLikeUI(
+                            postId,
+                            state
+                        );
 
                     }
-
-
-                    SC_FeedMomentLastTap =
-                        0;
-
-                    return;
-
-                }
-
-
-                SC_FeedMomentLastTap =
-                    now;
+                );
 
             }
         );
-
-    }
 
 
     /*
-     * VERTICAL SWIPE
+     * =================================================
+     * SEND CRUSH
+     * =================================================
      */
 
-    const swipeArea =
-        SC_FeedMomentViewer.querySelector(
-            "[data-sc-feed-moment-swipe]"
-        );
+    SC_FeedMomentViewer
+        .querySelectorAll(
+            "[data-feed-moment-crush]"
+        )
+        .forEach(
+            button => {
+
+                button.addEventListener(
+                    "click",
+                    event => {
+
+                        event.stopPropagation();
 
 
-    if(swipeArea){
+                        const postId =
+                            button.dataset
+                                .feedMomentCrush;
 
-        swipeArea.addEventListener(
-            "touchstart",
-            event => {
 
-                SC_FeedMomentTouchStartY =
-                    event.changedTouches[0]
-                        .clientY;
+                        const post =
+                            SC_FeedMomentItems.find(
+                                item =>
+                                    String(
+                                        item.id
+                                    ) ===
+                                    String(
+                                        postId
+                                    )
+                            );
 
-            },
-            {
-                passive:true
+
+                        if(!post){
+
+                            return;
+
+                        }
+
+
+                        openSendRevealModal(
+                            "crush",
+                            SC_Moment_CreateActionProxy(
+                                post
+                            )
+                        );
+
+                    }
+                );
+
             }
         );
 
 
-        swipeArea.addEventListener(
-            "touchend",
-            event => {
+    /*
+     * =================================================
+     * SECRET NOTE
+     * =================================================
+     */
 
-                SC_FeedMomentTouchEndY =
-                    event.changedTouches[0]
-                        .clientY;
+    SC_FeedMomentViewer
+        .querySelectorAll(
+            "[data-feed-moment-note]"
+        )
+        .forEach(
+            button => {
 
+                button.addEventListener(
+                    "click",
+                    event => {
 
-                const difference =
-                    SC_FeedMomentTouchStartY -
-                    SC_FeedMomentTouchEndY;
-
-
-                if(
-                    Math.abs(
-                        difference
-                    ) <
-                    70
-                ){
-
-                    return;
-
-                }
+                        event.stopPropagation();
 
 
-                if(
-                    difference >
-                    0
-                ){
+                        const postId =
+                            button.dataset
+                                .feedMomentNote;
 
-                    SC_FeedMoment_Next();
 
-                }else{
+                        const post =
+                            SC_FeedMomentItems.find(
+                                item =>
+                                    String(
+                                        item.id
+                                    ) ===
+                                    String(
+                                        postId
+                                    )
+                            );
 
-                    SC_FeedMoment_Previous();
 
-                }
+                        if(!post){
 
-            },
-            {
-                passive:true
+                            return;
+
+                        }
+
+
+                        openSendRevealModal(
+                            "note",
+                            SC_Moment_CreateActionProxy(
+                                post
+                            )
+                        );
+
+                    }
+                );
+
             }
         );
 
-    }
+
+    /*
+     * =================================================
+     * DOUBLE-TAP TO LIKE
+     *
+     * This deliberately mirrors the working
+     * fullscreen profile-moment implementation.
+     * =================================================
+     */
+
+    SC_FeedMomentViewer
+        .querySelectorAll(
+            ".sc-feed-moment-media"
+        )
+        .forEach(
+            media => {
+
+                let lastTap =
+                    0;
+
+
+                media.addEventListener(
+                    "touchend",
+                    event => {
+
+                        const now =
+                            Date.now();
+
+
+                        if(
+                            now -
+                            lastTap <
+                            320
+                        ){
+
+                            event.preventDefault();
+                            event.stopPropagation();
+
+
+                            const card =
+                                media.closest(
+                                    ".sc-feed-moment-panel"
+                                );
+
+
+                            if(!card){
+
+                                return;
+
+                            }
+
+
+                            const postId =
+                                card.dataset
+                                    .feedMomentId;
+
+
+                            const post =
+                                SC_FeedMomentItems.find(
+                                    item =>
+                                        String(
+                                            item.id
+                                        ) ===
+                                        String(
+                                            postId
+                                        )
+                                );
+
+
+                            if(!post){
+
+                                return;
+
+                            }
+
+
+                            /*
+                             * Double-tap should LIKE,
+                             * not unlike an already-liked
+                             * moment.
+                             */
+
+                            const alreadyLiked =
+                                SC_Moment_IsLikedByCurrentUser(
+                                    post
+                                );
+
+
+                            if(!alreadyLiked){
+
+                                const state =
+                                    SC_Moment_ToggleLike(
+                                        post
+                                    );
+
+
+                                if(state){
+
+                                    SC_Moment_SyncLikeUI(
+                                        postId,
+                                        state
+                                    );
+
+                                }
+
+                            }
+
+
+                            /*
+                             * Show the large heart in
+                             * THIS moment's media area.
+                             */
+
+                            const floatingHeart =
+                                media.querySelector(
+                                    "[data-floating-heart]"
+                                );
+
+
+                            if(floatingHeart){
+
+                                floatingHeart.classList.remove(
+                                    "show"
+                                );
+
+
+                                void floatingHeart.offsetWidth;
+
+
+                                floatingHeart.classList.add(
+                                    "show"
+                                );
+
+                            }
+
+                        }
+
+
+                        lastTap =
+                            now;
+
+                    },
+                    {
+                        passive:false
+                    }
+                );
+
+            }
+        );
 
 }
+
 
 
 
