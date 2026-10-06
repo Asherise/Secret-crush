@@ -5548,6 +5548,351 @@ MODULE: CHAT MORE MENU
 
 </div>
 
+<!-- =====================================================
+MODULE: CHAT BACKGROUND PICKER
+===================================================== -->
+
+<div
+    class="sc-chat-background-overlay"
+    id="sc-chat-background-overlay"
+    aria-hidden="true"
+>
+
+    <div
+        class="sc-chat-background-backdrop"
+        id="sc-chat-background-backdrop"
+    ></div>
+
+
+    <section
+        class="sc-chat-background-picker"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="sc-chat-background-title"
+    >
+
+        <div class="sc-chat-background-picker-header">
+
+            <div>
+
+                <h3 id="sc-chat-background-title">
+                    Chat Background
+                </h3>
+
+                <p>
+                    Choose how your conversation looks.
+                </p>
+
+            </div>
+
+
+            <button
+                type="button"
+                class="sc-chat-background-close"
+                id="sc-chat-background-close"
+                aria-label="Close background picker"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <div
+            class="sc-chat-background-source-tabs"
+            role="tablist"
+            aria-label="Background source"
+        >
+
+            <button
+                type="button"
+                class="sc-chat-background-source active"
+                id="sc-chat-background-system"
+                data-background-source="system"
+                role="tab"
+                aria-selected="true"
+            >
+                System Themes
+            </button>
+
+
+            <button
+                type="button"
+                class="sc-chat-background-source"
+                id="sc-chat-background-gallery"
+                data-background-source="gallery"
+                role="tab"
+                aria-selected="false"
+            >
+                From Gallery
+            </button>
+
+        </div>
+
+
+        <!-- BACKGROUND PREVIEW -->
+
+        <div class="sc-chat-background-preview-wrap">
+
+            <div
+                class="sc-chat-background-preview sc-chat-bg-theme-dark"
+                id="sc-chat-background-preview"
+            >
+
+                <div class="sc-chat-preview-top">
+
+                    <span class="sc-chat-preview-avatar">
+                        ♥
+                    </span>
+
+                    <div>
+
+                        <strong>
+                            Alex
+                        </strong>
+
+                        <small>
+                            Online
+                        </small>
+
+                    </div>
+
+                </div>
+
+
+                <div class="sc-chat-preview-messages">
+
+                    <div class="sc-chat-preview-bubble received">
+                        Hey! How's your day going? 😊
+                    </div>
+
+
+                    <div class="sc-chat-preview-bubble sent">
+                        It's going great! Just finished a project. 💜
+                    </div>
+
+
+                    <div class="sc-chat-preview-bubble received">
+                        That's awesome! 🎉
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- SYSTEM THEMES -->
+
+        <div
+            class="sc-chat-background-system-panel"
+            id="sc-chat-background-system-panel"
+        >
+
+            <div class="sc-chat-background-section-heading">
+
+                <strong>
+                    Available themes
+                </strong>
+
+                <span>
+                    Tap one to preview it
+                </span>
+
+            </div>
+
+
+            <div
+                class="sc-chat-background-theme-grid"
+                id="sc-chat-background-theme-grid"
+            >
+
+                <button
+                    type="button"
+                    class="sc-chat-background-theme-option selected"
+                    data-chat-background-theme="dark"
+                >
+
+                    <span
+                        class="sc-chat-theme-swatch sc-chat-bg-theme-dark"
+                    ></span>
+
+                    <strong>
+                        Dark
+                    </strong>
+
+                    <small>
+                        Default
+                    </small>
+
+                </button>
+
+
+                <button
+                    type="button"
+                    class="sc-chat-background-theme-option"
+                    data-chat-background-theme="light"
+                >
+
+                    <span
+                        class="sc-chat-theme-swatch sc-chat-bg-theme-light"
+                    ></span>
+
+                    <strong>
+                        Light
+                    </strong>
+
+                    <small>
+                        Clean &amp; bright
+                    </small>
+
+                </button>
+
+
+                <button
+                    type="button"
+                    class="sc-chat-background-theme-option"
+                    data-chat-background-theme="space"
+                >
+
+                    <span
+                        class="sc-chat-theme-swatch sc-chat-bg-theme-space"
+                    ></span>
+
+                    <strong>
+                        Space
+                    </strong>
+
+                    <small>
+                        Cosmic nebula
+                    </small>
+
+                </button>
+
+
+                <button
+                    type="button"
+                    class="sc-chat-background-theme-option"
+                    data-chat-background-theme="stars"
+                >
+
+                    <span
+                        class="sc-chat-theme-swatch sc-chat-bg-theme-stars"
+                    ></span>
+
+                    <strong>
+                        Starlight
+                    </strong>
+
+                    <small>
+                        Repeating stars
+                    </small>
+
+                </button>
+
+
+                <button
+                    type="button"
+                    class="sc-chat-background-theme-option"
+                    data-chat-background-theme="aurora"
+                >
+
+                    <span
+                        class="sc-chat-theme-swatch sc-chat-bg-theme-aurora"
+                    ></span>
+
+                    <strong>
+                        Aurora
+                    </strong>
+
+                    <small>
+                        Soft glow
+                    </small>
+
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- GALLERY -->
+
+        <div
+            class="sc-chat-background-gallery-panel"
+            id="sc-chat-background-gallery-panel"
+            hidden
+        >
+
+            <div class="sc-chat-background-section-heading">
+
+                <strong>
+                    Your gallery
+                </strong>
+
+                <span>
+                    Choose a photo and see it before applying
+                </span>
+
+            </div>
+
+
+            <input
+                type="file"
+                id="sc-chat-background-file"
+                accept="image/*"
+                hidden
+            >
+
+
+            <button
+                type="button"
+                class="sc-chat-background-gallery-button"
+                id="sc-chat-background-gallery-button"
+            >
+                Choose a photo
+            </button>
+
+
+            <p
+                class="sc-chat-background-gallery-note"
+                id="sc-chat-background-gallery-note"
+            >
+                Your photo will be resized proportionally so it is not squeezed in the chat.
+            </p>
+
+        </div>
+
+
+        <!-- ACTIONS -->
+
+        <div class="sc-chat-background-picker-actions">
+
+            <button
+                type="button"
+                class="sc-chat-background-cancel"
+                id="sc-chat-background-cancel"
+            >
+                Cancel
+            </button>
+
+
+            <button
+                type="button"
+                class="sc-chat-background-apply"
+                id="sc-chat-background-apply"
+            >
+                Use This Background
+            </button>
+
+        </div>
+
+    </section>
+
+</div>
+
+
 
 <!-- =====================================================
 MODULE: CHAT CONFIRMATION

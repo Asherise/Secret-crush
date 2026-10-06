@@ -4191,68 +4191,67 @@ function SC_Moment_SyncLikeUI(
      */
 
     const feedViewerLike =
-        document.getElementById(
-            "sc-feed-moment-like"
+    document.getElementById(
+        "sc-feed-moment-like"
+    );
+
+
+if(feedViewerLike){
+
+    const feedViewerPost =
+        SC_FeedMomentItems?.[
+            SC_FeedMomentIndex
+        ];
+
+
+    if(
+        feedViewerPost &&
+        String(
+            feedViewerPost.id
+        ) ===
+        String(
+            postId
+        )
+    ){
+
+        feedViewerLike.classList.toggle(
+            "liked",
+            liked
         );
 
 
-    if(feedViewerLike){
-
-        const feedViewerPost =
-            SC_FeedMomentItems?.[
-                SC_FeedMomentIndex
-            ];
-
-
-        if(
-            feedViewerPost &&
-            String(
-                feedViewerPost.id
-            ) ===
-            String(
-                postId
-            )
-        ){
-
-            feedViewerLike.classList.toggle(
-                "liked",
-                liked
+        const icon =
+            feedViewerLike.querySelector(
+                "span"
             );
 
 
-            const icon =
-                feedViewerLike.querySelector(
-                    "span"
-                );
+        const count =
+            feedViewerLike.querySelector(
+                "strong"
+            );
 
 
-            const count =
-                feedViewerLike.querySelector(
-                    "strong"
-                );
+        if(icon){
+
+            icon.textContent =
+                liked
+                    ? "♥"
+                    : "♡";
+
+        }
 
 
-            if(icon){
+        if(count){
 
-                icon.textContent =
-                    liked
-                        ? "♥"
-                        : "♡";
-
-            }
-
-
-            if(count){
-
-                count.textContent =
-                    state.count;
-
-            }
+            count.textContent =
+                state.count;
 
         }
 
     }
 
+}
 
     /*
      * ---------------------------------------------
@@ -33288,6 +33287,597 @@ const chatConfirmOk =
     document.getElementById(
         "chat-confirm-ok"
     );
+    
+    /* =====================================================
+CHAT BACKGROUND PICKER
+===================================================== */
+
+const SC_CHAT_BACKGROUND_KEY =
+    "secretCrushChatBackgrounds";
+
+const chatBackgroundOverlay =
+    document.getElementById(
+        "sc-chat-background-overlay"
+    );
+
+const chatBackgroundBackdrop =
+    document.getElementById(
+        "sc-chat-background-backdrop"
+    );
+
+const chatBackgroundClose =
+    document.getElementById(
+        "sc-chat-background-close"
+    );
+
+const chatBackgroundCancel =
+    document.getElementById(
+        "sc-chat-background-cancel"
+    );
+
+const chatBackgroundApply =
+    document.getElementById(
+        "sc-chat-background-apply"
+    );
+
+const chatBackgroundPreview =
+    document.getElementById(
+        "sc-chat-background-preview"
+    );
+
+const chatBackgroundSystem =
+    document.getElementById(
+        "sc-chat-background-system"
+    );
+
+const chatBackgroundGallery =
+    document.getElementById(
+        "sc-chat-background-gallery"
+    );
+
+const chatBackgroundSystemPanel =
+    document.getElementById(
+        "sc-chat-background-system-panel"
+    );
+
+const chatBackgroundGalleryPanel =
+    document.getElementById(
+        "sc-chat-background-gallery-panel"
+    );
+
+const chatBackgroundThemeGrid =
+    document.getElementById(
+        "sc-chat-background-theme-grid"
+    );
+
+const chatBackgroundGalleryButton =
+    document.getElementById(
+        "sc-chat-background-gallery-button"
+    );
+
+const chatBackgroundFile =
+    document.getElementById(
+        "sc-chat-background-file"
+    );
+
+
+let selectedChatBackground = {
+    type:"theme",
+    value:"dark"
+};
+
+
+function getChatBackgroundStore(){
+
+    try{
+
+        return JSON.parse(
+            localStorage.getItem(
+                SC_CHAT_BACKGROUND_KEY
+            )
+        ) || {};
+
+    }catch(error){
+
+        return {};
+
+    }
+
+}
+
+
+function saveChatBackgroundStore(
+    store
+){
+
+    localStorage.setItem(
+        SC_CHAT_BACKGROUND_KEY,
+        JSON.stringify(store)
+    );
+
+}
+
+
+function getSavedChatBackground(
+    crushId
+){
+
+    const store =
+        getChatBackgroundStore();
+
+    return store[crushId] || {
+        type:"theme",
+        value:"dark"
+    };
+
+}
+
+
+function chatBackgroundClassName(
+    theme
+){
+
+    return `sc-chat-bg-theme-${theme}`;
+
+}
+
+
+function clearChatBackgroundClasses(
+    element
+){
+
+    if(!element) return;
+
+    [
+        "dark",
+        "light",
+        "space",
+        "stars",
+        "aurora"
+    ].forEach(
+        theme => {
+
+            element.classList.remove(
+                chatBackgroundClassName(
+                    theme
+                )
+            );
+
+        }
+    );
+
+
+    element.classList.remove(
+        "sc-chat-bg-image"
+    );
+
+
+    element.style.backgroundImage = "";
+
+}
+
+
+function applyChatBackground(
+    background
+){
+
+    if(!chatThreadBody){
+
+        return;
+
+    }
+
+
+    clearChatBackgroundClasses(
+        chatThreadBody
+    );
+
+
+    if(
+        background?.type === "image"
+        &&
+        background.value
+    ){
+
+        chatThreadBody.classList.add(
+            "sc-chat-bg-image"
+        );
+
+        chatThreadBody.style.backgroundImage =
+            `url("${background.value}")`;
+
+        return;
+
+    }
+
+
+    const theme =
+        [
+            "dark",
+            "light",
+            "space",
+            "stars",
+            "aurora"
+        ].includes(
+            background?.value
+        )
+            ? background.value
+            : "dark";
+
+
+    chatThreadBody.classList.add(
+        chatBackgroundClassName(
+            theme
+        )
+    );
+
+}
+
+
+function saveActiveChatBackground(
+    background
+){
+
+    if(!activeChatCrushId){
+
+        return;
+
+    }
+
+
+    const store =
+        getChatBackgroundStore();
+
+
+    store[activeChatCrushId] =
+        background;
+
+
+    saveChatBackgroundStore(
+        store
+    );
+
+}
+
+
+function setBackgroundPreview(
+    background
+){
+
+    if(!chatBackgroundPreview){
+
+        return;
+
+    }
+
+
+    clearChatBackgroundClasses(
+        chatBackgroundPreview
+    );
+
+
+    if(
+        background?.type === "image"
+        &&
+        background.value
+    ){
+
+        chatBackgroundPreview.classList.add(
+            "sc-chat-bg-image"
+        );
+
+        chatBackgroundPreview.style.backgroundImage =
+            `url("${background.value}")`;
+
+        return;
+
+    }
+
+
+    const theme =
+        [
+            "dark",
+            "light",
+            "space",
+            "stars",
+            "aurora"
+        ].includes(
+            background?.value
+        )
+            ? background.value
+            : "dark";
+
+
+    chatBackgroundPreview.classList.add(
+        chatBackgroundClassName(
+            theme
+        )
+    );
+
+}
+
+
+function updateBackgroundThemeSelection(
+    theme
+){
+
+    if(!chatBackgroundThemeGrid){
+
+        return;
+
+    }
+
+
+    chatBackgroundThemeGrid
+        .querySelectorAll(
+            "[data-chat-background-theme]"
+        )
+        .forEach(
+            button => {
+
+                button.classList.toggle(
+                    "selected",
+                    button.dataset.chatBackgroundTheme === theme
+                );
+
+            }
+        );
+
+}
+
+
+function setChatBackgroundSource(
+    source
+){
+
+    const system =
+        source === "system";
+
+
+    if(chatBackgroundSystem){
+
+        chatBackgroundSystem.classList.toggle(
+            "active",
+            system
+        );
+
+        chatBackgroundSystem.setAttribute(
+            "aria-selected",
+            String(system)
+        );
+
+    }
+
+
+    if(chatBackgroundGallery){
+
+        chatBackgroundGallery.classList.toggle(
+            "active",
+            !system
+        );
+
+        chatBackgroundGallery.setAttribute(
+            "aria-selected",
+            String(!system)
+        );
+
+    }
+
+
+    if(chatBackgroundSystemPanel){
+
+        chatBackgroundSystemPanel.hidden =
+            !system;
+
+    }
+
+
+    if(chatBackgroundGalleryPanel){
+
+        chatBackgroundGalleryPanel.hidden =
+            system;
+
+    }
+
+}
+
+
+function openChatBackgroundPicker(){
+
+    if(!chatBackgroundOverlay){
+
+        return;
+
+    }
+
+
+    const current =
+        getSavedChatBackground(
+            activeChatCrushId
+        );
+
+
+    selectedChatBackground = {
+        ...current
+    };
+
+
+    setChatBackgroundSource(
+        selectedChatBackground.type === "image"
+            ? "gallery"
+            : "system"
+    );
+
+
+    if(
+        selectedChatBackground.type === "theme"
+    ){
+
+        updateBackgroundThemeSelection(
+            selectedChatBackground.value
+        );
+
+    }
+
+
+    setBackgroundPreview(
+        selectedChatBackground
+    );
+
+
+    chatBackgroundOverlay.classList.add(
+        "active"
+    );
+
+
+    chatBackgroundOverlay.setAttribute(
+        "aria-hidden",
+        "false"
+    );
+
+}
+
+
+function closeChatBackgroundPicker(){
+
+    if(!chatBackgroundOverlay){
+
+        return;
+
+    }
+
+
+    chatBackgroundOverlay.classList.remove(
+        "active"
+    );
+
+
+    chatBackgroundOverlay.setAttribute(
+        "aria-hidden",
+        "true"
+    );
+
+}
+
+
+async function compressChatBackgroundImage(
+    file
+){
+
+    const image =
+        new Image();
+
+
+    const objectUrl =
+        URL.createObjectURL(
+            file
+        );
+
+
+    try{
+
+        await new Promise(
+            (resolve,reject) => {
+
+                image.onload = resolve;
+
+                image.onerror = reject;
+
+                image.src = objectUrl;
+
+            }
+        );
+
+
+        const maxWidth = 1080;
+
+        const maxHeight = 1920;
+
+
+        const ratio =
+            Math.min(
+                1,
+                maxWidth / image.naturalWidth,
+                maxHeight / image.naturalHeight
+            );
+
+
+        const canvas =
+            document.createElement(
+                "canvas"
+            );
+
+
+        canvas.width =
+            Math.max(
+                1,
+                Math.round(
+                    image.naturalWidth * ratio
+                )
+            );
+
+
+        canvas.height =
+            Math.max(
+                1,
+                Math.round(
+                    image.naturalHeight * ratio
+                )
+            );
+
+
+        const context =
+            canvas.getContext(
+                "2d"
+            );
+
+
+        context.drawImage(
+            image,
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+
+        return canvas.toDataURL(
+            "image/jpeg",
+            .82
+        );
+
+    }finally{
+
+        URL.revokeObjectURL(
+            objectUrl
+        );
+
+    }
+
+}
+
+
+function applySavedChatBackground(){
+
+    if(!activeChatCrushId){
+
+        applyChatBackground({
+            type:"theme",
+            value:"dark"
+        });
+
+        return;
+
+    }
+
+
+    applyChatBackground(
+        getSavedChatBackground(
+            activeChatCrushId
+        )
+    );
+
+}
 
 
 /* =====================================================
@@ -33650,6 +34240,8 @@ function openChatThread(crush){
 
     activeChatCrushId =
         crush.id;
+        
+        applySavedChatBackground();
 
 
     ensureChatExists(
@@ -35966,6 +36558,280 @@ function closeChatMoreMenu(){
     );
 
 }
+
+/* =====================================================
+CHAT MORE MENU — CHANGE BACKGROUND
+===================================================== */
+
+const chatChangeBackgroundButton =
+    document.getElementById(
+        "chat-change-background"
+    );
+
+
+if(chatChangeBackgroundButton){
+
+    chatChangeBackgroundButton.addEventListener(
+        "click",
+        () => {
+
+            closeChatMoreMenu();
+
+            openChatBackgroundPicker();
+
+        }
+    );
+
+}
+
+
+if(chatBackgroundClose){
+
+    chatBackgroundClose.addEventListener(
+        "click",
+        closeChatBackgroundPicker
+    );
+
+}
+
+
+if(chatBackgroundCancel){
+
+    chatBackgroundCancel.addEventListener(
+        "click",
+        closeChatBackgroundPicker
+    );
+
+}
+
+
+if(chatBackgroundBackdrop){
+
+    chatBackgroundBackdrop.addEventListener(
+        "click",
+        closeChatBackgroundPicker
+    );
+
+}
+
+
+if(chatBackgroundSystem){
+
+    chatBackgroundSystem.addEventListener(
+        "click",
+        () => {
+
+            setChatBackgroundSource(
+                "system"
+            );
+
+            setBackgroundPreview(
+                selectedChatBackground
+            );
+
+        }
+    );
+
+}
+
+
+if(chatBackgroundGallery){
+
+    chatBackgroundGallery.addEventListener(
+        "click",
+        () => {
+
+            setChatBackgroundSource(
+                "gallery"
+            );
+
+
+            if(
+                selectedChatBackground.type !==
+                "image"
+            ){
+
+                setBackgroundPreview({
+                    type:"theme",
+                    value:"dark"
+                });
+
+            }else{
+
+                setBackgroundPreview(
+                    selectedChatBackground
+                );
+
+            }
+
+        }
+    );
+
+}
+
+
+if(chatBackgroundThemeGrid){
+
+    chatBackgroundThemeGrid.addEventListener(
+        "click",
+        event => {
+
+            const button =
+                event.target.closest(
+                    "[data-chat-background-theme]"
+                );
+
+
+            if(!button){
+
+                return;
+
+            }
+
+
+            const theme =
+                button.dataset.chatBackgroundTheme;
+
+
+            selectedChatBackground = {
+
+                type:"theme",
+
+                value:theme
+
+            };
+
+
+            updateBackgroundThemeSelection(
+                theme
+            );
+
+
+            setBackgroundPreview(
+                selectedChatBackground
+            );
+
+        }
+    );
+
+}
+
+
+if(chatBackgroundGalleryButton){
+
+    chatBackgroundGalleryButton.addEventListener(
+        "click",
+        () => {
+
+            if(chatBackgroundFile){
+
+                chatBackgroundFile.click();
+
+            }
+
+        }
+    );
+
+}
+
+
+if(chatBackgroundFile){
+
+    chatBackgroundFile.addEventListener(
+        "change",
+        async event => {
+
+            const file =
+                event.target.files?.[0];
+
+
+            if(
+                !file
+                ||
+                !file.type.startsWith(
+                    "image/"
+                )
+            ){
+
+                return;
+
+            }
+
+
+            try{
+
+                const compressed =
+                    await compressChatBackgroundImage(
+                        file
+                    );
+
+
+                selectedChatBackground = {
+
+                    type:"image",
+
+                    value:compressed
+
+                };
+
+
+                setBackgroundPreview(
+                    selectedChatBackground
+                );
+
+
+                setChatBackgroundSource(
+                    "gallery"
+                );
+
+            }catch(error){
+
+                console.error(
+                    "Unable to prepare chat background image:",
+                    error
+                );
+
+            }
+
+
+            event.target.value = "";
+
+        }
+    );
+
+}
+
+
+if(chatBackgroundApply){
+
+    chatBackgroundApply.addEventListener(
+        "click",
+        () => {
+
+            if(!activeChatCrushId){
+
+                return;
+
+            }
+
+
+            applyChatBackground(
+                selectedChatBackground
+            );
+
+
+            saveActiveChatBackground(
+                selectedChatBackground
+            );
+
+
+            closeChatBackgroundPicker();
+
+        }
+    );
+
+}
+
 
 
 if(chatMoreButton){
