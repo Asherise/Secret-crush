@@ -29178,20 +29178,29 @@ MODULE: CHAT MEDIA ATTACHMENTS
 /* =====================================================
 MEDIA PREVIEW ABOVE COMPOSER
 ===================================================== */
+/* =====================================================
+MODULE: CHAT MEDIA PREVIEW ABOVE COMPOSER
+===================================================== */
 
 .sc-chat-media-preview{
 
-    position:absolute;
+    position:fixed;
 
     left:10px;
 
     right:10px;
 
-    bottom:72px;
+    bottom:
+        calc(
+            60px +
+            env(safe-area-inset-bottom)
+        );
 
-    z-index:20;
+    z-index:1600;
 
     display:none;
+
+    box-sizing:border-box;
 
     padding:8px;
 
@@ -29207,9 +29216,19 @@ MEDIA PREVIEW ABOVE COMPOSER
     backdrop-filter:
         blur(14px);
 
+    -webkit-backdrop-filter:
+        blur(14px);
+
     box-shadow:
         0 12px 35px
-        rgba(0,0,0,.35);
+        rgba(0,0,0,.45);
+
+}
+
+
+.sc-chat-media-preview.active{
+
+    display:block;
 
 }
 
