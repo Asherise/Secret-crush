@@ -33883,6 +33883,220 @@ function applySavedChatBackground(){
 CHAT STORAGE
 ===================================================== */
 
+/* =====================================================
+MODULE: CHAT MEDIA STORAGE
+===================================================== */
+
+const SC_CHAT_MEDIA_DB =
+    "SecretCrushChatMedia";
+
+const SC_CHAT_MEDIA_STORE =
+    "attachments";
+
+let SC_CHAT_MEDIA_DB_INSTANCE =
+    null;
+
+
+function openChatMediaDB(){
+
+    if(SC_CHAT_MEDIA_DB_INSTANCE){
+
+        return Promise.resolve(
+            SC_CHAT_MEDIA_DB_INSTANCE
+        );
+
+    }
+
+
+    return new Promise(
+        (resolve,reject) => {
+
+            const request =
+                indexedDB.open(
+                    SC_CHAT_MEDIA_DB,
+                    1
+                );
+
+
+            request.onupgradeneeded =
+                event => {
+
+                    const db =
+                        event.target.result;
+
+
+                    if(
+                        !db.objectStoreNames.contains(
+                            SC_CHAT_MEDIA_STORE
+                        )
+                    ){
+
+                        db.createObjectStore(
+                            SC_CHAT_MEDIA_STORE,
+                            {
+                                keyPath:"id"
+                            }
+                        );
+
+                    }
+
+                };
+
+
+            request.onsuccess =
+                event => {
+
+                    SC_CHAT_MEDIA_DB_INSTANCE =
+                        event.target.result;
+
+                    resolve(
+                        SC_CHAT_MEDIA_DB_INSTANCE
+                    );
+
+                };
+
+
+            request.onerror =
+                () => {
+
+                    reject(
+                        request.error
+                    );
+
+                };
+
+        }
+    );
+
+}
+
+
+function saveChatMedia(
+    record
+){
+
+    return openChatMediaDB()
+        .then(
+            db =>
+                new Promise(
+                    (resolve,reject) => {
+
+                        const transaction =
+                            db.transaction(
+                                SC_CHAT_MEDIA_STORE,
+                                "readwrite"
+                            );
+
+
+                        transaction
+                            .objectStore(
+                                SC_CHAT_MEDIA_STORE
+                            )
+                            .put(record);
+
+
+                        transaction.oncomplete =
+                            () => resolve();
+
+
+                        transaction.onerror =
+                            () =>
+                                reject(
+                                    transaction.error
+                                );
+
+                    }
+                )
+        );
+
+}
+
+
+function getChatMedia(
+    id
+){
+
+    return openChatMediaDB()
+        .then(
+            db =>
+                new Promise(
+                    (resolve,reject) => {
+
+                        const request =
+                            db
+                                .transaction(
+                                    SC_CHAT_MEDIA_STORE,
+                                    "readonly"
+                                )
+                                .objectStore(
+                                    SC_CHAT_MEDIA_STORE
+                                )
+                                .get(id);
+
+
+                        request.onsuccess =
+                            () =>
+                                resolve(
+                                    request.result ||
+                                    null
+                                );
+
+
+                        request.onerror =
+                            () =>
+                                reject(
+                                    request.error
+                                );
+
+                    }
+                )
+        );
+
+}
+
+
+function deleteChatMedia(
+    id
+){
+
+    return openChatMediaDB()
+        .then(
+            db =>
+                new Promise(
+                    (resolve,reject) => {
+
+                        const transaction =
+                            db.transaction(
+                                SC_CHAT_MEDIA_STORE,
+                                "readwrite"
+                            );
+
+
+                        transaction
+                            .objectStore(
+                                SC_CHAT_MEDIA_STORE
+                            )
+                            .delete(id);
+
+
+                        transaction.oncomplete =
+                            () => resolve();
+
+
+                        transaction.onerror =
+                            () =>
+                                reject(
+                                    transaction.error
+                                );
+
+                    }
+                )
+        );
+
+}
+
+
+
 function getChatStore(){
 
     try{
@@ -34390,13 +34604,17 @@ function closeChatThread(){
 /* =====================================================
 RENDER MESSAGES
 ===================================================== */
-function renderChatMessages(){
+async function renderChatMessages(){
 
     if(
         !chatThreadBody
         ||
         !activeChatCrushId
-    ) return;
+    ){
+
+        return;
+
+    }
 
 
     const messages =
@@ -34457,6 +34675,14 @@ function renderChatMessages(){
                         );
 
 
+                    const attachments =
+                        Array.isArray(
+                            message.attachments
+                        )
+                            ? message.attachments
+                            : [];
+
+
                     return `
 
                         <div
@@ -34498,39 +34724,91 @@ function renderChatMessages(){
                                 class="chat-message-content"
                             >
 
-                                <div
-                                    class="chat-bubble"
-                                >
+                                ${
+                                    textMessageHTML(
+                                        message
+                                    )
+                                }
 
-                                    <p>
-                                        ${escapePostHTML(
-                                            message.text || ""
-                                        )}
+
+                                ${
+                                    attachments.length
+                                    ?
+
+                                    `
+                                    <div
+                                        class="
+                                            chat-media-message
+                                            chat-media-grid
+                                            ${
+                                                attachments.length === 1
+                                                    ? "one"
+                                                    : attachments.length === 2
+                                                        ? "two"
+                                                        : attachments.length === 3
+                                                            ? "three"
+                                                            : "four"
+                                            }
+                                        "
+                                        data-media-message-id="${
+                                            message.id
+                                        }"
+                                    >
 
                                         ${
-                                            message.edited
 
-                                            ?
+                                            attachments
+                                                .map(
+                                                    (
+                                                        attachment,
+                                                        index
+                                                    ) => `
 
-                                            `
-                                            <span
-                                                class="
-                                                    chat-edited-label
-                                                "
-                                            >
-                                                edited
-                                            </span>
-                                            `
+                                                        <button
+                                                            type="button"
+                                                            class="
+                                                                chat-media-grid-item
+                                                            "
+                                                            data-media-message-id="${
+                                                                message.id
+                                                            }"
+                                                            data-media-index="${
+                                                                index
+                                                            }"
+                                                        >
 
-                                            :
+                                                            <span
+                                                                class="chat-media-loading"
+                                                            >
+                                                                •••
+                                                            </span>
 
-                                            ""
+                                                        </button>
+
+                                                    `
+                                                )
+                                                .join("")
+
                                         }
-                                    </p>
+
+                                    </div>
+
+                                    `
+
+                                    :
+
+                                    ""
+                                }
 
 
-                                    <small>
+                                ${
+                                    attachments.length
+                                    ?
 
+                                    `
+                                    <div
+                                        class="chat-message-file-time"
+                                    >
                                         ${formatChatTime(
                                             message.time
                                         )}
@@ -34550,11 +34828,6 @@ function renderChatMessages(){
                                                         : ""
                                                     }
                                                 "
-                                                aria-label="${
-                                                    message.read
-                                                    ? "Read"
-                                                    : "Sent"
-                                                }"
                                             >
                                                 ${
                                                     message.read
@@ -34569,9 +34842,13 @@ function renderChatMessages(){
                                             ""
                                         }
 
-                                    </small>
+                                    </div>
+                                    `
 
-                                </div>
+                                    :
+
+                                    ""
+                                }
 
 
                                 ${
@@ -34584,13 +34861,13 @@ function renderChatMessages(){
                                         class="
                                             chat-message-reactions
                                         "
-                                        aria-label="Message reactions"
                                     >
 
                                         ${
                                             reactionEntries
                                                 .map(
-                                                    ([user, emoji]) => `
+                                                    ([user,emoji]) => `
+
                                                         <button
                                                             type="button"
                                                             class="
@@ -34612,12 +34889,14 @@ function renderChatMessages(){
                                                         >
                                                             ${emoji}
                                                         </button>
+
                                                     `
                                                 )
                                                 .join("")
                                         }
 
                                     </div>
+
                                     `
 
                                     :
@@ -34639,8 +34918,778 @@ function renderChatMessages(){
     `;
 
 
+    await hydrateChatMediaMessages();
+
+
     chatThreadBody.scrollTop =
         chatThreadBody.scrollHeight;
+
+}
+
+
+function textMessageHTML(
+    message
+){
+
+    if(
+        !message.text
+    ){
+
+        return "";
+
+    }
+
+
+    const mine =
+        message.from === "me";
+
+
+    return `
+
+        <div
+            class="chat-bubble"
+        >
+
+            <p>
+
+                ${escapePostHTML(
+                    message.text
+                )}
+
+                ${
+                    message.edited
+
+                    ?
+
+                    `
+                    <span
+                        class="
+                            chat-edited-label
+                        "
+                    >
+                        edited
+                    </span>
+                    `
+
+                    :
+
+                    ""
+                }
+
+            </p>
+
+
+            <small>
+
+                ${formatChatTime(
+                    message.time
+                )}
+
+                ${
+                    mine
+
+                    ?
+
+                    `
+                    <span
+                        class="
+                            chat-read-indicator
+                            ${
+                                message.read
+                                ? "read"
+                                : ""
+                            }
+                        "
+                    >
+                        ${
+                            message.read
+                            ? "✓✓"
+                            : "✓"
+                        }
+                    </span>
+                    `
+
+                    :
+
+                    ""
+                }
+
+            </small>
+
+        </div>
+
+    `;
+
+}
+
+
+async function hydrateChatMediaMessages(){
+
+    const mediaMessages =
+        chatThreadBody.querySelectorAll(
+            "[data-media-message-id]"
+        );
+
+
+    for(
+        const container
+        of mediaMessages
+    ){
+
+        if(
+            !container.classList.contains(
+                "chat-media-grid"
+            )
+        ){
+
+            continue;
+
+        }
+
+
+        const messageId =
+            container.dataset.mediaMessageId;
+
+
+        const message =
+            getChatMessages(
+                activeChatCrushId
+            ).find(
+                item =>
+                    String(item.id) ===
+                    String(messageId)
+            );
+
+
+        if(
+            !message
+            ||
+            !Array.isArray(
+                message.attachments
+            )
+        ){
+
+            continue;
+
+        }
+
+
+        const items =
+            container.querySelectorAll(
+                ".chat-media-grid-item"
+            );
+
+
+        for(
+            let index = 0;
+            index < items.length;
+            index++
+        ){
+
+            const button =
+                items[index];
+
+
+            const attachment =
+                message.attachments[index];
+
+
+            if(!attachment){
+
+                continue;
+
+            }
+
+
+            const record =
+                await getChatMedia(
+                    attachment.id
+                );
+
+
+            if(!record){
+
+                continue;
+
+            }
+
+
+            const objectUrl =
+                URL.createObjectURL(
+                    record.blob
+                );
+
+
+            button.innerHTML = "";
+
+
+            if(
+                record.type === "video"
+            ){
+
+                button.innerHTML = `
+
+                    <video
+                        src="${objectUrl}"
+                        muted
+                        playsinline
+                        preload="metadata"
+                    ></video>
+
+                    <span
+                        class="
+                            chat-media-preview-video-icon
+                        "
+                    >
+                        ▶
+                    </span>
+
+                `;
+
+            }
+
+            else{
+
+                button.innerHTML = `
+
+                    <img
+                        src="${objectUrl}"
+                        alt=""
+                    >
+
+                `;
+
+            }
+
+
+            button.dataset.objectUrl =
+                objectUrl;
+
+
+            if(
+                index ===
+                message.attachments.length - 1
+                &&
+                message.attachments.length > 4
+            ){
+
+                const remaining =
+                    message.attachments.length -
+                    4;
+
+
+                const overlay =
+                    document.createElement(
+                        "span"
+                    );
+
+
+                overlay.className =
+                    "chat-media-grid-more";
+
+
+                overlay.textContent =
+                    `+${remaining}`;
+
+
+                button.appendChild(
+                    overlay
+                );
+
+            }
+
+        }
+
+    }
+
+}
+
+
+/* =====================================================
+CHAT MEDIA VIEWER
+===================================================== */
+
+const chatMediaViewer =
+    document.getElementById(
+        "sc-chat-media-viewer"
+    );
+
+const chatMediaViewerStage =
+    document.getElementById(
+        "sc-chat-media-viewer-stage"
+    );
+
+const chatMediaViewerCounter =
+    document.getElementById(
+        "sc-chat-media-viewer-counter"
+    );
+
+const chatMediaViewerClose =
+    document.getElementById(
+        "sc-chat-media-viewer-close"
+    );
+
+const chatMediaViewerPrevious =
+    document.getElementById(
+        "sc-chat-media-viewer-previous"
+    );
+
+const chatMediaViewerNext =
+    document.getElementById(
+        "sc-chat-media-viewer-next"
+    );
+
+const chatMediaViewerSave =
+    document.getElementById(
+        "sc-chat-media-viewer-save"
+    );
+
+
+let activeChatMediaViewer = {
+
+    messageId:null,
+
+    index:0,
+
+    records:[]
+
+};
+
+
+async function openChatMediaViewer(
+    messageId,
+    index
+){
+
+    const message =
+        getChatMessages(
+            activeChatCrushId
+        ).find(
+            item =>
+                String(item.id) ===
+                String(messageId)
+        );
+
+
+    if(
+        !message
+        ||
+        !Array.isArray(
+            message.attachments
+        )
+        ||
+        !message.attachments.length
+    ){
+
+        return;
+
+    }
+
+
+    const records =
+        [];
+
+
+    for(
+        const attachment
+        of message.attachments
+    ){
+
+        const record =
+            await getChatMedia(
+                attachment.id
+            );
+
+
+        if(record){
+
+            records.push(
+                record
+            );
+
+        }
+
+    }
+
+
+    if(!records.length){
+
+        return;
+
+    }
+
+
+    activeChatMediaViewer = {
+
+        messageId,
+
+        index:
+            Math.max(
+                0,
+                Math.min(
+                    index,
+                    records.length - 1
+                )
+            ),
+
+        records
+
+    };
+
+
+    renderChatMediaViewer();
+
+
+    chatMediaViewer.classList.add(
+        "active"
+    );
+
+
+    chatMediaViewer.setAttribute(
+        "aria-hidden",
+        "false"
+    );
+
+}
+
+
+function renderChatMediaViewer(){
+
+    if(
+        !chatMediaViewerStage
+    ){
+
+        return;
+
+    }
+
+
+    const record =
+        activeChatMediaViewer
+            .records[
+                activeChatMediaViewer.index
+            ];
+
+
+    if(!record){
+
+        return;
+
+    }
+
+
+    chatMediaViewerStage.innerHTML =
+        "";
+
+
+    const objectUrl =
+        URL.createObjectURL(
+            record.blob
+        );
+
+
+    if(
+        record.type === "video"
+    ){
+
+        const video =
+            document.createElement(
+                "video"
+            );
+
+
+        video.src =
+            objectUrl;
+
+        video.controls =
+            true;
+
+        video.autoplay =
+            true;
+
+        video.playsInline =
+            true;
+
+
+        chatMediaViewerStage.appendChild(
+            video
+        );
+
+    }
+
+    else{
+
+        const image =
+            document.createElement(
+                "img"
+            );
+
+
+        image.src =
+            objectUrl;
+
+
+        chatMediaViewerStage.appendChild(
+            image
+        );
+
+    }
+
+
+    chatMediaViewerStage.dataset.objectUrl =
+        objectUrl;
+
+
+    chatMediaViewerCounter.textContent =
+        `${
+            activeChatMediaViewer.index + 1
+        } of ${
+            activeChatMediaViewer.records.length
+        }`;
+
+
+    chatMediaViewerPrevious.style.display =
+        activeChatMediaViewer.records.length > 1
+            ? ""
+            : "none";
+
+
+    chatMediaViewerNext.style.display =
+        activeChatMediaViewer.records.length > 1
+            ? ""
+            : "none";
+
+}
+
+
+function closeChatMediaViewer(){
+
+    if(
+        chatMediaViewerStage
+        &&
+        chatMediaViewerStage.dataset.objectUrl
+    ){
+
+        URL.revokeObjectURL(
+            chatMediaViewerStage.dataset.objectUrl
+        );
+
+        chatMediaViewerStage.dataset.objectUrl =
+            "";
+
+    }
+
+
+    if(chatMediaViewerStage){
+
+        chatMediaViewerStage.innerHTML =
+            "";
+
+    }
+
+
+    chatMediaViewer.classList.remove(
+        "active"
+    );
+
+
+    chatMediaViewer.setAttribute(
+        "aria-hidden",
+        "true"
+    );
+
+}
+
+
+if(chatThreadBody){
+
+    chatThreadBody.addEventListener(
+        "click",
+        event => {
+
+            const media =
+                event.target.closest(
+                    ".chat-media-grid-item"
+                );
+
+
+            if(!media){
+
+                return;
+
+            }
+
+
+            openChatMediaViewer(
+
+                media.dataset.mediaMessageId,
+
+                Number(
+                    media.dataset.mediaIndex
+                )
+
+            );
+
+        }
+    );
+
+}
+
+
+if(chatMediaViewerClose){
+
+    chatMediaViewerClose.addEventListener(
+        "click",
+        closeChatMediaViewer
+    );
+
+}
+
+
+if(chatMediaViewerPrevious){
+
+    chatMediaViewerPrevious.addEventListener(
+        "click",
+        () => {
+
+            const total =
+                activeChatMediaViewer.records.length;
+
+
+            if(total <= 1){
+
+                return;
+
+            }
+
+
+            activeChatMediaViewer.index =
+                (
+                    activeChatMediaViewer.index -
+                    1 +
+                    total
+                ) % total;
+
+
+            renderChatMediaViewer();
+
+        }
+    );
+
+}
+
+
+if(chatMediaViewerNext){
+
+    chatMediaViewerNext.addEventListener(
+        "click",
+        () => {
+
+            const total =
+                activeChatMediaViewer.records.length;
+
+
+            if(total <= 1){
+
+                return;
+
+            }
+
+
+            activeChatMediaViewer.index =
+                (
+                    activeChatMediaViewer.index +
+                    1
+                ) % total;
+
+
+            renderChatMediaViewer();
+
+        }
+    );
+
+}
+
+/* =====================================================
+SAVE CHAT MEDIA TO DEVICE
+===================================================== */
+
+async function saveChatMediaToDevice(
+    record
+){
+
+    if(!record){
+
+        return;
+
+    }
+
+
+    const url =
+        URL.createObjectURL(
+            record.blob
+        );
+
+
+    const link =
+        document.createElement(
+            "a"
+        );
+
+
+    link.href =
+        url;
+
+
+    link.download =
+        record.name ||
+        `secret-crush-media-${Date.now()}`;
+
+
+    document.body.appendChild(
+        link
+    );
+
+
+    link.click();
+
+
+    link.remove();
+
+
+    setTimeout(
+        () => {
+
+            URL.revokeObjectURL(
+                url
+            );
+
+        },
+        1000
+    );
+
+}
+
+
+if(chatMediaViewerSave){
+
+    chatMediaViewerSave.addEventListener(
+        "click",
+        async () => {
+
+            const record =
+                activeChatMediaViewer
+                    .records[
+                        activeChatMediaViewer.index
+                    ];
+
+
+            await saveChatMediaToDevice(
+                record
+            );
+
+        }
+    );
 
 }
 
@@ -35432,37 +36481,61 @@ function createChatMessageActionMenu(){
 
     chatMessageActionMenu.innerHTML = `
 
-        <button
-            type="button"
-            data-message-action="unsend"
-        >
-            Unsend
-        </button>
+<button
+    type="button"
+    data-message-action="view"
+>
+    View
+</button>
 
 
-        <button
-            type="button"
-            data-message-action="edit"
-        >
-            Edit
-        </button>
+<button
+    type="button"
+    data-message-action="save"
+>
+    Save
+</button>
 
 
-        <button
-            type="button"
-            data-message-action="copy"
-        >
-            Copy
-        </button>
+<button
+    type="button"
+    data-message-action="forward"
+>
+    Forward
+</button>
 
 
-        <button
-            type="button"
-            class="danger"
-            data-message-action="delete"
-        >
-            Delete for me
-        </button>
+<button
+    type="button"
+    data-message-action="unsend"
+>
+    Unsend
+</button>
+
+
+<button
+    type="button"
+    data-message-action="edit"
+>
+    Edit
+</button>
+
+
+<button
+    type="button"
+    data-message-action="copy"
+>
+    Copy
+</button>
+
+
+<button
+    type="button"
+    class="danger"
+    data-message-action="delete"
+>
+    Delete for me
+</button>
 
     `;
 
@@ -35537,6 +36610,41 @@ function positionChatMessageActionMenu(
 
     const menu =
         createChatMessageActionMenu();
+        
+        const message =
+    getChatMessages(
+        activeChatCrushId
+    ).find(
+        item =>
+            String(item.id) ===
+            String(
+                row.dataset.messageId
+            )
+    );
+
+
+const hasAttachments =
+    Array.isArray(
+        message?.attachments
+    )
+    &&
+    message.attachments.length > 0;
+
+
+menu
+    .querySelectorAll(
+        "[data-media-action]"
+    )
+    .forEach(
+        button => {
+
+            button.style.display =
+                hasAttachments
+                    ? ""
+                    : "none";
+
+        }
+    );
 
 
     menu.dataset.messageId =
@@ -35548,7 +36656,7 @@ function positionChatMessageActionMenu(
 
 
     const menuHeight =
-        190;
+    310;
 
 
     const safeX =
@@ -35726,6 +36834,107 @@ function performChatMessageAction(
     normalizeChatMessage(
         message
     );
+    
+        const hasAttachments =
+        Array.isArray(
+            message.attachments
+        )
+        &&
+        message.attachments.length > 0;
+
+
+    if(
+        hasAttachments
+        &&
+        action === "view"
+    ){
+
+        closeChatMessageActionMenu();
+
+
+        openChatMediaViewer(
+            message.id,
+            0
+        );
+
+
+        return;
+
+    }
+
+
+    if(
+        hasAttachments
+        &&
+        action === "save"
+    ){
+
+        closeChatMessageActionMenu();
+
+
+        getChatMedia(
+            message.attachments[0].id
+        )
+        .then(
+            record =>
+                saveChatMediaToDevice(
+                    record
+                )
+        );
+
+
+        return;
+
+    }
+
+
+    if(
+        hasAttachments
+        &&
+        action === "forward"
+    ){
+
+        /*
+         * Forwarding remains a placeholder until
+         * the chat backend/user-selection system
+         * exists.
+         *
+         * The action is intentionally kept here
+         * so the media menu already has the
+         * correct structure.
+         */
+
+        closeChatMessageActionMenu();
+
+        return;
+
+    }
+
+
+    if(
+        hasAttachments
+        &&
+        action === "copy"
+    ){
+
+        closeChatMessageActionMenu();
+
+        return;
+
+    }
+
+
+    if(
+        hasAttachments
+        &&
+        action === "edit"
+    ){
+
+        closeChatMessageActionMenu();
+
+        return;
+
+    }
 
 
     /* =================================================
@@ -36270,10 +37479,9 @@ document.addEventListener(
 /* =====================================================
 SEND MESSAGE
 ===================================================== */
+async function sendChatMessage(){
 
-function sendChatMessage(){
-
-    if(!chatMessageInput){
+    if(!activeChatCrushId){
 
         return;
 
@@ -36282,14 +37490,14 @@ function sendChatMessage(){
 
     const text =
         chatMessageInput
-            .value
-            .trim();
+            ? chatMessageInput.value.trim()
+            : "";
 
 
     if(
         !text
-        ||
-        !activeChatCrushId
+        &&
+        !pendingChatMedia.length
     ){
 
         return;
@@ -36317,7 +37525,7 @@ function sendChatMessage(){
 
 
     /* =================================================
-    EDIT EXISTING MESSAGE
+    EDIT EXISTING TEXT MESSAGE
     ================================================= */
 
     if(chatEditingMessageId){
@@ -36348,16 +37556,28 @@ function sendChatMessage(){
             );
 
 
-            /*
-             * Final protection:
-             * a message cannot be edited after read.
-             */
-
             if(message.read){
 
                 showChatMessageReadError(
                     "edited"
                 );
+
+                return;
+
+            }
+
+
+            /*
+             * Attachments are not editable.
+             * Editing is only allowed for
+             * normal text messages.
+             */
+
+            if(
+                message.attachments
+                &&
+                message.attachments.length
+            ){
 
                 return;
 
@@ -36371,51 +37591,153 @@ function sendChatMessage(){
             message.edited =
                 true;
 
+
+            chatEditingMessageId =
+                null;
+
+
+            saveChatStore(
+                store
+            );
+
+
+            if(chatMessageInput){
+
+                chatMessageInput.value =
+                    "";
+
+                chatMessageInput.style.height =
+                    "38px";
+
+                chatMessageInput.placeholder =
+                    "Message...";
+
+                chatMessageInput.classList.remove(
+                    "editing"
+                );
+
+            }
+
+
+            renderChatMessages();
+
+            renderChatList();
+
+
+            return;
+
         }
 
     }
 
 
     /* =================================================
-    SEND NEW MESSAGE
+    SAVE ATTACHMENTS
     ================================================= */
 
-    if(!chatEditingMessageId){
+    const attachmentRecords =
+        [];
 
-        store[
-            activeChatCrushId
-        ].push({
 
-            id:
-                `message-${Date.now()}-${Math.random()
+    const attachmentMessageId =
+        `message-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2,7)}`;
+
+
+    if(pendingChatMedia.length){
+
+        for(
+            const item
+            of pendingChatMedia
+        ){
+
+            const attachmentId =
+                `media-${Date.now()}-${Math.random()
                     .toString(36)
-                    .slice(2,7)}`,
+                    .slice(2,10)}`;
 
-            from:
-                "me",
 
-            text:
-                text,
+            await saveChatMedia({
 
-            time:
-                Date.now(),
+                id:
+                    attachmentId,
 
-            read:
-                false,
+                blob:
+                    item.file,
 
-            edited:
-                false,
+                mimeType:
+                    item.file.type,
 
-            reactions:
-                {}
+                type:
+                    item.type,
 
-        });
+                name:
+                    item.file.name,
+
+                size:
+                    item.file.size
+
+            });
+
+
+            attachmentRecords.push({
+
+                id:
+                    attachmentId,
+
+                type:
+                    item.type,
+
+                name:
+                    item.file.name,
+
+                mimeType:
+                    item.file.type,
+
+                size:
+                    item.file.size
+
+            });
+
+        }
 
     }
 
 
-    chatEditingMessageId =
-        null;
+    /* =================================================
+    CREATE MESSAGE
+    ================================================= */
+
+    store[
+        activeChatCrushId
+    ].push({
+
+        id:
+            attachmentMessageId,
+
+        from:
+            "me",
+
+        text:
+            text,
+
+        time:
+            Date.now(),
+
+        read:
+            false,
+
+        edited:
+            false,
+
+        reactions:
+            {},
+
+        attachments:
+            attachmentRecords
+
+    });
 
 
     saveChatStore(
@@ -36423,21 +37745,29 @@ function sendChatMessage(){
     );
 
 
-    chatMessageInput.value =
-        "";
+    chatEditingMessageId =
+        null;
 
 
-    chatMessageInput.style.height =
-        "38px";
+    if(chatMessageInput){
+
+        chatMessageInput.value =
+            "";
+
+        chatMessageInput.style.height =
+            "38px";
+
+        chatMessageInput.placeholder =
+            "Message...";
+
+        chatMessageInput.classList.remove(
+            "editing"
+        );
+
+    }
 
 
-    chatMessageInput.placeholder =
-        "Message...";
-
-
-    chatMessageInput.classList.remove(
-        "editing"
-    );
+    clearPendingChatMedia();
 
 
     renderChatMessages();
@@ -36445,6 +37775,7 @@ function sendChatMessage(){
     renderChatList();
 
 }
+
 
 
 
@@ -37209,9 +38540,8 @@ if(chatVoiceMessageButton){
 
 }
 
-
 /* =====================================================
-ATTACHMENT BUTTON
+MODULE: CHAT MEDIA ATTACHMENTS
 ===================================================== */
 
 const chatAttachButton =
@@ -37219,30 +38549,479 @@ const chatAttachButton =
         "chat-attach-button"
     );
 
+const chatAttachmentOverlay =
+    document.getElementById(
+        "sc-chat-attachment-overlay"
+    );
+
+const chatAttachmentBackdrop =
+    document.getElementById(
+        "sc-chat-attachment-backdrop"
+    );
+
+const chatAttachmentClose =
+    document.getElementById(
+        "sc-chat-attachment-close"
+    );
+
+const chatGalleryButton =
+    document.getElementById(
+        "sc-chat-gallery-button"
+    );
+
+const chatCameraButton =
+    document.getElementById(
+        "sc-chat-camera-button"
+    );
+
+const chatGalleryInput =
+    document.getElementById(
+        "sc-chat-gallery-input"
+    );
+
+const chatCameraInput =
+    document.getElementById(
+        "sc-chat-camera-input"
+    );
+
+const chatMediaPreview =
+    document.getElementById(
+        "sc-chat-media-preview"
+    );
+
+const chatMediaPreviewList =
+    document.getElementById(
+        "sc-chat-media-preview-list"
+    );
+
+const chatMediaPreviewClear =
+    document.getElementById(
+        "sc-chat-media-preview-clear"
+    );
+
+
+let pendingChatMedia =
+    [];
+
+
+function openChatAttachmentPicker(){
+
+    if(!chatAttachmentOverlay){
+
+        return;
+
+    }
+
+
+    chatAttachmentOverlay.classList.add(
+        "active"
+    );
+
+
+    chatAttachmentOverlay.setAttribute(
+        "aria-hidden",
+        "false"
+    );
+
+}
+
+
+function closeChatAttachmentPicker(){
+
+    if(!chatAttachmentOverlay){
+
+        return;
+
+    }
+
+
+    chatAttachmentOverlay.classList.remove(
+        "active"
+    );
+
+
+    chatAttachmentOverlay.setAttribute(
+        "aria-hidden",
+        "true"
+    );
+
+}
+
+
+function clearPendingChatMedia(){
+
+    pendingChatMedia.forEach(
+        item => {
+
+            if(item.previewUrl){
+
+                URL.revokeObjectURL(
+                    item.previewUrl
+                );
+
+            }
+
+        }
+    );
+
+
+    pendingChatMedia = [];
+
+
+    renderPendingChatMedia();
+
+
+    if(chatMediaPreview){
+
+        chatMediaPreview.classList.remove(
+            "active"
+        );
+
+    }
+
+}
+
+
+function renderPendingChatMedia(){
+
+    if(!chatMediaPreviewList){
+
+        return;
+
+    }
+
+
+    chatMediaPreviewList.innerHTML = "";
+
+
+    pendingChatMedia.forEach(
+        (item,index) => {
+
+            const wrapper =
+                document.createElement(
+                    "div"
+                );
+
+
+            wrapper.className =
+                "sc-chat-media-preview-item";
+
+
+            if(
+                item.type === "video"
+            ){
+
+                wrapper.innerHTML = `
+
+                    <video
+                        src="${item.previewUrl}"
+                        muted
+                        playsinline
+                    ></video>
+
+                    <span
+                        class="sc-chat-media-preview-video-icon"
+                    >
+                        ▶
+                    </span>
+
+                `;
+
+            }
+
+            else{
+
+                wrapper.innerHTML = `
+
+                    <img
+                        src="${item.previewUrl}"
+                        alt=""
+                    >
+
+                `;
+
+            }
+
+
+            const remove =
+                document.createElement(
+                    "button"
+                );
+
+
+            remove.type =
+                "button";
+
+
+            remove.className =
+                "sc-chat-media-preview-remove";
+
+
+            remove.textContent =
+                "×";
+
+
+            remove.addEventListener(
+                "click",
+                () => {
+
+                    const removed =
+                        pendingChatMedia.splice(
+                            index,
+                            1
+                        )[0];
+
+
+                    if(
+                        removed?.previewUrl
+                    ){
+
+                        URL.revokeObjectURL(
+                            removed.previewUrl
+                        );
+
+                    }
+
+
+                    renderPendingChatMedia();
+
+
+                    if(
+                        !pendingChatMedia.length
+                    ){
+
+                        chatMediaPreview.classList.remove(
+                            "active"
+                        );
+
+                    }
+
+                }
+            );
+
+
+            wrapper.appendChild(
+                remove
+            );
+
+
+            chatMediaPreviewList.appendChild(
+                wrapper
+            );
+
+        }
+    );
+
+
+    if(
+        pendingChatMedia.length
+        &&
+        chatMediaPreview
+    ){
+
+        chatMediaPreview.classList.add(
+            "active"
+        );
+
+    }
+
+}
+
+
+function prepareSelectedChatMedia(
+    files
+){
+
+    const incoming =
+        Array.from(
+            files || []
+        );
+
+
+    if(!incoming.length){
+
+        return;
+
+    }
+
+
+    const available =
+        9 -
+        pendingChatMedia.length;
+
+
+    const selected =
+        incoming.slice(
+            0,
+            Math.max(
+                0,
+                available
+            )
+        );
+
+
+    selected.forEach(
+        file => {
+
+            if(
+                !file.type.startsWith(
+                    "image/"
+                )
+                &&
+                !file.type.startsWith(
+                    "video/"
+                )
+            ){
+
+                return;
+
+            }
+
+
+            pendingChatMedia.push({
+
+                file,
+
+                type:
+                    file.type.startsWith(
+                        "video/"
+                    )
+                        ? "video"
+                        : "image",
+
+                previewUrl:
+                    URL.createObjectURL(
+                        file
+                    )
+
+            });
+
+        }
+    );
+
+
+    renderPendingChatMedia();
+
+}
+
 
 if(chatAttachButton){
 
     chatAttachButton.addEventListener(
         "click",
+        openChatAttachmentPicker
+    );
+
+}
+
+
+if(chatAttachmentClose){
+
+    chatAttachmentClose.addEventListener(
+        "click",
+        closeChatAttachmentPicker
+    );
+
+}
+
+
+if(chatAttachmentBackdrop){
+
+    chatAttachmentBackdrop.addEventListener(
+        "click",
+        closeChatAttachmentPicker
+    );
+
+}
+
+
+if(chatGalleryButton){
+
+    chatGalleryButton.addEventListener(
+        "click",
         () => {
 
-            const input =
-                document.createElement(
-                    "input"
-                );
+            closeChatAttachmentPicker();
 
-            input.type =
-                "file";
 
-            input.accept =
-                "image/*,video/*,audio/*,.pdf,.doc,.docx";
+            if(chatGalleryInput){
 
-            input.multiple =
-                false;
+                chatGalleryInput.click();
 
-            input.click();
+            }
 
         }
+    );
+
+}
+
+
+if(chatCameraButton){
+
+    chatCameraButton.addEventListener(
+        "click",
+        () => {
+
+            closeChatAttachmentPicker();
+
+
+            if(chatCameraInput){
+
+                chatCameraInput.click();
+
+            }
+
+        }
+    );
+
+}
+
+
+if(chatGalleryInput){
+
+    chatGalleryInput.addEventListener(
+        "change",
+        event => {
+
+            prepareSelectedChatMedia(
+                event.target.files
+            );
+
+
+            event.target.value =
+                "";
+
+        }
+    );
+
+}
+
+
+if(chatCameraInput){
+
+    chatCameraInput.addEventListener(
+        "change",
+        event => {
+
+            prepareSelectedChatMedia(
+                event.target.files
+            );
+
+
+            event.target.value =
+                "";
+
+        }
+    );
+
+}
+
+
+if(chatMediaPreviewClear){
+
+    chatMediaPreviewClear.addEventListener(
+        "click",
+        clearPendingChatMedia
     );
 
 }

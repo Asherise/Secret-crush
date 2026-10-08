@@ -5501,6 +5501,255 @@ MODULE: CHAT THREAD
 
 
 <!-- =====================================================
+MODULE: CHAT ATTACHMENT PICKER
+===================================================== -->
+
+<div
+    class="sc-chat-attachment-overlay"
+    id="sc-chat-attachment-overlay"
+    aria-hidden="true"
+>
+
+    <div
+        class="sc-chat-attachment-backdrop"
+        id="sc-chat-attachment-backdrop"
+    ></div>
+
+
+    <section
+        class="sc-chat-attachment-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="sc-chat-attachment-title"
+    >
+
+        <div class="sc-chat-attachment-header">
+
+            <div>
+
+                <h3 id="sc-chat-attachment-title">
+                    Add Media
+                </h3>
+
+                <p>
+                    Images and videos only
+                </p>
+
+            </div>
+
+
+            <button
+                type="button"
+                id="sc-chat-attachment-close"
+                class="sc-chat-attachment-close"
+                aria-label="Close"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <div class="sc-chat-attachment-options">
+
+            <button
+                type="button"
+                class="sc-chat-attachment-option"
+                id="sc-chat-gallery-button"
+            >
+
+                <span class="sc-chat-attachment-option-icon">
+                    ▣
+                </span>
+
+                <span>
+                    <strong>
+                        Gallery
+                    </strong>
+
+                    <small>
+                        Choose up to 9 images or videos
+                    </small>
+                </span>
+
+            </button>
+
+
+            <button
+                type="button"
+                class="sc-chat-attachment-option"
+                id="sc-chat-camera-button"
+            >
+
+                <span class="sc-chat-attachment-option-icon">
+                    ◉
+                </span>
+
+                <span>
+                    <strong>
+                        Camera
+                    </strong>
+
+                    <small>
+                        Take a photo
+                    </small>
+
+                </span>
+
+            </button>
+
+        </div>
+
+
+        <input
+            type="file"
+            id="sc-chat-gallery-input"
+            accept="image/*,video/*"
+            multiple
+            hidden
+        >
+
+
+        <input
+            type="file"
+            id="sc-chat-camera-input"
+            accept="image/*"
+            capture="environment"
+            hidden
+        >
+
+    </section>
+
+</div>
+
+
+<!-- =====================================================
+MODULE: CHAT MEDIA PREVIEW
+===================================================== -->
+
+<div
+    class="sc-chat-media-preview"
+    id="sc-chat-media-preview"
+    aria-hidden="true"
+>
+
+    <div
+        class="sc-chat-media-preview-list"
+        id="sc-chat-media-preview-list"
+    ></div>
+
+
+    <button
+        type="button"
+        class="sc-chat-media-preview-clear"
+        id="sc-chat-media-preview-clear"
+        aria-label="Remove attachments"
+    >
+        ×
+    </button>
+
+</div>
+
+
+<!-- =====================================================
+MODULE: CHAT MEDIA VIEWER
+===================================================== -->
+
+<div
+    class="sc-chat-media-viewer"
+    id="sc-chat-media-viewer"
+    aria-hidden="true"
+>
+
+    <div
+        class="sc-chat-media-viewer-top"
+    >
+
+        <button
+            type="button"
+            id="sc-chat-media-viewer-close"
+            aria-label="Close"
+        >
+            ×
+        </button>
+
+
+        <span
+            id="sc-chat-media-viewer-counter"
+        >
+            1 of 1
+        </span>
+
+
+        <button
+            type="button"
+            id="sc-chat-media-viewer-save"
+            aria-label="Save to device"
+        >
+            ↓
+        </button>
+
+    </div>
+
+
+    <button
+        type="button"
+        class="sc-chat-media-viewer-nav previous"
+        id="sc-chat-media-viewer-previous"
+        aria-label="Previous"
+    >
+        ‹
+    </button>
+
+
+    <div
+        class="sc-chat-media-viewer-stage"
+        id="sc-chat-media-viewer-stage"
+    ></div>
+
+
+    <button
+        type="button"
+        class="sc-chat-media-viewer-nav next"
+        id="sc-chat-media-viewer-next"
+        aria-label="Next"
+    >
+        ›
+    </button>
+
+
+    <div
+        class="sc-chat-media-viewer-actions"
+        id="sc-chat-media-viewer-actions"
+    >
+
+        <button
+            type="button"
+            data-viewer-action="reaction"
+        >
+            ♡
+        </button>
+
+        <button
+            type="button"
+            data-viewer-action="save"
+        >
+            ↓
+        </button>
+
+        <button
+            type="button"
+            data-viewer-action="share"
+        >
+            ↗
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- =====================================================
 MODULE: CHAT MORE MENU
 ===================================================== -->
 
