@@ -4190,45 +4190,39 @@ function SC_Moment_SyncLikeUI(
      * ---------------------------------------------
      */
 
-    const feedViewerLike =
-    document.getElementById(
-        "sc-feed-moment-like"
-    );
-
-
-if(feedViewerLike){
-
-    const feedViewerPost =
-        SC_FeedMomentItems?.[
-            SC_FeedMomentIndex
-        ];
-
-
-    if(
-        feedViewerPost &&
-        String(
-            feedViewerPost.id
-        ) ===
-        String(
-            postId
+    const feedViewerCards =
+    SC_FeedMomentViewer
+        ? SC_FeedMomentViewer.querySelectorAll(
+            `.sc-feed-moment-panel[data-feed-moment-id="${CSS.escape(String(postId))}"]`
         )
-    ){
+        : [];
 
-        feedViewerLike.classList.toggle(
-            "liked",
-            liked
-        );
+
+feedViewerCards.forEach(
+    card => {
+
+        const feedViewerLike =
+            card.querySelector(
+                "[data-feed-moment-like]"
+            );
+
+
+        if(!feedViewerLike){
+
+            return;
+
+        }
 
 
         const icon =
             feedViewerLike.querySelector(
-                "span"
+                ".sc-feed-moment-like-icon"
             );
 
 
         const count =
             feedViewerLike.querySelector(
-                "strong"
+                ".sc-feed-moment-like-count"
             );
 
 
@@ -4249,9 +4243,14 @@ if(feedViewerLike){
 
         }
 
-    }
 
-}
+        feedViewerLike.classList.toggle(
+            "liked",
+            liked
+        );
+
+    }
+);
 
     /*
      * ---------------------------------------------

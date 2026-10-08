@@ -26910,12 +26910,15 @@ SEARCH FILTER — NO RESULTS
 /* =====================================================
    FULL SCREEN FEED MOMENT VIEWER
 ===================================================== */
-
 .sc-feed-moment-viewer{
 
     position:fixed;
 
     inset:0;
+
+    width:100%;
+
+    height:100dvh;
 
     z-index:5000;
 
@@ -26929,6 +26932,10 @@ SEARCH FILTER — NO RESULTS
         opacity .22s ease;
 
     background:#000;
+
+    overflow:hidden;
+
+    overscroll-behavior:none;
 
 }
 
@@ -26955,11 +26962,13 @@ SEARCH FILTER — NO RESULTS
 }
 .sc-feed-moment-scroll{
 
-    position:relative;
+    position:absolute;
+
+    inset:0;
 
     width:100%;
 
-    height:100%;
+    height:100dvh;
 
     overflow-y:auto;
 
@@ -26973,13 +26982,15 @@ SEARCH FILTER — NO RESULTS
 
     scroll-padding:0;
 
-    overscroll-behavior-y:none;
+    overscroll-behavior:none;
 
     -webkit-overflow-scrolling:touch;
 
     scrollbar-width:none;
 
     touch-action:pan-y;
+
+    contain:strict;
 
 }
 
@@ -26995,9 +27006,9 @@ SEARCH FILTER — NO RESULTS
 
     width:100%;
 
-    height:100%;
+    height:100dvh;
 
-    min-height:100%;
+    min-height:100dvh;
 
     flex:none;
 
