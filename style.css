@@ -30087,3 +30087,96 @@ CSS-only patterns — no external images required.
         radial-gradient(ellipse at 80% 70%, rgba(168,207,255,.17), transparent 40%),
         linear-gradient(135deg, #17112b, #0c1323);
 }
+
+/* =====================================================
+MODULE: MOMENT VIDEO CARDS
+===================================================== */
+
+.feed-video-media {
+    position: relative;
+    overflow: hidden;
+    background: #050509;
+}
+
+.feed-post-video {
+    display: block;
+    width: 100%;
+    max-height: 520px;
+    object-fit: cover;
+    background: #050509;
+}
+
+.feed-video-open {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 54px;
+    height: 54px;
+    transform: translate(-50%, -50%);
+    border: 1px solid rgba(255,255,255,.35);
+    border-radius: 50%;
+    color: #fff;
+    background: rgba(10,10,18,.72);
+    font-size: 23px;
+    cursor: pointer;
+}
+
+.feed-video-duration {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 4px 7px;
+    border-radius: 6px;
+    color: #fff;
+    background: rgba(0,0,0,.72);
+    font-size: 12px;
+    font-weight: 700;
+    pointer-events: none;
+}
+
+.moment-video-preview-wrap {
+    position: relative;
+    width: 100%;
+}
+
+.moment-video-preview-wrap video {
+    display: block;
+    width: 100%;
+    max-height: 300px;
+    border-radius: 12px;
+    background: #050509;
+}
+
+.moment-video-preview-duration {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px 7px;
+    border-radius: 5px;
+    color: #fff;
+    background: rgba(0,0,0,.72);
+    font-size: 12px;
+}
+
+.sc-feed-moment-video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #000;
+}
+
+.sc-feed-video-toggle {
+    position: absolute;
+    z-index: 5;
+    top: 50%;
+    left: 50%;
+    width: 58px;
+    height: 58px;
+    transform: translate(-50%, -50%);
+    border: 1px solid rgba(255,255,255,.4);
+    border-radius: 50%;
+    color: #fff;
+    background: rgba(0,0,0,.45);
+    font-size: 24px;
+}

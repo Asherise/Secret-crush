@@ -5450,6 +5450,34 @@ function openFeedMomentViewer(
 
     SC_FeedMomentIndex =
         index;
+        
+        
+/* Pause videos outside the active moment. */
+cards.forEach(card => {
+    const video = card.querySelector(
+        ".sc-feed-moment-video"
+    );
+
+    if (!video) return;
+
+    if (card === bestEntry.target) {
+        video.muted = true;
+
+        const playAttempt = video.play();
+
+        if (playAttempt && typeof playAttempt.catch === "function") {
+            playAttempt.catch(error => {
+                console.warn(
+                    "Moment autoplay was blocked:",
+                    error
+                );
+            });
+        }
+    } else {
+        video.pause();
+    }
+});
+
 
 
     if(
@@ -5547,40 +5575,42 @@ function SC_FeedMoment_CreateCard(
                 )}"
             >
 
-                ${
-                    post.image ||
-                    post.media ||
-                    post.photo
+           
+${
+    post.videoMediaId
+        ? `
+            <video
+                class="sc-feed-moment-video"
+                data-moment-video-id="${escapePostHTML(post.videoMediaId)}"
+                playsinline
+                muted
+                loop
+                preload="metadata"
+            ></video>
 
-                    ?
+            <button
+                type="button"
+                class="sc-feed-video-toggle"
+                aria-label="Play or pause video"
+            >▶</button>
+        `
+        : post.image || post.media || post.photo
+            ? `
+                <img
+                    src="${escapePostHTML(
+                        post.image || post.media || post.photo
+                    )}"
+                    alt="Moment"
+                    draggable="false"
+                >
+            `
+            : `
+                <div class="sc-feed-moment-text-only">
+                    ${escapePostHTML(post.text || "Moment")}
+                </div>
+            `
+}
 
-                    `
-                    <img
-                        src="${escapePostHTML(
-                            post.image ||
-                            post.media ||
-                            post.photo
-                        )}"
-                        alt="Moment"
-                        draggable="false"
-                    >
-                    `
-
-                    :
-
-                    `
-                    <div
-                        class="
-                            sc-feed-moment-text-only
-                        "
-                    >
-                        ${escapePostHTML(
-                            post.text ||
-                            "Moment"
-                        )}
-                    </div>
-                    `
-                }
 
 
                 <div
@@ -5946,6 +5976,10 @@ function SC_FeedMoment_ScrollToIndex(
         block:
             "start"
     });
+    
+    SC_Moment_HydrateVideoElements(
+    document.getElementById("sc-feed-moment-scroll")
+);
 
 }
 
@@ -19192,10 +19226,7 @@ const canSeePicture =
     revealState.picture;
 
 
-const canSeeAbout =
-    knownPerson ||
-    revealState.about;
-
+const canSeeAbout = true;
 
 const canSeeInterests =
     knownPerson ||
@@ -19254,21 +19285,11 @@ const posts =
  * ABOUT
  */
 
-const about =
-
-    canSeeAbout
-
-        ?
-
-        (
-            crush.about ||
-            ""
-        )
-
-        :
-
-        "";
-
+const about = String(
+    crush.about ||
+    crush.profileAbout ||
+    ""
+).trim();
 
 /*
  * PROFILE PICTURE
@@ -26494,6 +26515,151 @@ if(momentText){
 
 
 /* =====================================================
+MODULE: MOMENT VIDEO STORAGE
+Stores video files separately from post metadata.
+Future backend migration: replace this storage adapter
+with an upload API and save the returned media URL/ID.
+===================================================== */
+
+const SC_MOMENT_MEDIA_DB = "SecretCrushMomentMedia";
+const SC_MOMENT_MEDIA_STORE = "videos";
+let SC_MOMENT_MEDIA_DB_PROMISE = null;
+const SC_MOMENT_VIDEO_URLS = new Map();
+
+function SC_Moment_OpenMediaDB() {
+    if (SC_MOMENT_MEDIA_DB_PROMISE) {
+        return SC_MOMENT_MEDIA_DB_PROMISE;
+    }
+
+    SC_MOMENT_MEDIA_DB_PROMISE = new Promise((resolve, reject) => {
+        const request = indexedDB.open(SC_MOMENT_MEDIA_DB, 1);
+
+        request.onupgradeneeded = () => {
+            const db = request.result;
+
+            if (!db.objectStoreNames.contains(SC_MOMENT_MEDIA_STORE)) {
+                db.createObjectStore(SC_MOMENT_MEDIA_STORE, {
+                    keyPath: "id"
+                });
+            }
+        };
+
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => {
+            SC_MOMENT_MEDIA_DB_PROMISE = null;
+            reject(request.error);
+        };
+    });
+
+    return SC_MOMENT_MEDIA_DB_PROMISE;
+}
+
+async function SC_Moment_SaveVideo(file, id) {
+    const db = await SC_Moment_OpenMediaDB();
+
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(
+            SC_MOMENT_MEDIA_STORE,
+            "readwrite"
+        );
+
+        transaction.objectStore(SC_MOMENT_MEDIA_STORE).put({
+            id,
+            blob: file,
+            type: file.type || "video/mp4",
+            name: file.name || "moment-video"
+        });
+
+        transaction.oncomplete = () => resolve(id);
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error);
+    });
+}
+
+async function SC_Moment_GetVideoURL(id) {
+    if (!id) return "";
+
+    if (SC_MOMENT_VIDEO_URLS.has(id)) {
+        return SC_MOMENT_VIDEO_URLS.get(id);
+    }
+
+    const db = await SC_Moment_OpenMediaDB();
+
+    const record = await new Promise((resolve, reject) => {
+        const transaction = db.transaction(
+            SC_MOMENT_MEDIA_STORE,
+            "readonly"
+        );
+
+        const request = transaction.objectStore(
+            SC_MOMENT_MEDIA_STORE
+        ).get(id);
+
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+    });
+
+    if (!record || !record.blob) return "";
+
+    const url = URL.createObjectURL(record.blob);
+    SC_MOMENT_VIDEO_URLS.set(id, url);
+
+    return url;
+}
+
+async function SC_Moment_HydrateVideoElements(root = document) {
+    const videos = root.querySelectorAll(
+        "video[data-moment-video-id]"
+    );
+
+    for (const video of videos) {
+        const id = video.dataset.momentVideoId;
+
+        if (!id || video.dataset.mediaReady === "true") continue;
+
+        try {
+            const url = await SC_Moment_GetVideoURL(id);
+
+            if (!url) continue;
+
+            video.src = url;
+video.dataset.mediaReady = "true";
+video.load();
+
+if (video.classList.contains("sc-feed-moment-video")) {
+    const panel = video.closest(".sc-feed-moment-panel");
+
+    if (panel) {
+        const rect = panel.getBoundingClientRect();
+        const visible =
+            rect.top < window.innerHeight &&
+            rect.bottom > 0;
+
+        if (visible) {
+            video.muted = true;
+            video.play().catch(() => {});
+        }
+    }
+}
+        } catch (error) {
+            console.error("Could not load moment video:", error);
+        }
+    }
+}
+
+function SC_Moment_FormatDuration(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+
+    const total = Math.floor(seconds);
+    const minutes = Math.floor(total / 60);
+    const remaining = total % 60;
+
+    return `${minutes}:${String(remaining).padStart(2, "0")}`;
+}
+
+
+
+/* =====================================================
 MOMENT MEDIA — GALLERY + CAMERA
 ===================================================== */
 
@@ -26552,106 +26718,114 @@ if(takePictureButton){
 }
 
 
+
 /* =====================================================
-PROCESS SELECTED IMAGE
+MODULE: SELECT MOMENT IMAGE OR VIDEO
 ===================================================== */
 
-function processMomentImage(file){
+let selectedMomentMediaFile = null;
+let selectedMomentMediaType = "";
 
-    if(!file){
+function processMomentImage(file) {
+    if (!file) return;
+
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+
+    if (!isImage && !isVideo) {
+        alert("Choose an image or video.");
         return;
     }
 
+    if (isVideo && file.size > 100 * 1024 * 1024) {
+        alert("Please choose a video smaller than 100 MB.");
+        return;
+    }
 
-    if(!file.type.startsWith("image/")){
+    if (!momentImagePreview) return;
 
-        alert(
-            "Please choose an image."
+    selectedMomentMediaFile = file;
+    selectedMomentMediaType = isVideo ? "video" : "image";
+
+    const previewURL = URL.createObjectURL(file);
+
+    momentImagePreview.hidden = false;
+
+    if (isVideo) {
+        momentImagePreview.innerHTML = `
+            <div class="moment-video-preview-wrap">
+                <video
+                    id="moment-video-preview-player"
+                    src="${previewURL}"
+                    controls
+                    playsinline
+                    preload="metadata"
+                ></video>
+
+                <span
+                    class="moment-video-preview-duration"
+                    id="moment-video-preview-duration"
+                >0:00</span>
+            </div>
+
+            <button
+                type="button"
+                class="remove-moment-image"
+                id="remove-moment-image"
+                aria-label="Remove selected video"
+            >×</button>
+        `;
+
+        const previewVideo = document.getElementById(
+            "moment-video-preview-player"
         );
 
-        return;
+        previewVideo.addEventListener("loadedmetadata", () => {
+            const durationLabel = document.getElementById(
+                "moment-video-preview-duration"
+            );
 
-    }
-
-
-    const reader =
-        new FileReader();
-
-
-    reader.onload =
-        function(){
-
-            if(!momentImagePreview){
-                return;
+            if (durationLabel) {
+                durationLabel.textContent =
+                    SC_Moment_FormatDuration(previewVideo.duration);
             }
+        }, { once: true });
 
+  
+    } else {
+        const reader = new FileReader();
 
-            momentImagePreview.hidden =
-                false;
-
-
+        reader.onload = () => {
             momentImagePreview.innerHTML = `
-
                 <img
                     src="${reader.result}"
-                    alt="Moment preview"
+                    alt="Moment image preview"
                 >
 
                 <button
                     type="button"
                     class="remove-moment-image"
                     id="remove-moment-image"
-                >
-                    ×
-                </button>
-
+                    aria-label="Remove selected image"
+                >×</button>
             `;
-
         };
 
-
-    reader.readAsDataURL(file);
-
-}
-
-
-/* =====================================================
-GALLERY CHANGE
-===================================================== */
-
-if(momentGalleryInput){
-
-    momentGalleryInput.addEventListener(
-        "change",
-        event => {
-
-            processMomentImage(
-                event.target.files?.[0]
-            );
-
-        }
-    );
+        reader.readAsDataURL(file);
+    }
 
 }
 
+if (momentGalleryInput) {
+    momentGalleryInput.addEventListener("change", event => {
+        processMomentImage(event.target.files?.[0]);
+    });
+}
 
-/* =====================================================
-CAMERA CHANGE
-===================================================== */
-
-if(momentCameraInput){
-
-    momentCameraInput.addEventListener(
-        "change",
-        event => {
-
-            processMomentImage(
-                event.target.files?.[0]
-            );
-
-        }
-    );
-
+if (momentCameraInput) {
+    momentCameraInput.addEventListener("change", event => {
+        processMomentImage(event.target.files?.[0]);
+    });
 }
 
 
@@ -26678,6 +26852,10 @@ document.addEventListener(
                     "";
 
             }
+            
+            selectedMomentMediaFile = null;
+selectedMomentMediaType = "";
+            
 
 
             if(momentGalleryInput){
@@ -26697,217 +26875,115 @@ document.addEventListener(
 CREATE MOMENT
 ===================================================== */
 
-if(postMomentButton){
+/* =====================================================
+MODULE: CREATE IMAGE OR VIDEO MOMENT
+===================================================== */
 
-    postMomentButton.addEventListener(
-        "click",
-        event => {
+if (postMomentButton) {
+    postMomentButton.addEventListener("click", async event => {
+        event.preventDefault();
 
-            event.preventDefault();
+        const text = momentText?.value?.trim() || "";
+        const profile = getCurrentProfile() || {};
 
+        const image =
+            selectedMomentMediaType === "image"
+                ? momentImagePreview?.querySelector("img")?.src || ""
+                : "";
 
-            /* -----------------------------------------
-               GET CONTENT
-            ----------------------------------------- */
+        const hasVideo =
+            selectedMomentMediaType === "video" &&
+            selectedMomentMediaFile instanceof File;
 
-            const text =
-                momentText?.value?.trim() || "";
+        if (!text && !image && !hasVideo) {
+            alert("Add some text, a photo or a video before posting.");
+            return;
+        }
 
-            const image =
-                momentImagePreview
-                    ?.querySelector("img")
-                    ?.src || "";
+        postMomentButton.disabled = true;
 
+        try {
+            const postId =
+                "moment-" +
+                Date.now() +
+                "-" +
+                Math.random().toString(36).slice(2, 8);
 
-            /* -----------------------------------------
-               DON'T ALLOW EMPTY POSTS
-            ----------------------------------------- */
+            let videoMediaId = "";
+            let videoDuration = 0;
 
-            if(!text && !image){
+            if (hasVideo) {
+                videoMediaId = postId + "-video";
 
-                alert(
-                    "Add some text or a photo before posting."
+                const previewVideo = document.getElementById(
+                    "moment-video-preview-player"
                 );
 
-                return;
+                if (previewVideo && Number.isFinite(previewVideo.duration)) {
+                    videoDuration = previewVideo.duration;
+                }
 
+                await SC_Moment_SaveVideo(
+                    selectedMomentMediaFile,
+                    videoMediaId
+                );
             }
 
+            const post = SC_ProfileSync_HydratePost({
+                id: postId,
+                ownerId: profile.userId || "",
+                userId: profile.userId || "",
+                name: profile.name || "You",
+                username: profile.username || "",
+                institution: profile.institution || "",
+                faculty: profile.faculty || "",
+                year: profile.year || "",
+                gender: profile.gender || "",
+                profilePicture: profile.profilePicture || "",
+                about: profile.about || "",
+                interests: Array.isArray(profile.interests)
+                    ? [...profile.interests]
+                    : [],
+                text,
+                image,
+                mediaType: hasVideo ? "video" : image ? "image" : "text",
+                videoMediaId,
+                videoDuration,
+                caption: "",
+                likes: 0,
+                createdAt: new Date().toISOString(),
+                isUserPost: true
+            });
 
-            /* -----------------------------------------
-               GET PROFILE
-            ----------------------------------------- */
+            if (!saveMomentPost(post)) {
+                throw new Error("Could not save the post metadata.");
+            }
 
-            const profile =
-                getCurrentProfile() || {};
-
-
-            /* -----------------------------------------
-               CREATE POST
-            ----------------------------------------- */
-const post =
-    SC_ProfileSync_HydratePost({
-
-        id:
-            "moment-" +
-            Date.now() +
-            "-" +
-            Math.random()
-                .toString(36)
-                .slice(2,8),
-
-        ownerId:
-            profile.userId,
-
-        userId:
-            profile.userId,
-
-        name:
-            profile.name ||
-            "You",
-
-        username:
-            profile.username ||
-            "",
-
-        institution:
-            profile.institution ||
-            "",
-
-        faculty:
-            profile.faculty ||
-            "",
-
-        year:
-            profile.year ||
-            "",
-
-        gender:
-            profile.gender ||
-            "",
-
-        profilePicture:
-            profile.profilePicture ||
-            "",
-
-        about:
-            profile.about ||
-            "",
-
-        interests:
-            Array.isArray(
-                profile.interests
-            )
-                ? [...profile.interests]
-                : [],
-
-        text:
-            text,
-
-        image:
-            image,
-
-        caption:
-            "",
-
-        likes:
-            0,
-
-        createdAt:
-            new Date().toISOString(),
-
-        isUserPost:
-            true
-
-    });
-    
-
-
-            /* -----------------------------------------
-               SAVE THE POST
-            ----------------------------------------- */
-
-            const savedSuccessfully =
-    saveMomentPost(post);
-
-if(!savedSuccessfully){
-
-    alert(
-        "The moment could not be saved permanently. Please try again."
-    );
-
-    return;
-
-}
-
-            /*
-             * Even if localStorage fails, we still
-             * render the post on screen.
-             */
-
-            
-
-            /* -----------------------------------------
-               SHOW IN MY SPACE
-            ----------------------------------------- */
-
-            renderMyPost(
-                post,
-                true
-            );
-
-
-            /* -----------------------------------------
-               SHOW IN FEED
-            ----------------------------------------- */
-
-            renderPostInFeed(
-                post,
-                true
-            );
-
-
-            /* -----------------------------------------
-               CLEAR COMPOSER
-            ----------------------------------------- */
+            renderMyPost(post, true);
+            renderPostInFeed(post, true);
 
             clearMomentComposer();
-
-
-            /* -----------------------------------------
-               UPDATE COUNT
-            ----------------------------------------- */
-
             updateMyPostCount();
+            updatePostPagination("space");
 
-
-            updatePostPagination(
-                "space"
-            );
-
-
-            /* -----------------------------------------
-               MOVE TO MY SPACE
-            ----------------------------------------- */
-
-            if(postSpaceTrack){
-
+            if (postSpaceTrack) {
                 postSpaceTrack.scrollTo({
-
-                    left:
-                        postSpaceTrack.clientWidth,
-
-                    behavior:
-                        "smooth"
-
+                    left: postSpaceTrack.clientWidth,
+                    behavior: "smooth"
                 });
-
             }
-
+        } catch (error) {
+            console.error("Moment upload failed:", error);
+            alert(
+                "The moment could not be saved. Please try again. " +
+                (error?.message || "")
+            );
+        } finally {
+            postMomentButton.disabled = false;
         }
-    );
-
+    });
 }
+
 
 
 /* =====================================================
@@ -28842,20 +28918,44 @@ const likedByCurrentUser =
         }
 
 
-        ${
-            post.image
-                ? `
-                    <div class="feed-media">
+  
+${
+    post.videoMediaId
+        ? `
+            <div class="feed-media feed-video-media">
+                <video
+                    data-moment-video-id="${escapePostHTML(post.videoMediaId)}"
+                    class="feed-post-video"
+                    playsinline
+                    preload="metadata"
+                    muted
+                ></video>
 
-                        <img
-                            src="${post.image}"
-                            alt="Moment"
-                        >
+                <button
+                    type="button"
+                    class="feed-video-open"
+                    aria-label="Open video"
+                >
+                    ▶
+                </button>
 
-                    </div>
-                `
-                : ""
-        }
+                <span class="feed-video-duration">
+                    ${SC_Moment_FormatDuration(post.videoDuration || 0)}
+                </span>
+            </div>
+        `
+        : post.image
+            ? `
+                <div class="feed-media">
+                    <img
+                        src="${post.image}"
+                        alt="Moment"
+                    >
+                </div>
+            `
+            : ""
+}
+
 
 
         ${
@@ -28931,6 +29031,8 @@ const likedByCurrentUser =
     attachFeedPostActions(
         article
     );
+    
+    SC_Moment_HydrateVideoElements(article);
 
 }
 /* =====================================================
@@ -48210,3 +48312,39 @@ function getWithdrawnCrushRecords(){
     }
 
 }
+
+
+
+/* =====================================================
+MODULE: FULLSCREEN MOMENT VIDEO CONTROLS
+===================================================== */
+
+document.addEventListener("click", event => {
+    const button = event.target.closest(
+        ".sc-feed-video-toggle"
+    );
+
+    if (!button) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const panel = button.closest(".sc-feed-moment-panel");
+    const video = panel?.querySelector(".sc-feed-moment-video");
+
+    if (!video) return;
+
+    if (video.paused) {
+        video.muted = true;
+
+        video.play().then(() => {
+            button.textContent = "Ⅱ";
+        }).catch(error => {
+            console.warn("Could not play moment video:", error);
+        });
+    } else {
+        video.pause();
+        button.textContent = "▶";
+    }
+});
+
