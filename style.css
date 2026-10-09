@@ -29855,3 +29855,235 @@ FULLSCREEN MEDIA VIEWER
     }
 
 }
+
+
+
+/* =====================================================
+MODULE: FACULTY-BASED PROFILE WALLPAPERS
+CSS-only patterns — no external images required.
+===================================================== */
+
+.faculty-profile-background {
+    isolation: isolate;
+    background-color: #11121d;
+    background-image:
+        radial-gradient(ellipse at 15% 20%, rgba(167,139,250,.22), transparent 42%),
+        radial-gradient(ellipse at 85% 75%, rgba(125,211,252,.16), transparent 45%),
+        linear-gradient(135deg, #17112b, #0b1423);
+    background-size: cover;
+}
+
+.faculty-profile-background::before,
+.faculty-profile-background::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.faculty-profile-background::before {
+    opacity: .7;
+    background-repeat: repeat;
+}
+
+.faculty-profile-background::after {
+    background: linear-gradient(180deg, rgba(5,7,15,.04), rgba(5,7,15,.20));
+}
+
+/* 1. Health & Medical Sciences — clinical grid and ECG */
+
+.faculty-profile-background[data-faculty-category="health"] {
+    background-color: #052a2b;
+    background-image:
+        radial-gradient(ellipse at 18% 35%, rgba(45,212,191,.30), transparent 42%),
+        linear-gradient(125deg, #073b3c 0%, #071c2a 58%, #06151f 100%);
+}
+
+.faculty-profile-background[data-faculty-category="health"]::before {
+    background-image:
+        repeating-linear-gradient(0deg, transparent 0 23px, rgba(45,212,191,.07) 24px, transparent 25px),
+        repeating-linear-gradient(90deg, transparent 0 31px, rgba(45,212,191,.06) 32px, transparent 33px);
+}
+
+.faculty-profile-background[data-faculty-category="health"]::after {
+    inset: 28px 7% 22px;
+    opacity: .6;
+    background: linear-gradient(115deg, transparent 0 12%, rgba(94,234,212,.8) 12.3% 12.7%, transparent 13% 29%, rgba(94,234,212,.75) 29.3% 29.7%, transparent 30% 100%);
+    clip-path: polygon(0 53%,14% 53%,18% 43%,22% 63%,27% 53%,39% 53%,44% 14%,49% 84%,54% 53%,68% 53%,73% 43%,78% 63%,83% 53%,100% 53%,100% 57%,84% 57%,78% 68%,73% 49%,69% 57%,52% 57%,49% 100%,44% 27%,41% 57%,28% 57%,22% 70%,18% 49%,15% 57%,0 57%);
+}
+
+/* 2. Engineering, Computing & IT — technical blueprint grid */
+
+.faculty-profile-background[data-faculty-category="technology"] {
+    background-color: #061d3a;
+    background-image:
+        radial-gradient(ellipse at 78% 22%, rgba(56,189,248,.28), transparent 38%),
+        linear-gradient(135deg, #082a52, #07162e 70%, #040d1d);
+}
+
+.faculty-profile-background[data-faculty-category="technology"]::before {
+    background-image:
+        repeating-linear-gradient(0deg, transparent 0 17px, rgba(96,165,250,.17) 18px, transparent 19px),
+        repeating-linear-gradient(90deg, transparent 0 25px, rgba(56,189,248,.14) 26px, transparent 27px),
+        linear-gradient(135deg, transparent 0 46%, rgba(56,189,248,.38) 46.2% 46.6%, transparent 46.8% 100%);
+}
+
+.faculty-profile-background[data-faculty-category="technology"]::after {
+    inset: 16px 8%;
+    border: 1px solid rgba(96,165,250,.26);
+    border-radius: 12px;
+    background: linear-gradient(135deg, transparent 48%, rgba(56,189,248,.16) 48.3% 49%, transparent 49.3%);
+}
+
+/* 3. Business, Economics & Management — gold chart bars */
+
+.faculty-profile-background[data-faculty-category="business"] {
+    background-color: #211809;
+    background-image:
+        radial-gradient(ellipse at 78% 25%, rgba(245,158,11,.25), transparent 42%),
+        linear-gradient(130deg, #2b2112, #11131b 76%);
+}
+
+.faculty-profile-background[data-faculty-category="business"]::before {
+    inset: 18px 8% 12px 46%;
+    opacity: .65;
+    background-image:
+        linear-gradient(to top, rgba(251,191,36,.40) 0 34%, transparent 34%),
+        linear-gradient(to top, rgba(251,191,36,.52) 0 53%, transparent 53%),
+        linear-gradient(to top, rgba(251,191,36,.65) 0 77%, transparent 77%),
+        linear-gradient(to top, rgba(251,191,36,.8) 0 94%, transparent 94%);
+    background-size: 12% 100%, 12% 100%, 12% 100%, 12% 100%;
+    background-position: 0 100%, 28% 100%, 56% 100%, 84% 100%;
+    background-repeat: no-repeat;
+}
+
+.faculty-profile-background[data-faculty-category="business"]::after {
+    inset: 22px 7% 22px 43%;
+    border-bottom: 1px solid rgba(252,211,77,.35);
+    background: linear-gradient(145deg, transparent 0 43%, rgba(252,211,77,.65) 43.3% 44%, transparent 44.3% 100%);
+}
+
+/* 4. Education, Humanities & Media — page lines and layered books */
+
+.faculty-profile-background[data-faculty-category="learning"] {
+    background-color: #201233;
+    background-image:
+        radial-gradient(ellipse at 18% 28%, rgba(192,132,252,.30), transparent 43%),
+        linear-gradient(135deg, #34204c, #17142c 72%, #0d1224);
+}
+
+.faculty-profile-background[data-faculty-category="learning"]::before {
+    background-image:
+        repeating-linear-gradient(0deg, transparent 0 13px, rgba(216,180,254,.12) 14px, transparent 15px),
+        linear-gradient(90deg, rgba(192,132,252,.13), transparent 35% 100%);
+}
+
+.faculty-profile-background[data-faculty-category="learning"]::after {
+    inset: 20px auto 18px 7%;
+    width: 24%;
+    border: 1px solid rgba(216,180,254,.30);
+    border-radius: 3px;
+    box-shadow: 5px 4px 0 rgba(192,132,252,.12), 10px 8px 0 rgba(192,132,252,.08);
+    background: linear-gradient(90deg, transparent 0 18%, rgba(216,180,254,.15) 18% 20%, transparent 20% 100%);
+}
+
+/* 5. Architecture & Built Environment — drawing grid */
+
+.faculty-profile-background[data-faculty-category="built"] {
+    background-color: #301126;
+    background-image:
+        radial-gradient(ellipse at 75% 20%, rgba(244,114,182,.24), transparent 42%),
+        linear-gradient(135deg, #40172f, #17152b 76%);
+}
+
+.faculty-profile-background[data-faculty-category="built"]::before {
+    background-image:
+        repeating-linear-gradient(0deg, transparent 0 24px, rgba(249,168,212,.20) 25px, transparent 26px),
+        repeating-linear-gradient(90deg, transparent 0 24px, rgba(249,168,212,.17) 25px, transparent 26px),
+        linear-gradient(135deg, transparent 0 48%, rgba(249,168,212,.28) 48.2% 48.6%, transparent 48.8% 100%);
+}
+
+.faculty-profile-background[data-faculty-category="built"]::after {
+    inset: 16px 8%;
+    border: 1px solid rgba(249,168,212,.36);
+    background: linear-gradient(90deg, transparent 0 32%, rgba(249,168,212,.16) 32.3% 32.8%, transparent 33.1%), linear-gradient(0deg, transparent 0 58%, rgba(249,168,212,.17) 58.3% 58.8%, transparent 59.1%);
+}
+
+/* 6. Agriculture & Environment — organic contour rings */
+
+.faculty-profile-background[data-faculty-category="environment"] {
+    background-color: #0d291b;
+    background-image:
+        radial-gradient(ellipse at 22% 35%, rgba(74,222,128,.25), transparent 43%),
+        linear-gradient(135deg, #123b28, #0b201e 75%);
+}
+
+.faculty-profile-background[data-faculty-category="environment"]::before {
+    background-image:
+        repeating-radial-gradient(ellipse at 15% 110%, transparent 0 13px, rgba(134,239,172,.20) 14px 15px, transparent 16px 26px),
+        linear-gradient(120deg, transparent 0 50%, rgba(74,222,128,.09) 50.2% 50.8%, transparent 51% 100%);
+}
+
+.faculty-profile-background[data-faculty-category="environment"]::after {
+    inset: 18px 8%;
+    background: radial-gradient(ellipse at 25% 35%, transparent 0 28%, rgba(134,239,172,.22) 28.5% 29%, transparent 29.5% 100%);
+    transform: rotate(-12deg);
+}
+
+/* 7. Pure & Applied Sciences — molecular nodes and bonds */
+
+.faculty-profile-background[data-faculty-category="science"] {
+    background-color: #101b49;
+    background-image:
+        radial-gradient(ellipse at 70% 25%, rgba(99,102,241,.34), transparent 43%),
+        linear-gradient(135deg, #17245a, #09152e 80%);
+}
+
+.faculty-profile-background[data-faculty-category="science"]::before {
+    background-image:
+        radial-gradient(circle at 18% 30%, rgba(165,180,252,.95) 0 3px, transparent 4px),
+        radial-gradient(circle at 28% 45%, rgba(96,165,250,.85) 0 4px, transparent 5px),
+        radial-gradient(circle at 40% 25%, rgba(165,180,252,.9) 0 3px, transparent 4px),
+        radial-gradient(circle at 52% 42%, rgba(96,165,250,.85) 0 4px, transparent 5px),
+        radial-gradient(circle at 66% 22%, rgba(165,180,252,.9) 0 3px, transparent 4px),
+        linear-gradient(28deg, transparent 0 27%, rgba(129,140,248,.24) 27.2% 27.7%, transparent 28% 100%),
+        linear-gradient(145deg, transparent 0 45%, rgba(129,140,248,.22) 45.2% 45.7%, transparent 46% 100%);
+}
+
+.faculty-profile-background[data-faculty-category="science"]::after {
+    background:
+        radial-gradient(circle at 82% 64%, rgba(129,140,248,.18), transparent 30%),
+        radial-gradient(circle at 35% 72%, rgba(56,189,248,.12), transparent 28%);
+}
+
+/* 8. Law, Social Sciences & Public Affairs — formal lines */
+
+.faculty-profile-background[data-faculty-category="society"] {
+    background-color: #30101d;
+    background-image:
+        radial-gradient(ellipse at 75% 24%, rgba(244,63,94,.24), transparent 42%),
+        linear-gradient(130deg, #421725, #1c1324 78%);
+}
+
+.faculty-profile-background[data-faculty-category="society"]::before {
+    background-image:
+        linear-gradient(90deg, transparent 0 14%, rgba(253,164,175,.18) 14.2% 14.7%, transparent 15% 85%, rgba(253,164,175,.18) 85.2% 85.7%, transparent 86%),
+        repeating-linear-gradient(0deg, transparent 0 21px, rgba(253,164,175,.09) 22px, transparent 23px);
+}
+
+.faculty-profile-background[data-faculty-category="society"]::after {
+    inset: 20px 10%;
+    border-top: 1px solid rgba(253,164,175,.26);
+    border-bottom: 1px solid rgba(253,164,175,.26);
+    background: linear-gradient(90deg, transparent 0 48%, rgba(253,164,175,.18) 48.3% 48.8%, transparent 49.1% 100%);
+}
+
+/* Other / unmatched faculties — neutral Secret Crush theme */
+
+.faculty-profile-background[data-faculty-category="general"] {
+    background-color: #151126;
+    background-image:
+        radial-gradient(ellipse at 20% 25%, rgba(139,92,246,.26), transparent 42%),
+        radial-gradient(ellipse at 80% 70%, rgba(168,207,255,.17), transparent 40%),
+        linear-gradient(135deg, #17112b, #0c1323);
+}

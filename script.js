@@ -19036,6 +19036,85 @@ function SC_Profile_GetRevealState(person){
 }
 
 
+/* =====================================================
+MODULE: FACULTY PROFILE THEME MAPPING
+Maps existing faculty options to CSS themes.
+===================================================== */
+
+function SC_GetFacultyThemeCategory(faculty) {
+
+    const value = String(faculty || "")
+        .trim()
+        .toLowerCase();
+
+    const categories = {
+        health: [
+            "health sciences",
+            "medicine",
+            "nursing",
+            "pharmacy"
+        ],
+
+        technology: [
+            "engineering",
+            "computing & it"
+        ],
+
+        business: [
+            "accounting",
+            "administration",
+            "business",
+            "economics",
+            "finance",
+            "hospitality & tourism",
+            "human resources",
+            "marketing",
+            "procurement",
+            "real estate"
+        ],
+
+        learning: [
+            "education",
+            "humanities",
+            "communication & media",
+            "film",
+            "journalism"
+        ],
+
+        built: [
+            "architecture & design",
+            "quantity surveying"
+        ],
+
+        environment: [
+            "agriculture",
+            "environmental studies"
+        ],
+
+        science: [
+            "science"
+        ],
+
+        society: [
+            "development studies",
+            "law",
+            "political science",
+            "psychology",
+            "public administration",
+            "social sciences",
+            "sociology"
+        ]
+    };
+
+    for (const [category, faculties] of Object.entries(categories)) {
+        if (faculties.includes(value)) {
+            return category;
+        }
+    }
+
+    return "general";
+}
+
 
 
 
@@ -19347,6 +19426,13 @@ const displayedYear =
             /[^a-z0-9]+/g,
             "-"
         );
+        
+        
+const facultyThemeCategory =
+    SC_GetFacultyThemeCategory(
+        crush.faculty
+    );
+
 
 
     mutualProfileContent.innerHTML = `
@@ -19362,6 +19448,7 @@ const displayedYear =
 
 <!-- FACULTY WALLPAPER SPACE -->
 
+
 <div
     class="
         mutual-profile-cover
@@ -19370,9 +19457,10 @@ const displayedYear =
     data-faculty="${escapePostHTML(
         safeFaculty
     )}"
+    data-faculty-category="${facultyThemeCategory}"
 >
-
 </div>
+
 
 
 <div
