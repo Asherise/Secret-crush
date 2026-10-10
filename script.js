@@ -7329,6 +7329,14 @@ function SC_ProfileNetwork_NormalizePerson(person){
 
         mutualRevealed:
             person.mutualRevealed === true,
+                    profileKnown:
+            person.profileKnown === true,
+        gameCompleted:
+            person.gameCompleted === true,
+        mutual:
+            person.mutual === true,
+        viaReverse:
+            person.viaReverse === true,
 
 
         /*
@@ -20028,15 +20036,35 @@ const facultyThemeCategory =
                     );
 }else{
 
-                    SC_ProfileNetwork_Follow({
+                                        SC_ProfileNetwork_Follow({
                         id: crush.id,
                         name: username,
                         username: username,
                         photo: photo,
                         school: displayedSchool,
                         faculty: displayedFaculty,
-                        year: displayedYear
+                        year: displayedYear,
+                        gender: canSeeName ? (crush.gender || "") : "",
+                        about: about,
+                        interests: interests,
+                        profileKnown: knownPerson,
+                        gameCompleted: crush.gameCompleted === true,
+                        mutual: crush.mutual === true,
+                        viaReverse: crush.viaReverse === true,
+                        fullyRevealed: isFullyRevealed,
+                        customName: canSeeName ? "" : (assignedName || ""),
+                        revealed: {
+                            name: !!canSeeName,
+                            school: !!canSeeSchool,
+                            faculty: !!canSeeFaculty,
+                            year: !!canSeeYear,
+                            picture: !!canSeePicture,
+                            about: true,
+                            interests: !!canSeeInterests,
+                            posts: !!canSeePosts
+                        }
                     });
+                    
 
                 }
                 
