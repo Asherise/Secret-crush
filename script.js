@@ -5557,15 +5557,14 @@ ${
                 class="sc-feed-moment-video"
                 data-moment-video-id="${escapePostHTML(post.videoMediaId)}"
                 playsinline
-                muted
                 loop
                 preload="metadata"
             ></video>
 
             <button
                 type="button"
-                class="sc-feed-video-toggle"
-                aria-label="Play or pause video"
+                class="sc-feed-video-toggle sc-vt-btn"
+                aria-label="Play video"
             >▶</button>
         `
         : post.image || post.media || post.photo
@@ -5884,15 +5883,8 @@ cards.forEach(card => {
 
     if (!video) return;
 
-    if (card === bestEntry.target) {
-        video.muted = true;
-
-        video.play().catch(error => {
-            console.warn(
-                "Moment autoplay was blocked:",
-                error
-            );
-        });
+        if (card === bestEntry.target) {
+        SC_VT_Play(video);
     } else {
         video.pause();
     }
@@ -20566,6 +20558,12 @@ function SC_ProfileMoment_Render(){
 
 
     SC_ProfileMoment_AttachEvents();
+    
+        SC_Moment_HydrateVideoElements(viewer).then(() => {
+        const cur = viewer.querySelectorAll(".sc-profile-moment-card")[data.index];
+        const v = cur && cur.querySelector("video");
+        if (v) SC_VT_Play(v);
+    });
 
 
     /*
@@ -20659,11 +20657,22 @@ function SC_ProfileMoment_CreateCard(
                 "
             >
 
-                ${
-                    imageSource
-
+                                ${
+                    post.videoMediaId
                     ?
-
+                    `
+                    <video
+                        class="sc-profile-moment-video"
+                        data-moment-video-id="${escapePostHTML(post.videoMediaId)}"
+                        playsinline
+                        loop
+                        preload="metadata"
+                    ></video>
+                    <button type="button" class="sc-vt-btn" aria-label="Play video">▶</button>
+                    `
+                    :
+                    imageSource
+                    ?
                     `
                     <img
                         src="${escapePostHTML(
@@ -21484,6 +21493,16 @@ function SC_ProfileMoment_SetupObserver(){
 
                 SC_ProfileMomentViewerData.index =
                     index;
+                    
+                                    cards.forEach(card => {
+                    const v = card.querySelector("video");
+                    if (!v) return;
+                    if (card === bestEntry.target) {
+                        SC_VT_Play(v);
+                    } else {
+                        v.pause();
+                    }
+                });
 
 
                 const counter =
@@ -26629,10 +26648,8 @@ if (video.classList.contains("sc-feed-moment-video")) {
         const visible =
             rect.top < window.innerHeight &&
             rect.bottom > 0;
-
         if (visible) {
-            video.muted = true;
-            video.play().catch(() => {});
+            SC_VT_Play(video);
         }
     }
 }
@@ -48320,32 +48337,47 @@ function getWithdrawnCrushRecords(){
 MODULE: FULLSCREEN MOMENT VIDEO CONTROLS
 ===================================================== */
 
-document.addEventListener("click", event => {
-    const button = event.target.closest(
-        ".sc-feed-video-toggle"
-    );
+function SC_VT_Play(video) {
+    video.muted = false;
+    const p = video.play();
+    if (p && p.catch) {
+        p.catch(() => {
+            video.muted = true;
+            video.play().catch(() => {});
+        });
+    }
+}
 
-    if (!button) return;
+const SC_VT_BOX_SELECTOR = ".sc-feed-moment-media, .sc-profile-moment-media";
+
+document.addEventListener("click", event => {
+    const button = event.target.closest(".sc-vt-btn");
+    const box = event.target.closest(SC_VT_BOX_SELECTOR);
+    if (!box) return;
+
+    if (!button && event.target.closest(
+        "button, a, .sc-profile-moment-side-actions, .sc-feed-moment-actions"
+    )) return;
+
+    const video = box.querySelector("video");
+    if (!video) return;
 
     event.preventDefault();
     event.stopPropagation();
 
-    const panel = button.closest(".sc-feed-moment-panel");
-    const video = panel?.querySelector(".sc-feed-moment-video");
-
-    if (!video) return;
-
     if (video.paused) {
-        video.muted = true;
-
-        video.play().then(() => {
-            button.textContent = "Ⅱ";
-        }).catch(error => {
-            console.warn("Could not play moment video:", error);
-        });
+        SC_VT_Play(video);
+        box.classList.remove("sc-vt-paused");
+    } else if (video.muted) {
+        video.muted = false;
     } else {
         video.pause();
-        button.textContent = "▶";
+        box.classList.add("sc-vt-paused");
     }
-});
+}, true);
 
+document.addEventListener("play", event => {
+    if (!(event.target instanceof HTMLVideoElement)) return;
+    const box = event.target.closest(SC_VT_BOX_SELECTOR);
+    if (box) box.classList.remove("sc-vt-paused");
+}, true);

@@ -30223,3 +30223,26 @@ MODULE: MY SPACE — VIDEO MOMENT CARDS
     color: #fff;
     font-size: 12px;
 }
+.sc-vt-btn{
+    position:absolute;
+    z-index:5;
+    top:50%;
+    left:50%;
+    width:58px;
+    height:58px;
+    transform:translate(-50%,-50%);
+    border:1px solid rgba(255,255,255,.4);
+    border-radius:50%;
+    color:#fff;
+    background:rgba(0,0,0,.45);
+    font-size:24px;
+    display:none;
+}
+.sc-vt-paused .sc-vt-btn{ display:block; }
+.sc-profile-moment-media{ position:relative; }
+.sc-profile-moment-video{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    background:#000;
+}
