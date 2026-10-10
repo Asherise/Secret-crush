@@ -6495,6 +6495,7 @@ function SC_FeedMoment_AttachEvents(){
 ----------------------------------------------------- */
 
 function closeFeedMomentViewer(){
+        SC_VT_PauseAll(SC_FeedMomentViewer);
     
         SC_Moment_RefreshAllLikeUI();
 
@@ -7430,6 +7431,37 @@ function SC_ProfileNetwork_Follow(person){
         SC_FOLLOWING_KEY,
         following
     );
+    
+        /* Testing aid: following yourself also makes you your own follower. */
+    try{
+        const me = getCurrentProfile();
+        const same = v => String(v || "").trim().toLowerCase();
+        if(
+            me &&
+            (
+                normalized.id === me.userId ||
+                same(normalized.name) === same(me.name) ||
+                same(normalized.username) === same(me.username)
+            )
+        ){
+            SC_ProfileNetwork_AddFollower({
+                id: normalized.id,
+                name: me.name,
+                username: me.username,
+                photo: me.profilePicture,
+                school: me.institution,
+                faculty: me.faculty,
+                year: me.year,
+                about: me.about,
+                interests: me.interests,
+                profileKnown: true,
+                revealed: {
+                    name:true, school:true, faculty:true, year:true,
+                    picture:true, about:true, interests:true, posts:true
+                }
+            });
+        }
+    }catch(error){}
 
 
     renderProfileNetwork();
@@ -7454,6 +7486,17 @@ function SC_ProfileNetwork_Unfollow(id){
         SC_FOLLOWING_KEY,
         following
     );
+    
+        try{
+        const me = getCurrentProfile();
+        const was = SC_ProfileNetwork_GetFollowers().find(p => p.id === id);
+        if(me && was && String(was.name || "").trim().toLowerCase() === String(me.name || "").trim().toLowerCase()){
+            SC_ProfileNetwork_Save(
+                SC_FOLLOWERS_KEY,
+                SC_ProfileNetwork_GetFollowers().filter(p => p.id !== id)
+            );
+        }
+    }catch(error){}
 
 
     renderProfileNetwork();
@@ -19073,21 +19116,15 @@ const canSeePosts =
  * INTERESTS
  */
 
+const sourceData = SC_Profile_FindSource(crush);
 const interests =
-
-    canSeeInterests &&
-    Array.isArray(
-        crush.interests
-    )
-
-        ?
-
-        crush.interests
-
-        :
-
-        [];
-
+    canSeeInterests
+        ? (
+            Array.isArray(crush.interests) && crush.interests.length
+                ? crush.interests
+                : sourceData.interests
+        )
+        : [];
 
 /*
  * POSTS / MOMENTS
@@ -19097,20 +19134,13 @@ const interests =
  */
 
 const posts =
-
-    canSeePosts &&
-    Array.isArray(
-        crush.posts
-    )
-
-        ?
-
-        crush.posts
-
-        :
-
-        [];
-
+    canSeePosts
+        ? (
+            Array.isArray(crush.posts) && crush.posts.length
+                ? crush.posts
+                : sourceData.posts
+        )
+        : [];
 
 /*
  * ABOUT
@@ -19717,16 +19747,25 @@ const facultyThemeCategory =
                                             "
                                         >
 
-                                            ${
+                                                                                        ${
+                                                post.videoMediaId
+                                                ?
+                                                `
+                                                <video
+                                                    class="mutual-profile-post-video"
+                                                    data-moment-video-id="${escapePostHTML(post.videoMediaId)}"
+                                                    muted
+                                                    playsinline
+                                                    preload="metadata"
+                                                ></video>
+                                                `
+                                                :
                                                 post.image ||
                                                 post.media ||
                                                 post.photo
-
                                                 ?
-
                                                 `
-                                                <img
-                                                    src="${escapePostHTML(
+                                                <img                  src="${escapePostHTML(
                                                         post.image ||
                                                         post.media ||
                                                         post.photo
@@ -19842,6 +19881,8 @@ const facultyThemeCategory =
 
 
     /* FOLLOW / UNFOLLOW */
+    
+    SC_Moment_HydrateVideoElements(mutualProfileContent);
 
     const followButton =
         document.getElementById(
@@ -21459,7 +21500,7 @@ function SC_ProfileMoment_ScrollToIndex(
 ----------------------------------------------------- */
 
 function SC_ProfileMoment_Close(){
-
+    SC_VT_PauseAll(document.getElementById("mutual-profile-post-viewer"));
     const viewer =
         document.getElementById(
             "mutual-profile-post-viewer"
@@ -48198,6 +48239,10 @@ MODULE: FULLSCREEN MOMENT VIDEO CONTROLS
 ===================================================== */
 
 function SC_VT_Play(video) {
+    
+        const viewerBox = video.closest(".sc-feed-moment-viewer, .mutual-profile-post-viewer");
+    if (viewerBox && !viewerBox.classList.contains("active")) return;
+    
     video.muted = false;
     const p = video.play();
     if (p && p.catch) {
@@ -48256,31 +48301,60 @@ function SC_Moment_RefreshAllLikeUI() {
 }
 
 /* About statement: use the person's own value, else look it up. */
+/* Find the saved data (about, interests, moments) that belongs to a person. */
+function SC_Profile_FindSource(crush) {
+    const norm = v => String(v || "").trim().toLowerCase();
+    const out = { about: "", interests: [], posts: [] };
+    if (!crush) return out;
+
+    let me = null;
+    try { me = getCurrentProfile(); } catch (e) {}
+
+    const names = [norm(crush.name), norm(crush.username)].filter(Boolean);
+    const isMe = !!(me && (
+        (me.userId && me.userId === crush.id) ||
+        names.includes(norm(me.name)) ||
+        names.includes(norm(me.username))
+    ));
+
+    let saved = [];
+    try {
+        saved = JSON.parse(localStorage.getItem("secretCrushMoments") || "[]");
+    } catch (e) {}
+    if (!Array.isArray(saved)) saved = [];
+
+    const mine = saved.filter(p => {
+        if (!p) return false;
+        if (crush.id && (p.ownerId === crush.id || p.userId === crush.id)) return true;
+        if (isMe && me.userId && (p.ownerId === me.userId || p.userId === me.userId)) return true;
+        return names.length > 0 && (names.includes(norm(p.name)) || names.includes(norm(p.username)));
+    });
+
+    out.posts = mine;
+
+    if (isMe && me) {
+        out.about = String(me.about || "").trim();
+        out.interests = Array.isArray(me.interests) ? me.interests : [];
+    }
+    const withAbout = mine.find(p => p.about);
+    if (!out.about && withAbout) out.about = String(withAbout.about).trim();
+    if (!out.interests.length) {
+        const withInterests = mine.find(p => Array.isArray(p.interests) && p.interests.length);
+        if (withInterests) out.interests = withInterests.interests;
+    }
+    return out;
+}
+
 function SC_Profile_ResolveAbout(crush) {
     const direct = String(
         (crush && (crush.about || crush.profileAbout)) || ""
     ).trim();
-    if (direct) return direct;
-    if (!crush || !crush.id) return "";
+    return direct || SC_Profile_FindSource(crush).about;
+}
 
-    try {
-        const me = getCurrentProfile();
-        if (me && me.userId === crush.id && me.about) {
-            return String(me.about).trim();
-        }
-    } catch (e) {}
-
-    try {
-        const saved = JSON.parse(
-            localStorage.getItem("secretCrushMoments") || "[]"
-        );
-        const hit = Array.isArray(saved) && saved.find(p =>
-            (p.ownerId === crush.id || p.userId === crush.id) && p.about
-        );
-        if (hit) return String(hit.about).trim();
-    } catch (e) {}
-
-    return "";
+function SC_VT_PauseAll(root) {
+    if (!root) return;
+    root.querySelectorAll("video").forEach(v => v.pause());
 }
 
 /* Tap the poster's info in fullscreen -> open their profile. */

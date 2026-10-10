@@ -30252,3 +30252,12 @@ MODULE: MY SPACE — VIDEO MOMENT CARDS
 
 .daily-reward-day.missed{ opacity:.55; }
 .daily-reward-day.missed .day-icon{ color:#ff6b81; }
+
+
+.mutual-profile-post-video{
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    background:#000;
+}
