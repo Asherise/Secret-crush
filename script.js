@@ -5376,7 +5376,7 @@ function SC_Moment_ReadPostFromCard(
         likes:
             Number(
                 card.querySelector(
-                    ".like-action span"
+".like-action .like-count"
                 )?.textContent
             ) || 0
 
@@ -5696,6 +5696,7 @@ ${
                     class="
                         sc-feed-moment-person
                     "
+                    data-feed-moment-profile="${escapePostHTML(post.id || "")}"
                 >
 
                     ${
@@ -6494,10 +6495,14 @@ function SC_FeedMoment_AttachEvents(){
 ----------------------------------------------------- */
 
 function closeFeedMomentViewer(){
+    
+        SC_Moment_RefreshAllLikeUI();
 
     if(
         !SC_FeedMomentViewer
     ){
+        
+        
 
         return;
 
@@ -17072,7 +17077,7 @@ function SC_Search_IndexCurrentUsers(){
 
                     likes:
                         card.querySelector(
-                            ".like-action span"
+".like-action .like-count"
                         )?.textContent ||
                         0
 
@@ -18114,7 +18119,7 @@ document.addEventListener(
 
                 likes:
                     feedCard.querySelector(
-                        ".like-action span"
+                        ".like-action .like-count"
                     )?.textContent ||
                     0
 
@@ -18468,8 +18473,9 @@ function closeMutualProfilePage(){
     }
 
 
-    mutualProfileView.classList.remove(
-        "active"
+        mutualProfileView.classList.remove(
+        "active",
+        "sc-profile-over-viewer"
     );
 
     mutualProfileView.setAttribute(
@@ -19272,11 +19278,7 @@ const posts =
  * ABOUT
  */
 
-const about = String(
-    crush.about ||
-    crush.profileAbout ||
-    ""
-).trim();
+const about = SC_Profile_ResolveAbout(crush);
 
 /*
  * PROFILE PICTURE
@@ -48380,4 +48382,105 @@ document.addEventListener("play", event => {
     if (!(event.target instanceof HTMLVideoElement)) return;
     const box = event.target.closest(SC_VT_BOX_SELECTOR);
     if (box) box.classList.remove("sc-vt-paused");
+}, true);
+
+/* Re-draw every like heart/count from saved like data. */
+function SC_Moment_RefreshAllLikeUI() {
+    try {
+        const storage = SC_Moment_ReadLikeStorage() || {};
+        Object.keys(storage).forEach(postId => {
+            const state = SC_Moment_GetLikeState({ id: postId });
+            SC_Moment_SyncLikeUI(postId, state);
+        });
+    } catch (error) {
+        console.warn("Could not refresh likes:", error);
+    }
+}
+
+/* About statement: use the person's own value, else look it up. */
+function SC_Profile_ResolveAbout(crush) {
+    const direct = String(
+        (crush && (crush.about || crush.profileAbout)) || ""
+    ).trim();
+    if (direct) return direct;
+    if (!crush || !crush.id) return "";
+
+    try {
+        const me = getCurrentProfile();
+        if (me && me.userId === crush.id && me.about) {
+            return String(me.about).trim();
+        }
+    } catch (e) {}
+
+    try {
+        const saved = JSON.parse(
+            localStorage.getItem("secretCrushMoments") || "[]"
+        );
+        const hit = Array.isArray(saved) && saved.find(p =>
+            (p.ownerId === crush.id || p.userId === crush.id) && p.about
+        );
+        if (hit) return String(hit.about).trim();
+    } catch (e) {}
+
+    return "";
+}
+
+/* Tap the poster's info in fullscreen -> open their profile. */
+function SC_OpenPosterProfile(postId) {
+    const post = (SC_FeedMomentItems || []).find(
+        item => String(item.id) === String(postId)
+    );
+    if (!post || !mutualProfileView) return;
+
+    let person = {
+        id: post.ownerId || post.userId || post.username || post.name,
+        name: post.name,
+        username: post.username || post.name,
+        photo: post.profilePicture || post.photo || "",
+        school: post.institution || "",
+        faculty: post.faculty || "",
+        year: post.year || "",
+        gender: post.gender || "",
+        about: post.about || "",
+        interests: Array.isArray(post.interests) ? post.interests : [],
+        posts: []
+    };
+
+    try {
+        const me = getCurrentProfile();
+        if (me && me.userId && me.userId === person.id) {
+            person = {
+                ...person,
+                name: me.name || person.name,
+                username: me.username || person.username,
+                photo: me.profilePicture || person.photo,
+                school: me.institution || person.school,
+                faculty: me.faculty || person.faculty,
+                year: me.year || person.year,
+                gender: me.gender || person.gender,
+                about: me.about || person.about,
+                interests: Array.isArray(me.interests) ? me.interests : person.interests
+            };
+        }
+    } catch (e) {}
+
+    /* pause the fullscreen video behind the profile */
+    if (SC_FeedMomentViewer) {
+        SC_FeedMomentViewer.querySelectorAll("video").forEach(v => {
+            v.pause();
+            const box = v.closest(".sc-feed-moment-media");
+            if (box) box.classList.add("sc-vt-paused");
+        });
+    }
+
+    openSecretCrushUserProfile(person);
+    mutualProfileView.classList.add("sc-profile-over-viewer");
+}
+
+document.addEventListener("click", event => {
+    const target = event.target.closest("[data-feed-moment-profile]");
+    if (!target) return;
+    event.preventDefault();
+    event.stopPropagation();
+    SC_OpenPosterProfile(target.dataset.feedMomentProfile);
 }, true);
