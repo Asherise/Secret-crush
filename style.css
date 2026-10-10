@@ -30180,3 +30180,46 @@ MODULE: MOMENT VIDEO CARDS
     background: rgba(0,0,0,.45);
     font-size: 24px;
 }
+
+
+/* =====================================================
+MODULE: MY SPACE — VIDEO MOMENT CARDS
+===================================================== */
+
+.my-post-media {
+    position: relative;
+    overflow: hidden;
+    background: #080810;
+}
+
+.my-post-media .my-space-post-video,
+.my-post-media > img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 150px;
+    object-fit: cover;
+}
+
+.my-space-video-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, .72);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.my-space-video-duration {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    padding: 4px 7px;
+    border-radius: 5px;
+    background: rgba(0, 0, 0, .72);
+    color: #fff;
+    font-size: 12px;
+}

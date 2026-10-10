@@ -5452,32 +5452,6 @@ function openFeedMomentViewer(
         index;
         
         
-/* Pause videos outside the active moment. */
-cards.forEach(card => {
-    const video = card.querySelector(
-        ".sc-feed-moment-video"
-    );
-
-    if (!video) return;
-
-    if (card === bestEntry.target) {
-        video.muted = true;
-
-        const playAttempt = video.play();
-
-        if (playAttempt && typeof playAttempt.catch === "function") {
-            playAttempt.catch(error => {
-                console.warn(
-                    "Moment autoplay was blocked:",
-                    error
-                );
-            });
-        }
-    } else {
-        video.pause();
-    }
-});
-
 
 
     if(
@@ -5902,6 +5876,27 @@ function SC_FeedMoment_SetupObserver(){
 
                 SC_FeedMomentIndex =
                     index;
+                    /* Play only the video in the active fullscreen moment. */
+cards.forEach(card => {
+    const video = card.querySelector(
+        ".sc-feed-moment-video"
+    );
+
+    if (!video) return;
+
+    if (card === bestEntry.target) {
+        video.muted = true;
+
+        video.play().catch(error => {
+            console.warn(
+                "Moment autoplay was blocked:",
+                error
+            );
+        });
+    } else {
+        video.pause();
+    }
+});
 
             },
             {
@@ -29501,34 +29496,40 @@ function renderMyPost(
 
     article.innerHTML = `
 
-        <div
-            class="my-post-image"
-            ${
-                post.image
-
-                    ?
-
-                    `
-                    style="
-                        background-image:url('${post.image}');
-                        background-size:cover;
-                        background-position:center;
-                    "
-                    `
-
-                    :
-
-                    ""
-            }
-        >
+  
+        <div class="my-post-image my-post-media">
 
             ${
-                post.image
-                    ? ""
-                    : "💭"
+                post.videoMediaId
+                    ? `
+                        <video
+                            class="my-space-post-video"
+                            data-moment-video-id="${escapePostHTML(post.videoMediaId)}"
+                            playsinline
+                            muted
+                            preload="metadata"
+                        ></video>
+
+                        <span class="my-space-video-badge">
+                            ▶ VIDEO
+                        </span>
+
+                        <span class="my-space-video-duration">
+                            ${SC_Moment_FormatDuration(post.videoDuration || 0)}
+                        </span>
+                    `
+                    : post.image
+                        ? `
+                            <img
+                                src="${post.image}"
+                                alt="My moment"
+                            >
+                        `
+                        : "💭"
             }
 
         </div>
+
 
 
         <div
