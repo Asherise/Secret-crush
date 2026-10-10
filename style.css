@@ -30249,3 +30249,6 @@ MODULE: MY SPACE — VIDEO MOMENT CARDS
 
 .sc-feed-moment-person{ cursor:pointer; }
 .mutual-profile-view.sc-profile-over-viewer{ z-index:6000; }
+
+.daily-reward-day.missed{ opacity:.55; }
+.daily-reward-day.missed .day-icon{ color:#ff6b81; }

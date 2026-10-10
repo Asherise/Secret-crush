@@ -11537,42 +11537,83 @@ const STREAK_MILESTONES = [
 /* =====================================================
 LOAD STREAK DATA
 ===================================================== */
+const STREAK_DAY_NAMES_SHORT = ["MON","TUE","WED","THU","FRI","SAT","SUN"];
+const STREAK_DAY_LETTERS = ["M","T","W","T","F","S","S"];
+
+/* Add (or subtract) days from a YYYY-MM-DD key. */
+function SC_Streak_AddDays(key, amount){
+    const d = new Date(`${key}T00:00:00`);
+    d.setDate(d.getDate() + amount);
+    return localDateKey(d);
+}
+
+/* 0 = Monday ... 6 = Sunday (real calendar day). */
+function SC_Streak_TodayIndex(){
+    return (new Date().getDay() + 6) % 7;
+}
+
+/* The 7 date keys of the current calendar week, Monday first. */
+function SC_Streak_WeekKeys(){
+    const todayKey = localDateKey();
+    const todayIndex = SC_Streak_TodayIndex();
+    return Array.from({length:7}, (_, i) =>
+        SC_Streak_AddDays(todayKey, i - todayIndex)
+    );
+}
 
 function getStreakState(){
-
     const fallback = {
-
         currentStreak:0,
-
         longestStreak:0,
-
         lastClaimDate:null,
-
-        dailyClaimDay:0
-
+        dailyClaimDay:0,
+        claimedDates:[],
+        milestonesClaimed:[]
     };
 
-
+    let state;
     try{
-
-        return {
-
+        state = {
             ...fallback,
-
-            ...(JSON.parse(
-                localStorage.getItem(
-                    STREAK_STORAGE_KEY
-                )
-            ) || {})
-
+            ...(JSON.parse(localStorage.getItem(STREAK_STORAGE_KEY)) || {})
         };
-
     }catch(error){
-
-        return fallback;
-
+        state = {...fallback};
     }
 
+    if(!Array.isArray(state.claimedDates)){
+        state.claimedDates = [];
+    }
+    if(!Array.isArray(state.milestonesClaimed)){
+        state.milestonesClaimed = [];
+    }
+
+    /* Older saves had no history: rebuild it from the streak. */
+    if(
+        !state.claimedDates.length &&
+        state.lastClaimDate &&
+        state.currentStreak > 0
+    ){
+        for(let i = 0; i < state.currentStreak; i++){
+            state.claimedDates.push(
+                SC_Streak_AddDays(state.lastClaimDate, -i)
+            );
+        }
+    }
+
+    /* Missed a day (or more) -> the streak is broken right now. */
+    if(state.lastClaimDate){
+        const gap = dateDifferenceInDays(
+            state.lastClaimDate,
+            localDateKey()
+        );
+        if(gap > 1){
+            state.currentStreak = 0;
+            state.milestonesClaimed = [];
+        }
+    }
+
+    return state;
 }
 
 
@@ -11789,178 +11830,85 @@ CLAIM DAILY REWARD
 /* =====================================================
    CLAIM DAILY REWARD
    ===================================================== */
-
 function claimDailyStreakReward(){
+    const state = getStreakState();
+    const today = localDateKey();
 
-    const state =
-        getStreakState();
-
-
-    const today =
-        localDateKey();
-
-
-    /*
-     * Already claimed today.
-     */
-
-    if(
-        state.lastClaimDate === today
-    ){
-
-        return;
-
-    }
-
-
-    /*
-     * First ever claim.
-     */
-
-    if(
-        !state.lastClaimDate
-    ){
-
-        state.currentStreak =
-            1;
-
-    }
-
-
-    /*
-     * Consecutive day.
-     */
-
-    else{
-
-        const gap =
-            dateDifferenceInDays(
-                state.lastClaimDate,
-                today
-            );
-
-
-        if(gap === 1){
-
-            state.currentStreak++;
-
-        }
-
-        else{
-
-            /*
-             * User missed one or more days.
-             * Start a new streak.
-             */
-
-            state.currentStreak =
-                1;
-
-        }
-
-    }
-
-
-    /*
-     * Update longest streak.
-     */
-
-    state.longestStreak =
-        Math.max(
-            state.longestStreak || 0,
-            state.currentStreak
+    if(state.lastClaimDate){
+        const gap = dateDifferenceInDays(
+            state.lastClaimDate,
+            today
         );
 
+        /* Already claimed today (or the phone clock moved back). */
+        if(gap <= 0){
+            return;
+        }
 
-    /*
-     * Determine today's reward.
-     *
-     * The existing interface defines:
-     *
-     * Days 1–6 = Free Game
-     * Day 7 = Bonus / 5 Free Games
-     */
-const rewardDay =
-        (
-            (state.currentStreak - 1)
-            % 7
-        ) + 1;
-
-
-    let rewardGames =
-        1;
-
-
-    let rewardTitle =
-        `Daily Reward — Day ${rewardDay}`;
-
-
-    let rewardDescription =
-        "Daily streak reward";
-
-
-    if(
-        rewardDay === 7
-    ){
-
-        rewardGames =
-            5;
-
-        rewardTitle =
-            "Daily Reward — Day 7 Bonus";
-
-        rewardDescription =
-            "7-day streak bonus";
-
+        state.currentStreak =
+            gap === 1
+                ? state.currentStreak + 1
+                : 1;
+    }else{
+        state.currentStreak = 1;
     }
-    
+
+    state.longestStreak = Math.max(
+        state.longestStreak || 0,
+        state.currentStreak
+    );
+
     /*
-     * AWARD THE FREE GAMES
-     *
-     * awardSecretCrushFreeGames() both updates the
-     * real free-games balance AND logs the reward,
-     * so it shows up correctly in Rewards Received
-     * and in the Games counter.
+     * Reward follows the real calendar day.
+     * Mon-Sat = 1 free game.
+     * Sunday  = 5 free games if the streak covers the whole week.
      */
+    const todayIndex = SC_Streak_TodayIndex();
+    const sundayBonus =
+        todayIndex === 6 &&
+        state.currentStreak >= 7;
+
+    const rewardGames = sundayBonus ? 5 : 1;
+    const dayNames = [
+        "Monday","Tuesday","Wednesday","Thursday",
+        "Friday","Saturday","Sunday"
+    ];
 
     awardSecretCrushFreeGames(
         rewardGames,
-        rewardTitle
+        sundayBonus
+            ? "Daily Reward — Sunday Bonus"
+            : `Daily Reward — ${dayNames[todayIndex]}`
     );
 
+    /* Streak milestones (7, 12, 21, 30, 50 days) now really pay out. */
+    const milestone = STREAK_MILESTONES.find(item =>
+        item.day === state.currentStreak &&
+        !state.milestonesClaimed.includes(item.day)
+    );
+
+    if(milestone){
+        const games = parseInt(milestone.reward, 10) || 0;
+        if(games > 0){
+            awardSecretCrushFreeGames(
+                games,
+                `${milestone.day}-Day Streak Milestone`
+            );
+        }
+        state.milestonesClaimed.push(milestone.day);
+    }
+
+    state.dailyClaimDay = todayIndex + 1;
+    state.lastClaimDate = today;
+
+    if(!state.claimedDates.includes(today)){
+        state.claimedDates.push(today);
+    }
+    state.claimedDates = state.claimedDates.slice(-90);
+
+    saveStreakState(state);
     updateAppTransactionsBalance();
-
-
-
-
-
-    /*
-     * Move to the next daily reward.
-     */
-
-    state.dailyClaimDay =
-        rewardDay;
-
-
-    state.lastClaimDate =
-        today;
-
-
-    /*
-     * Save streak state.
-     */
-
-    saveStreakState(
-        state
-    );
-
-
-    /*
-     * Refresh the streak interface.
-     */
-
     renderStreakPage();
-
 }
 
 
@@ -11984,176 +11932,84 @@ function getNextMilestone(
 /* =====================================================
 DAILY REWARD PANEL
 ===================================================== */
-
 function renderDailyRewards(state){
-
-    const grid =
-        document.getElementById(
-            "daily-reward-grid"
-        );
-
-
+    const grid = document.getElementById("daily-reward-grid");
     if(!grid){
-
         return;
-
     }
 
+    const keys = SC_Streak_WeekKeys();
+    const todayKey = localDateKey();
+    const todayIndex = SC_Streak_TodayIndex();
+    const todayClaimed = state.lastClaimDate === todayKey;
 
-    const todayClaimed =
-        state.lastClaimDate ===
-        localDateKey();
+    grid.innerHTML = keys.map((key, i) => {
+        const claimed = state.claimedDates.includes(key);
+        const isToday = i === todayIndex;
+        const missed = !claimed && i < todayIndex;
+        const locked = !claimed && i > todayIndex;
 
+        let icon;
+        if(claimed){ icon = "✓"; }
+        else if(missed){ icon = "✕"; }
+        else if(i === 6){ icon = "🏆"; }
+        else if(isToday){ icon = "🎁"; }
+        else{ icon = "🔒"; }
 
-    const todayCycleDay =
-        state.dailyClaimDay || 1;
+        return `
+            <div class="
+                daily-reward-day
+                ${claimed ? "claimed" : ""}
+                ${isToday ? "today" : ""}
+                ${locked ? "locked" : ""}
+                ${missed ? "missed" : ""}
+                ${i === 6 ? "bonus" : ""}
+            ">
+                <span class="day-label">${STREAK_DAY_NAMES_SHORT[i]}</span>
+                <span class="day-icon">${icon}</span>
+                <span class="day-reward">${i === 6 ? "Bonus" : "Free Game"}</span>
+            </div>
+        `;
+    }).join("");
 
+    const claimButton = document.getElementById("claim-streak-reward");
+    const claimText = document.getElementById("claim-streak-text");
+    const rewardTitle = document.getElementById("today-reward-title");
+    const rewardSubtitle = document.getElementById("today-reward-subtitle");
+    const countdown = document.getElementById("streak-countdown");
 
-    const cycleDays =
-        [1,2,3,4,5,6,7];
+    const projectedStreak =
+        todayClaimed
+            ? state.currentStreak
+            : state.currentStreak + 1;
 
+    const sundayBonus =
+        todayIndex === 6 &&
+        projectedStreak >= 7;
 
-    grid.innerHTML =
-        cycleDays.map(day=>{
+    if(rewardTitle){
+        rewardTitle.textContent =
+            sundayBonus ? "5 Free Games" : "1 Free Game";
+    }
 
-            const claimed =
-                todayClaimed
-                ?
-                day <= todayCycleDay
-                :
-                day < todayCycleDay;
-
-
-            const isToday =
-                day === todayCycleDay;
-
-
-            const locked =
-                !claimed &&
-                day > todayCycleDay;
-
-
-            let icon;
-
-
-            if(claimed){
-
-                icon = "✓";
-
-            }
-
-            else if(day === 7){
-
-                icon = "🏆";
-
-            }
-
-            else if(isToday){
-
-                icon = "🎁";
-
-            }
-
-            else if(locked){
-
-                icon = "🔒";
-
-            }
-
-            else{
-
-                icon = "🎁";
-
-            }
-
-
-            const reward =
-                day === 7
-                ?
-                "Bonus"
-                :
-                "Free Game";
-
-
-            return `
-
-                <div
-                    class="
-                        daily-reward-day
-                        ${claimed ? "claimed" : ""}
-                        ${isToday ? "today" : ""}
-                        ${locked ? "locked" : ""}
-                        ${day === 7 ? "bonus" : ""}
-                    "
-                >
-
-                    <span class="day-label">
-                        DAY ${day}
-                    </span>
-
-                    <span class="day-icon">
-                        ${icon}
-                    </span>
-
-                    <span class="day-reward">
-                        ${reward}
-                    </span>
-
-                </div>
-
-            `;
-
-        }).join("");
-
-
-    const claimButton =
-        document.getElementById(
-            "claim-streak-reward"
-        );
-
-
-    const claimText =
-        document.getElementById(
-            "claim-streak-text"
-        );
-
-
-    const rewardSubtitle =
-        document.getElementById(
-            "today-reward-subtitle"
-        );
-
-
-    if(todayClaimed){
-
-        claimButton.disabled =
-            true;
-
-
+    if(claimButton && claimText && rewardSubtitle){
+        claimButton.disabled = todayClaimed;
         claimText.textContent =
-            "REWARD CLAIMED";
-
-
+            todayClaimed
+                ? "REWARD CLAIMED"
+                : "CLAIM TODAY'S REWARD";
         rewardSubtitle.textContent =
-            "Come back after midnight for tomorrow's reward.";
-
+            todayClaimed
+                ? "Come back after midnight for tomorrow's reward."
+                : todayIndex === 6 && !sundayBonus
+                    ? "Claim every day Mon–Sun to unlock the Sunday bonus."
+                    : "Claim it to keep your streak alive.";
     }
 
-    else{
-
-        claimButton.disabled =
-            false;
-
-
-        claimText.textContent =
-            "CLAIM TODAY'S REWARD";
-
-
-        rewardSubtitle.textContent =
-            "Claim it to keep your streak alive.";
-
+    /* The countdown only makes sense once today's reward is taken. */
+    if(countdown){
+        countdown.style.display = todayClaimed ? "" : "none";
     }
-
 }
 
 
@@ -12236,59 +12092,33 @@ function renderMyStreak(state){
     /*
     Weekly login indicators.
     */
-
+/*
+    Weekly login indicators — real calendar week, Monday first.
+    */
     if(weekEl){
-
-        const labels =
-            [
-                "M",
-                "T",
-                "W",
-                "T",
-                "F",
-                "S",
-                "S"
-            ];
-
+        const weekKeys = SC_Streak_WeekKeys();
+        const todayIndex = SC_Streak_TodayIndex();
 
         weekEl.innerHTML =
-            labels.map(
-                (label,index)=>{
+            weekKeys.map((key, index) => {
+                const done = state.claimedDates.includes(key);
+                const today = index === todayIndex;
 
-                    const done =
-                        current >=
-                        index + 1;
-
-
-                    const today =
-                        index === 6;
-
-
-                    return `
-
-                        <div
-                            class="
-                                streak-week-day
-                                ${done ? "done" : ""}
-                                ${today ? "today" : ""}
-                            "
-                        >
-
-                            <span>
-                                ${label}
-                            </span>
-
-                            <span class="week-dot">
-                                ${done ? "✓" : ""}
-                            </span>
-
-                        </div>
-
-                    `;
-
-                }
-            ).join("");
-
+                return `
+                    <div
+                        class="
+                            streak-week-day
+                            ${done ? "done" : ""}
+                            ${today ? "today" : ""}
+                        "
+                    >
+                        <span>${STREAK_DAY_LETTERS[index]}</span>
+                        <span class="week-dot">
+                            ${done ? "✓" : ""}
+                        </span>
+                    </div>
+                `;
+            }).join("");
     }
 
 
@@ -12516,9 +12346,9 @@ function renderMilestones(state){
                         >
 
                             ${
-                                reached
+                                                                reached
                                 ?
-                                "CLAIMED"
+                                (state.milestonesClaimed.includes(item.day) ? "CLAIMED" : "REACHED")
                                 :
                                 next
                                 ?
