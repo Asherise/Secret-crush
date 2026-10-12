@@ -48980,3 +48980,368 @@ document.addEventListener("click", event => {
     }, true);
 
 })();
+
+
+/* =====================================================
+   FEED — CURRENT FILTERS + FULLSCREEN SEARCH BRIDGE
+   Append below the existing code in script.js.
+===================================================== */
+
+(function SC_InstallFeedFilterAndFullscreenSearch() {
+    "use strict";
+
+    if (window.SC_FeedFilterOverlayInstalled) return;
+    window.SC_FeedFilterOverlayInstalled = true;
+
+    let fullscreenSearchWasOpened = false;
+    let savedFullscreenScrollTop = 0;
+
+    function readProfile() {
+        try {
+            return JSON.parse(
+                localStorage.getItem("secretCrushProfile") || "{}"
+            );
+        } catch (error) {
+            return {};
+        }
+    }
+
+    function readPrimarySchoolMode() {
+        try {
+            return localStorage.getItem("secretCrushPrimarySchoolMode") ||
+                localStorage.getItem("secretCrushPrimarySchoolModeKey") ||
+                "";
+        } catch (error) {
+            return "";
+        }
+    }
+
+    function filterText(values, emptyText) {
+        if (!Array.isArray(values) || values.length === 0) {
+            return emptyText;
+        }
+
+        return values.join(", ");
+    }
+
+    function getCurrentFeedFilterRows() {
+        const profile = readProfile();
+
+        const filters =
+            typeof SC_activeFilters !== "undefined" &&
+            SC_activeFilters.feed
+                ? SC_activeFilters.feed
+                : {
+                    school: [],
+                    faculty: [],
+                    year: [],
+                    gender: []
+                };
+
+        const institution =
+            profile.institution ||
+            profile.school ||
+            "Your institution";
+
+        const primaryMode =
+            typeof SC_primarySchoolMode !== "undefined"
+                ? SC_primarySchoolMode
+                : readPrimarySchoolMode();
+
+        const institutionMode =
+            primaryMode === "only"
+                ? "Only my institution"
+                : "My institution and beyond";
+
+        return [
+            {
+                label: "Institution scope",
+                value: institutionMode
+            },
+            {
+                label: "Institution",
+                value: filterText(
+                    filters.school,
+                    primaryMode === "only"
+                        ? institution
+                        : "All institutions allowed by the scope"
+                )
+            },
+            {
+                label: "Faculty",
+                value: filterText(
+                    filters.faculty,
+                    "All faculties"
+                )
+            },
+            {
+                label: "Year of study",
+                value: filterText(
+                    filters.year,
+                    "All years"
+                )
+            },
+            {
+                label: "Gender",
+                value: filterText(
+                    filters.gender,
+                    "All genders"
+                )
+            }
+        ];
+    }
+
+    function buildFilterOverlay() {
+        let overlay = document.getElementById(
+            "sc-current-feed-filters"
+        );
+
+        if (overlay) return overlay;
+
+        overlay = document.createElement("div");
+        overlay.id = "sc-current-feed-filters";
+        overlay.setAttribute("aria-hidden", "true");
+
+        overlay.innerHTML = `
+            <section class="sc-current-filters-panel"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="sc-current-filters-title">
+
+                <header class="sc-current-filters-header">
+                    <div>
+                        <h2 id="sc-current-filters-title">
+                            Applied Filters
+                        </h2>
+                        <p>
+                            These are the filters currently used
+                            to narrow your feed.
+                        </p>
+                    </div>
+
+                    <button type="button"
+                        class="sc-current-filters-close"
+                        data-sc-current-filters-close
+                        aria-label="Close filters">×</button>
+                </header>
+
+                <div class="sc-current-filters-list"
+                    id="sc-current-filters-list"></div>
+
+                <p class="sc-current-filters-note">
+                    This panel displays your current selections.
+                    To change a filter, close this panel and use
+                    the filter controls on the Feed page.
+                </p>
+
+                <footer class="sc-current-filters-footer">
+                    <button type="button"
+                        class="sc-current-filters-done"
+                        data-sc-current-filters-close>
+                        Done
+                    </button>
+                </footer>
+            </section>
+        `;
+
+        overlay.addEventListener("click", event => {
+            if (
+                event.target === overlay ||
+                event.target.closest("[data-sc-current-filters-close]")
+            ) {
+                closeCurrentFeedFilters();
+            }
+        });
+
+        document.body.appendChild(overlay);
+        return overlay;
+    }
+
+    function renderCurrentFeedFilters() {
+        const overlay = buildFilterOverlay();
+        const list = overlay.querySelector(
+            "#sc-current-filters-list"
+        );
+
+        const rows = getCurrentFeedFilterRows();
+
+        list.innerHTML = rows.map(row => `
+            <div class="sc-current-filter-row">
+                <span class="sc-current-filter-label">
+                    ${row.label}
+                </span>
+                <span class="sc-current-filter-value">
+                    ${escapeHTMLForCurrentFilters(row.value)}
+                </span>
+            </div>
+        `).join("");
+
+        return overlay;
+    }
+
+    function escapeHTMLForCurrentFilters(value) {
+        return String(value == null ? "" : value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function openCurrentFeedFilters() {
+        const overlay = renderCurrentFeedFilters();
+
+        overlay.classList.add("sc-current-filters-open");
+        overlay.setAttribute("aria-hidden", "false");
+    }
+
+    function closeCurrentFeedFilters() {
+        const overlay = document.getElementById(
+            "sc-current-feed-filters"
+        );
+
+        if (!overlay) return;
+
+        overlay.classList.remove("sc-current-filters-open");
+        overlay.setAttribute("aria-hidden", "true");
+    }
+
+    function getFullscreenViewer() {
+        return document.getElementById("sc-feed-moment-viewer");
+    }
+
+    function openSearchFromFullscreen() {
+        const viewer = getFullscreenViewer();
+        const scroll = document.getElementById("sc-feed-moment-scroll");
+
+        if (!viewer || !viewer.classList.contains("active")) return;
+        if (typeof openFeedUserSearch !== "function") return;
+
+        savedFullscreenScrollTop = scroll ? scroll.scrollTop : 0;
+        fullscreenSearchWasOpened = true;
+
+        /*
+         * Put the still-mounted viewer behind the existing
+         * search overlay. Do not rebuild or close the viewer.
+         */
+        viewer.classList.add("sc-search-temporarily-behind");
+
+        openFeedUserSearch();
+    }
+
+    function restoreFullscreenAfterSearch() {
+        if (!fullscreenSearchWasOpened) return;
+
+        fullscreenSearchWasOpened = false;
+
+        const viewer = getFullscreenViewer();
+        const scroll = document.getElementById("sc-feed-moment-scroll");
+
+        if (!viewer || !viewer.classList.contains("active")) return;
+
+        viewer.classList.remove("sc-search-temporarily-behind");
+
+        if (scroll) {
+            scroll.scrollTop = savedFullscreenScrollTop;
+        }
+    }
+
+    /*
+     * Feed page vase-shaped button.
+     * The existing HTML has no ID on this button, so we target
+     * the icon button beside the feed's search button.
+     */
+    document.addEventListener("click", event => {
+        const feedSearch = event.target.closest("#feed-search-button");
+        const feedVase = event.target.closest(
+            "#feed-page .secondary-header-actions button.icon-button"
+        );
+
+        if (
+            feedVase &&
+            !feedSearch &&
+            !feedVase.matches("#feed-search-button")
+        ) {
+            event.preventDefault();
+            event.stopPropagation();
+            openCurrentFeedFilters();
+        }
+    }, true);
+
+    /*
+     * Fullscreen floating tools:
+     * first button = search; second button = applied filters.
+     */
+    document.addEventListener("click", event => {
+        const tool = event.target.closest(
+            "#sc-feed-moment-floating-tools .sc-feed-moment-tool"
+        );
+
+        if (!tool) return;
+
+        const tools = Array.from(
+            document.querySelectorAll(
+                "#sc-feed-moment-floating-tools .sc-feed-moment-tool"
+            )
+        );
+
+        const toolIndex = tools.indexOf(tool);
+
+        if (toolIndex === 0) {
+            event.preventDefault();
+            event.stopPropagation();
+            openSearchFromFullscreen();
+        } else if (toolIndex === 1) {
+            event.preventDefault();
+            event.stopPropagation();
+            openCurrentFeedFilters();
+        }
+    }, true);
+
+    /*
+     * The existing search overlay already handles its own
+     * back and backdrop clicks. After those handlers close it,
+     * restore the fullscreen viewer to the saved position.
+     */
+    document.addEventListener("click", event => {
+        if (
+            event.target.closest("#feed-user-search-back") ||
+            event.target.closest("#feed-user-search-backdrop")
+        ) {
+            setTimeout(restoreFullscreenAfterSearch, 0);
+        }
+    });
+
+    /*
+     * Escape closes the current filters overlay. When search
+     * was opened from fullscreen, close the existing search
+     * overlay and restore the viewer as well.
+     */
+    document.addEventListener("keydown", event => {
+        if (event.key !== "Escape") return;
+
+        const filters = document.getElementById(
+            "sc-current-feed-filters"
+        );
+
+        if (filters && filters.classList.contains("sc-current-filters-open")) {
+            closeCurrentFeedFilters();
+            return;
+        }
+
+        const search = document.getElementById("feed-user-search-view");
+
+        if (
+            fullscreenSearchWasOpened &&
+            search &&
+            search.classList.contains("active")
+        ) {
+            if (typeof closeFeedUserSearch === "function") {
+                closeFeedUserSearch();
+            }
+
+            restoreFullscreenAfterSearch();
+        }
+    });
+
+})();

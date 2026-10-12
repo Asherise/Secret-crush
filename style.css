@@ -30730,3 +30730,155 @@ MODULE: MY SPACE — VIDEO MOMENT CARDS
         gap: 10px;
     }
 }
+
+
+
+/* =====================================================
+   FEED — CURRENT FILTERS OVERLAY
+===================================================== */
+
+#sc-current-feed-filters,
+#sc-current-feed-filters * {
+    box-sizing: border-box;
+}
+
+#sc-current-feed-filters {
+    position: fixed;
+    inset: 0;
+    z-index: 7000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(3, 3, 14, .82);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: #f5f1ff;
+}
+
+#sc-current-feed-filters.sc-current-filters-open {
+    display: flex;
+}
+
+.sc-current-filters-panel {
+    width: min(100%, 440px);
+    max-height: 85dvh;
+    overflow-y: auto;
+    border: 1px solid rgba(153, 119, 255, .55);
+    border-radius: 23px;
+    background:
+        radial-gradient(ellipse at top right, rgba(105, 60, 220, .2), transparent 50%),
+        linear-gradient(160deg, #11102a, #050714 78%);
+    box-shadow: 0 0 42px rgba(104, 63, 255, .2);
+}
+
+.sc-current-filters-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 19px;
+    border-bottom: 1px solid rgba(168, 207, 255, .13);
+}
+
+.sc-current-filters-header h2 {
+    margin: 0;
+    color: #fff;
+    font-size: 20px;
+    font-weight: 800;
+}
+
+.sc-current-filters-header p {
+    margin: 5px 0 0;
+    color: #a9cfff;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.sc-current-filters-close {
+    display: grid;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border: 1px solid rgba(176, 151, 255, .32);
+    border-radius: 50%;
+    background: #17152f;
+    color: #fff;
+    font-size: 23px;
+    cursor: pointer;
+}
+
+.sc-current-filters-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+}
+
+.sc-current-filter-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px;
+    border: 1px solid rgba(82, 126, 255, .28);
+    border-radius: 15px;
+    background: rgba(18, 25, 57, .68);
+}
+
+.sc-current-filter-label {
+    flex: 0 0 38%;
+    color: #a9cfff;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.sc-current-filter-value {
+    flex: 1;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 1.5;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+.sc-current-filter-empty {
+    color: #aaa4c9;
+    font-weight: 400;
+}
+
+.sc-current-filters-note {
+    margin: 0 16px 16px;
+    padding: 12px;
+    border: 1px solid rgba(168, 207, 255, .13);
+    border-radius: 12px;
+    background: rgba(21, 34, 70, .35);
+    color: #9cb5df;
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+.sc-current-filters-footer {
+    padding: 0 16px 17px;
+}
+
+.sc-current-filters-done {
+    width: 100%;
+    min-height: 46px;
+    border: 1px solid #9270ff;
+    border-radius: 14px;
+    background: linear-gradient(100deg, #8354ff, #5c36dc);
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+/* Keep fullscreen feed mounted behind its search overlay. */
+.sc-feed-moment-viewer.sc-search-temporarily-behind {
+    z-index: 1000;
+}
+
