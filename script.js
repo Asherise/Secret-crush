@@ -48416,3 +48416,567 @@ document.addEventListener("click", event => {
     event.stopPropagation();
     SC_OpenPosterProfile(target.dataset.feedMomentProfile);
 }, true);
+
+
+
+/* =====================================================
+   SECRET CRUSH — SHARED GIFT SHOP ENGINE
+   Uses one catalogue for every Send Gift entry point.
+   Payment and gift delivery are not connected yet.
+   ===================================================== */
+
+(function SC_InstallSharedGiftShop() {
+    "use strict";
+
+    if (window.SC_SharedGiftShopInstalled) return;
+    window.SC_SharedGiftShopInstalled = true;
+
+    const SC_GIFT_TIERS = [
+        { id: "normal", label: "Normal" },
+        { id: "high", label: "High" },
+        { id: "prestige", label: "Prestige" },
+        { id: "premium", label: "Premium" }
+    ];
+
+    /*
+     * Images are hosted by Pexels.
+     * If a photo cannot load, the card shows a category emoji.
+     */
+    const SC_GIFT_ITEMS = [
+        {
+            id: "balloons",
+            name: "Heart Balloons",
+            emoji: "🎈",
+            description: "A little reminder that someone is thinking of you.",
+            image: "https://images.pexels.com/photos/6629583/pexels-photo-6629583.jpeg?auto=compress&cs=tinysrgb&w=900",
+            prices: [10, 20, 50, 100],
+            versions: [
+                "Single Heart Balloon",
+                "Pair of Heart Balloons",
+                "Heart Balloon Bouquet",
+                "Luxury Balloon Arrangement"
+            ]
+        },
+        {
+            id: "chocolates",
+            name: "Chocolates",
+            emoji: "🍫",
+            description: "A sweet gesture for someone special.",
+            image: "https://images.pexels.com/photos/6167345/pexels-photo-6167345.jpeg?auto=compress&cs=tinysrgb&w=900",
+            prices: [15, 40, 80, 150],
+            versions: [
+                "Single Chocolate Bar",
+                "Chocolate Duo",
+                "Three-Bar Chocolate Gift",
+                "Luxury Chocolate Box"
+            ]
+        },
+        {
+            id: "flowers",
+            name: "Flowers",
+            emoji: "💐",
+            description: "A beautiful way to brighten someone's day.",
+            image: "https://images.pexels.com/photos/16216795/pexels-photo-16216795.jpeg?auto=compress&cs=tinysrgb&w=900",
+            prices: [20, 50, 100, 200],
+            versions: [
+                "Single Flower",
+                "Premium Flower Wrap",
+                "Three-Rose Bouquet",
+                "Luxury Rose Bouquet"
+            ]
+        },
+        {
+            id: "teddy",
+            name: "Teddy Bears",
+            emoji: "🧸",
+            description: "A soft little hug, even from a distance.",
+            image: "https://images.pexels.com/photos/10003868/pexels-photo-10003868.jpeg?auto=compress&cs=tinysrgb&w=900",
+            prices: [50, 100, 200, 300],
+            versions: [
+                "Cute Teddy Bear",
+                "Ribbon Teddy Bear",
+                "Large Teddy Bear",
+                "Premium Oversized Teddy"
+            ]
+        }
+    ];
+
+    let SC_GiftActiveTier = 0;
+    let SC_GiftSelectedItem = null;
+    let SC_GiftQuantity = 1;
+    let SC_GiftRecipientKey = "";
+    let SC_GiftEntryButton = null;
+
+    const money = amount =>
+        "KSh " + Number(amount).toLocaleString("en-KE");
+
+    function getImage(item, tierIndex) {
+        return item.image;
+    }
+
+    function getPrice(item, tierIndex) {
+        return item.prices[tierIndex];
+    }
+
+    function getVersion(item, tierIndex) {
+        return item.versions[tierIndex];
+    }
+
+    function giftImage(item, tierIndex, className) {
+        return `
+            <img
+                class="${className}"
+                src="${getImage(item, tierIndex)}"
+                alt="${item.name}"
+                loading="lazy"
+                onerror="
+                    this.style.display='none';
+                    this.nextElementSibling.style.display='grid';
+                "
+            >
+            <span class="sc-gift-empty-image"
+                style="display:none;width:100%;height:100%;">
+                ${item.emoji}
+            </span>
+        `;
+    }
+
+    function makeOverlay() {
+        if (document.getElementById("sc-gift-shop-overlay")) return;
+
+        const overlay = document.createElement("div");
+        overlay.id = "sc-gift-shop-overlay";
+        overlay.setAttribute("aria-hidden", "true");
+
+        overlay.innerHTML = `
+            <div class="sc-gift-modal" role="dialog"
+                aria-modal="true" aria-label="Send a gift">
+
+                <!-- CATALOGUE -->
+                <section class="sc-gift-panel sc-gift-panel-active"
+                    data-sc-gift-panel="shop">
+
+                    <header class="sc-gift-header">
+                        <div>
+                            <h2 class="sc-gift-heading">Send a Gift</h2>
+                            <p class="sc-gift-subheading">
+                                Make someone's day a little brighter.
+                            </p>
+                        </div>
+                        <button type="button"
+                            class="sc-gift-icon-button"
+                            data-sc-gift-action="close"
+                            aria-label="Close gift shop">×</button>
+                    </header>
+
+                    <div class="sc-gift-recipient">
+                        <span class="sc-gift-recipient-icon">🎁</span>
+                        <div>
+                            <strong>For your selected crush</strong>
+                            <small>Choose a gift to see its details and price.</small>
+                        </div>
+                    </div>
+
+                    <div class="sc-gift-tier-tabs"
+                        role="tablist" aria-label="Gift tiers">
+                        ${SC_GIFT_TIERS.map((tier, index) => `
+                            <button type="button"
+                                class="sc-gift-tier ${index === 0 ? "sc-gift-tier-active" : ""}"
+                                data-sc-gift-tier="${index}"
+                                role="tab"
+                                aria-selected="${index === 0}">
+                                ${tier.label}
+                            </button>
+                        `).join("")}
+                    </div>
+
+                    <p class="sc-gift-tier-note"
+                        id="sc-gift-tier-note">
+                        Sweet little gestures.
+                    </p>
+
+                    <div class="sc-gift-list" id="sc-gift-list"></div>
+
+                    <footer class="sc-gift-footer">
+                        <button type="button"
+                            class="sc-gift-secondary"
+                            data-sc-gift-action="close">Close</button>
+                    </footer>
+                </section>
+
+                <!-- SELECTED GIFT DETAILS -->
+                <section class="sc-gift-panel"
+                    data-sc-gift-panel="detail">
+
+                    <header class="sc-gift-header">
+                        <button type="button"
+                            class="sc-gift-icon-button"
+                            data-sc-gift-action="back-shop"
+                            aria-label="Back to gifts">‹</button>
+                        <div style="flex:1;text-align:center;">
+                            <h2 class="sc-gift-heading">Gift Details</h2>
+                            <p class="sc-gift-subheading"
+                                id="sc-gift-detail-tier"></p>
+                        </div>
+                        <button type="button"
+                            class="sc-gift-icon-button"
+                            data-sc-gift-action="close"
+                            aria-label="Close gift shop">×</button>
+                    </header>
+
+                    <div class="sc-gift-detail-content">
+                        <div id="sc-gift-detail-image-wrap"></div>
+                        <h3 class="sc-gift-detail-title"
+                            id="sc-gift-detail-title"></h3>
+                        <p class="sc-gift-detail-description"
+                            id="sc-gift-detail-description"></p>
+                        <div class="sc-gift-unit-price"
+                            id="sc-gift-unit-price"></div>
+
+                        <div class="sc-gift-quantity-row">
+                            <div class="sc-gift-quantity-label">
+                                <strong>Quantity</strong>
+                                <small>Choose how many to send.</small>
+                            </div>
+                            <div class="sc-gift-quantity-control">
+                                <button type="button"
+                                    data-sc-gift-action="minus"
+                                    aria-label="Decrease quantity">−</button>
+                                <span class="sc-gift-quantity-number"
+                                    id="sc-gift-quantity">1</span>
+                                <button type="button"
+                                    data-sc-gift-action="plus"
+                                    aria-label="Increase quantity">+</button>
+                            </div>
+                        </div>
+
+                        <div class="sc-gift-total">
+                            <span>Gift subtotal</span>
+                            <strong id="sc-gift-detail-total">KSh 20</strong>
+                        </div>
+                    </div>
+
+                    <footer class="sc-gift-footer">
+                        <button type="button"
+                            class="sc-gift-secondary"
+                            data-sc-gift-action="back-shop">Back</button>
+                        <button type="button"
+                            class="sc-gift-primary"
+                            data-sc-gift-action="review">Review Gift</button>
+                    </footer>
+                </section>
+
+                <!-- REVIEW / CONFIRMATION -->
+                <section class="sc-gift-panel"
+                    data-sc-gift-panel="review">
+
+                    <header class="sc-gift-header">
+                        <button type="button"
+                            class="sc-gift-icon-button"
+                            data-sc-gift-action="back-detail"
+                            aria-label="Back to gift details">‹</button>
+                        <div style="flex:1;text-align:center;">
+                            <h2 class="sc-gift-heading">Review Gift</h2>
+                            <p class="sc-gift-subheading">
+                                Check your selection before continuing.
+                            </p>
+                        </div>
+                        <button type="button"
+                            class="sc-gift-icon-button"
+                            data-sc-gift-action="close"
+                            aria-label="Close gift shop">×</button>
+                    </header>
+
+                    <div class="sc-gift-review-content">
+                        <div class="sc-gift-review-card">
+                            <div id="sc-gift-review-image-wrap"></div>
+                            <div>
+                                <strong id="sc-gift-review-name"></strong>
+                                <small id="sc-gift-review-description"></small>
+                            </div>
+                        </div>
+
+                        <div class="sc-gift-total">
+                            <span>Gift subtotal</span>
+                            <strong id="sc-gift-review-total"></strong>
+                        </div>
+
+                        <p class="sc-gift-demo-note">
+                            This is a design preview. Payment and actual gift
+                            delivery have not been connected yet. Nothing will
+                            be charged and no gift will be sent.
+                        </p>
+                    </div>
+
+                    <footer class="sc-gift-footer">
+                        <button type="button"
+                            class="sc-gift-secondary"
+                            data-sc-gift-action="back-detail">Back</button>
+                        <button type="button"
+                            class="sc-gift-primary"
+                            data-sc-gift-action="confirm">
+                            Confirm Preview
+                        </button>
+                    </footer>
+                </section>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener("click", event => {
+            if (event.target === overlay) closeGiftShop();
+        });
+
+        overlay.addEventListener("click", event => {
+            const tierButton = event.target.closest("[data-sc-gift-tier]");
+            if (tierButton) {
+                SC_GiftActiveTier = Number(tierButton.dataset.scGiftTier);
+                renderGiftTier();
+                return;
+            }
+
+            const giftButton = event.target.closest("[data-sc-gift-item]");
+            if (giftButton) {
+                openGiftDetails(giftButton.dataset.scGiftItem);
+                return;
+            }
+
+            const actionButton = event.target.closest("[data-sc-gift-action]");
+            if (!actionButton) return;
+
+            switch (actionButton.dataset.scGiftAction) {
+                case "close":
+                    closeGiftShop();
+                    break;
+                case "back-shop":
+                    showGiftPanel("shop");
+                    break;
+                case "back-detail":
+                    showGiftPanel("detail");
+                    break;
+                case "minus":
+                    SC_GiftQuantity = Math.max(1, SC_GiftQuantity - 1);
+                    updateGiftQuantity();
+                    break;
+                case "plus":
+                    SC_GiftQuantity = Math.min(99, SC_GiftQuantity + 1);
+                    updateGiftQuantity();
+                    break;
+                case "review":
+                    openGiftReview();
+                    break;
+                case "confirm":
+                    alert(
+                        "This is only a design preview. Gift sending and payment are not connected yet."
+                    );
+                    closeGiftShop();
+                    break;
+            }
+        });
+
+        renderGiftTier();
+    }
+
+    function showGiftPanel(panelName) {
+        const overlay = document.getElementById("sc-gift-shop-overlay");
+        if (!overlay) return;
+
+        overlay.querySelectorAll("[data-sc-gift-panel]").forEach(panel => {
+            panel.classList.toggle(
+                "sc-gift-panel-active",
+                panel.dataset.scGiftPanel === panelName
+            );
+            panel.scrollTop = 0;
+        });
+    }
+
+    function renderGiftTier() {
+        const overlay = document.getElementById("sc-gift-shop-overlay");
+        if (!overlay) return;
+
+        overlay.querySelectorAll("[data-sc-gift-tier]").forEach(button => {
+            const active = Number(button.dataset.scGiftTier) === SC_GiftActiveTier;
+            button.classList.toggle("sc-gift-tier-active", active);
+            button.setAttribute("aria-selected", String(active));
+        });
+
+        const tierNotes = [
+            "Sweet little gestures.",
+            "A little extra thought and affection.",
+            "Make your gift feel more special.",
+            "A grand gesture for someone special."
+        ];
+
+        const note = overlay.querySelector("#sc-gift-tier-note");
+        if (note) note.textContent = tierNotes[SC_GiftActiveTier];
+
+        const list = overlay.querySelector("#sc-gift-list");
+        if (!list) return;
+
+        list.innerHTML = SC_GIFT_ITEMS.map(item => `
+            <button type="button" class="sc-gift-item"
+                data-sc-gift-item="${item.id}">
+                <span style="position:relative;flex:0 0 82px;width:82px;height:82px;">
+                    ${giftImage(item, SC_GiftActiveTier, "sc-gift-image")}
+                </span>
+                <span class="sc-gift-item-copy">
+                    <strong>${item.name}</strong>
+                    <small>${getVersion(item, SC_GiftActiveTier)}</small>
+                    <span class="sc-gift-price">
+                        ${money(getPrice(item, SC_GiftActiveTier))}
+                    </span>
+                </span>
+                <span class="sc-gift-item-arrow" aria-hidden="true">›</span>
+            </button>
+        `).join("");
+    }
+
+    function openGiftDetails(itemId) {
+        SC_GiftSelectedItem = SC_GIFT_ITEMS.find(item => item.id === itemId);
+        if (!SC_GiftSelectedItem) return;
+
+        SC_GiftQuantity = 1;
+
+        const overlay = document.getElementById("sc-gift-shop-overlay");
+        if (!overlay) return;
+
+        const item = SC_GiftSelectedItem;
+        const tier = SC_GiftActiveTier;
+
+        overlay.querySelector("#sc-gift-detail-tier").textContent =
+            SC_GIFT_TIERS[tier].label + " Collection";
+
+        overlay.querySelector("#sc-gift-detail-image-wrap").innerHTML = `
+            <div style="position:relative;">
+                ${giftImage(item, tier, "sc-gift-detail-image")}
+            </div>
+        `;
+
+        overlay.querySelector("#sc-gift-detail-title").textContent =
+            getVersion(item, tier);
+
+        overlay.querySelector("#sc-gift-detail-description").textContent =
+            item.description;
+
+        overlay.querySelector("#sc-gift-unit-price").textContent =
+            money(getPrice(item, tier)) + " per gift";
+
+        updateGiftQuantity();
+        showGiftPanel("detail");
+    }
+
+    function updateGiftQuantity() {
+        const overlay = document.getElementById("sc-gift-shop-overlay");
+        if (!overlay || !SC_GiftSelectedItem) return;
+
+        const total = getPrice(SC_GiftSelectedItem, SC_GiftActiveTier) *
+            SC_GiftQuantity;
+
+        overlay.querySelector("#sc-gift-quantity").textContent =
+            String(SC_GiftQuantity);
+
+        overlay.querySelector("#sc-gift-detail-total").textContent =
+            money(total);
+    }
+
+    function openGiftReview() {
+        const overlay = document.getElementById("sc-gift-shop-overlay");
+        if (!overlay || !SC_GiftSelectedItem) return;
+
+        const item = SC_GiftSelectedItem;
+        const tier = SC_GiftActiveTier;
+        const total = getPrice(item, tier) * SC_GiftQuantity;
+
+        overlay.querySelector("#sc-gift-review-image-wrap").innerHTML = `
+            <div style="position:relative;flex:0 0 76px;width:76px;height:76px;">
+                ${giftImage(item, tier, "sc-gift-review-image")}
+            </div>
+        `;
+
+        const reviewImage = overlay.querySelector(".sc-gift-review-image");
+        if (reviewImage) {
+            reviewImage.style.width = "76px";
+            reviewImage.style.height = "76px";
+            reviewImage.style.flex = "0 0 76px";
+            reviewImage.style.objectFit = "cover";
+            reviewImage.style.borderRadius = "12px";
+        }
+
+        overlay.querySelector("#sc-gift-review-name").textContent =
+            getVersion(item, tier);
+
+        overlay.querySelector("#sc-gift-review-description").textContent =
+            SC_GIFT_TIERS[tier].label + " · " +
+            SC_GiftQuantity + " gift(s) · " +
+            money(getPrice(item, tier)) + " each";
+
+        overlay.querySelector("#sc-gift-review-total").textContent =
+            money(total);
+
+        showGiftPanel("review");
+    }
+
+    function openGiftShop(button) {
+        makeOverlay();
+
+        SC_GiftEntryButton = button;
+        SC_GiftRecipientKey = "";
+
+        if (button) {
+            SC_GiftRecipientKey =
+                button.getAttribute("data-gift-crush") ||
+                button.getAttribute("data-detail-gift") ||
+                "";
+        }
+
+        const overlay = document.getElementById("sc-gift-shop-overlay");
+        if (!overlay) return;
+
+        SC_GiftActiveTier = 0;
+        SC_GiftSelectedItem = null;
+        SC_GiftQuantity = 1;
+
+        renderGiftTier();
+        showGiftPanel("shop");
+
+        overlay.classList.add("sc-gift-visible");
+        overlay.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+    }
+
+    function closeGiftShop() {
+        const overlay = document.getElementById("sc-gift-shop-overlay");
+        if (!overlay) return;
+
+        overlay.classList.remove("sc-gift-visible");
+        overlay.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+
+        SC_GiftSelectedItem = null;
+        SC_GiftQuantity = 1;
+    }
+
+    /*
+     * Capture clicks before the older placeholder handlers run.
+     * All existing Send Gift entry points open the same shop.
+     */
+    document.addEventListener("click", function(event) {
+        const button = event.target.closest(
+            "#mutual-profile-gift-button, " +
+            ".sent-crush-gift, " +
+            ".sent-crush-detail-gift, " +
+            "[data-detail-gift], " +
+            "[data-gift-crush]"
+        );
+
+        if (!button) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        openGiftShop(button);
+    }, true);
+
+})();
