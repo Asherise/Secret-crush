@@ -49345,3 +49345,597 @@ document.addEventListener("click", event => {
     });
 
 })();
+
+
+
+/* =========================================================
+   MODULE: SECRET CRUSH STORIES — V1
+   Upload, preview, publish, view, and expire stories
+   ========================================================= */
+(function SC_STORIES_V1() {
+    "use strict";
+
+    if (window.__SC_STORIES_V1_INSTALLED__) return;
+    window.__SC_STORIES_V1_INSTALLED__ = true;
+
+    const STORAGE_KEY = "scStoriesV1";
+    const EXPIRE_AFTER = 24 * 60 * 60 * 1000;
+    const PHOTO_DURATION = 7000;
+
+    let pendingFile = null;
+    let pendingURL = "";
+    let currentStories = [];
+    let currentIndex = 0;
+    let timer = null;
+    let startedAt = 0;
+    let remaining = PHOTO_DURATION;
+    let paused = false;
+    let videoElement = null;
+
+    const $ = (selector, root = document) =>
+        root.querySelector(selector);
+
+    function readStories() {
+        try {
+            const saved = JSON.parse(
+                localStorage.getItem(STORAGE_KEY) || "[]"
+            );
+            const active = saved.filter(story =>
+                story &&
+                story.createdAt &&
+                Date.now() - story.createdAt < EXPIRE_AFTER
+            );
+            if (active.length !== saved.length) {
+                localStorage.setItem(
+                    STORAGE_KEY,
+                    JSON.stringify(active)
+                );
+            }
+            return active;
+        } catch (error) {
+            console.warn("Could not read Stories:", error);
+            return [];
+        }
+    }
+
+    function saveStories(stories) {
+        try {
+            localStorage.setItem(
+                STORAGE_KEY,
+                JSON.stringify(stories)
+            );
+            return true;
+        } catch (error) {
+            alert(
+                "This media file is too large for browser storage. " +
+                "Try a smaller image or video."
+            );
+            console.error("Could not save Stories:", error);
+            return false;
+        }
+    }
+
+    function getMyName() {
+        try {
+            const profile = JSON.parse(
+                localStorage.getItem("secretCrushProfile") || "{}"
+            );
+            return profile.username || profile.name || "You";
+        } catch (error) {
+            return "You";
+        }
+    }
+
+    function getMyPicture() {
+        const image = $("#home-profile-picture");
+        if (image && image.getAttribute("src")) {
+            return image.src;
+        }
+        try {
+            const profile = JSON.parse(
+                localStorage.getItem("secretCrushProfile") || "{}"
+            );
+            return profile.profilePicture || "";
+        } catch (error) {
+            return "";
+        }
+    }
+
+    function makeOverlay() {
+        let overlay = $("#sc-stories-overlay");
+        if (overlay) return overlay;
+
+        overlay = document.createElement("div");
+        overlay.id = "sc-stories-overlay";
+        overlay.innerHTML = `
+            <div class="sc-stories-header">
+                <button type="button" data-sc-close>✕ Close</button>
+                <strong id="sc-stories-title">Your Story</strong>
+                <span></span>
+            </div>
+            <div class="sc-stories-content" id="sc-stories-content"></div>
+        `;
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener("click", event => {
+            if (event.target.closest("[data-sc-close]")) {
+                closeOverlay();
+            }
+        });
+        return overlay;
+    }
+
+    function closeOverlay() {
+        const overlay = $("#sc-stories-overlay");
+        if (overlay) overlay.classList.remove("sc-stories-open");
+        clearTimeout(timer);
+        timer = null;
+    }
+
+    function showScreen(title, html) {
+        const overlay = makeOverlay();
+        $("#sc-stories-title", overlay).textContent = title;
+        $("#sc-stories-content", overlay).innerHTML = html;
+        overlay.classList.add("sc-stories-open");
+    }
+
+    function showUploadOptions() {
+        closeViewer();
+        showScreen("Create a Story", `
+            <p>Share a photo or video with your followers.</p>
+            <button class="sc-stories-action" id="sc-story-gallery">
+                Choose from gallery
+            </button>
+            <input id="sc-story-file" type="file"
+                accept="image/*,video/*" hidden>
+            <button class="sc-stories-action" id="sc-story-camera"
+                style="margin-top:12px">
+                Take a photo or video
+            </button>
+            <input id="sc-story-camera-file" type="file"
+                accept="image/*,video/*" capture="environment" hidden>
+            <p style="color:#aaa;font-size:13px;margin-top:18px">
+                Choose one image or video for each story.
+            </p>
+        `);
+
+        const gallery = $("#sc-story-file");
+        const camera = $("#sc-story-camera-file");
+
+        $("#sc-story-gallery").onclick = () => gallery.click();
+        $("#sc-story-camera").onclick = () => camera.click();
+
+        gallery.onchange = () => selectMedia(gallery.files[0]);
+        camera.onchange = () => selectMedia(camera.files[0]);
+    }
+
+    function selectMedia(file) {
+        if (!file) return;
+        if (!file.type.startsWith("image/") &&
+            !file.type.startsWith("video/")) {
+            alert("Please choose an image or video.");
+            return;
+        }
+
+        pendingFile = file;
+        if (pendingURL) URL.revokeObjectURL(pendingURL);
+        pendingURL = URL.createObjectURL(file);
+
+        const isVideo = file.type.startsWith("video/");
+        showScreen("Edit Your Story", `
+            <button id="sc-story-back">← Choose another file</button>
+            <div style="margin-top:16px">
+                ${isVideo
+                    ? `<video class="sc-stories-preview"
+                        id="sc-story-preview" src="${pendingURL}"
+                        controls playsinline></video>`
+                    : `<img class="sc-stories-preview"
+                        id="sc-story-preview" src="${pendingURL}"
+                        alt="Story preview">`
+                }
+            </div>
+            <input class="sc-stories-field" id="sc-story-caption"
+                maxlength="180" placeholder="Add a caption">
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="sc-stories-action" id="sc-story-text"
+                    type="button">Aa Text</button>
+                <button class="sc-stories-action" id="sc-story-music"
+                    type="button">♫ Music</button>
+                <button class="sc-stories-action" id="sc-story-filter"
+                    type="button">✧ Filters</button>
+            </div>
+            <p style="color:#aaa;font-size:12px">
+                Text, music, and filters will be connected in a later step.
+            </p>
+            <button class="sc-stories-action" id="sc-story-publish"
+                style="width:100%;margin-top:12px">
+                Publish Story ➤
+            </button>
+        `);
+
+        $("#sc-story-back").onclick = showUploadOptions;
+        $("#sc-story-text").onclick = () =>
+            alert("Text overlays are coming in the next Stories update.");
+        $("#sc-story-music").onclick = () =>
+            alert("Music attachment is coming in the next Stories update.");
+        $("#sc-story-filter").onclick = () =>
+            alert("Story filters are coming in the next Stories update.");
+        $("#sc-story-publish").onclick = publishStory;
+    }
+
+    async function publishStory() {
+        if (!pendingFile) return;
+
+        const publishButton = $("#sc-story-publish");
+        if (publishButton) publishButton.disabled = true;
+
+        try {
+            const mediaData = await fileToDataURL(pendingFile);
+            const story = {
+                id: "story-" + Date.now() + "-" +
+                    Math.random().toString(36).slice(2, 8),
+                owner: "me",
+                name: getMyName(),
+                picture: getMyPicture(),
+                type: pendingFile.type.startsWith("video/")
+                    ? "video" : "image",
+                media: mediaData,
+                caption: ($("#sc-story-caption")?.value || "").trim(),
+                createdAt: Date.now(),
+                seen: false
+            };
+
+            const stories = readStories();
+            stories.push(story);
+
+            if (!saveStories(stories)) {
+                if (publishButton) publishButton.disabled = false;
+                return;
+            }
+
+            pendingFile = null;
+            if (pendingURL) URL.revokeObjectURL(pendingURL);
+            pendingURL = "";
+
+            refreshStoryCircle();
+            openMyStories();
+        } catch (error) {
+            console.error("Story publishing failed:", error);
+            alert("The story could not be published. Try a smaller file.");
+            if (publishButton) publishButton.disabled = false;
+        }
+    }
+
+    function fileToDataURL(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function refreshStoryCircle() {
+        const stories = readStories().filter(s => s.owner === "me");
+        const circle = $(".your-story");
+        if (!circle) return;
+
+        circle.classList.toggle("sc-story-unseen",
+            stories.some(s => !s.seen));
+        circle.classList.toggle("sc-story-seen",
+            stories.length > 0 && stories.every(s => s.seen));
+
+        const label = $("span:not(.story-add)", circle);
+        if (label) label.textContent = stories.length
+            ? "Your Story" : "Your Story";
+
+        const add = $(".story-add", circle);
+        if (add) add.style.display = "inline-flex";
+    }
+
+    function openMyStories() {
+        const stories = readStories().filter(s => s.owner === "me");
+        if (!stories.length) {
+            showUploadOptions();
+            return;
+        }
+        openViewer(stories, 0);
+    }
+
+    function openViewer(stories, startIndex) {
+        closeOverlay();
+        closeViewer();
+
+        currentStories = stories;
+        currentIndex = startIndex;
+        paused = false;
+
+        const viewer = document.createElement("div");
+        viewer.className = "sc-stories-viewer sc-stories-viewer-open";
+        viewer.id = "sc-stories-viewer";
+        viewer.innerHTML = `
+            <div>
+                <div class="sc-stories-progress">
+                    <div class="sc-stories-progress-fill"
+                        id="sc-story-progress-fill"></div>
+                </div>
+                <div class="sc-stories-viewer-top"
+                    style="display:flex;justify-content:space-between">
+                    <strong id="sc-story-viewer-name"></strong>
+                    <button id="sc-story-add-more"
+                        class="sc-stories-action">＋</button>
+                    <button id="sc-story-close"
+                        class="sc-stories-action">✕</button>
+                </div>
+            </div>
+            <div id="sc-story-viewer-media"
+                style="text-align:center"></div>
+            <div class="sc-stories-viewer-bottom">
+                <p id="sc-story-viewer-caption"></p>
+                <button id="sc-story-reply"
+                    class="sc-stories-action">Reply in chat</button>
+            </div>
+        `;
+        document.body.appendChild(viewer);
+
+        $("#sc-story-close").onclick = closeViewer;
+        $("#sc-story-add-more").onclick = () => {
+            closeViewer();
+            showUploadOptions();
+        };
+        $("#sc-story-reply").onclick = () =>
+            alert("Story replies will be connected to chat later.");
+
+        const mediaBox = $("#sc-story-viewer-media");
+        mediaBox.addEventListener("click", event => {
+            if (event.target.closest("video")) return;
+            const x = event.clientX;
+            if (x < window.innerWidth / 2) previousStory();
+            else nextStory();
+        });
+
+        let touchStartX = 0;
+        viewer.addEventListener("touchstart", event => {
+            touchStartX = event.changedTouches[0].clientX;
+        }, { passive: true });
+        viewer.addEventListener("touchend", event => {
+            const delta = event.changedTouches[0].clientX - touchStartX;
+            if (Math.abs(delta) > 70) {
+                if (delta < 0) nextStory();
+                else skipPerson();
+            }
+        }, { passive: true });
+
+        renderCurrentStory();
+    }
+
+    function renderCurrentStory() {
+        clearTimeout(timer);
+        if (videoElement) {
+            videoElement.onended = null;
+            videoElement.pause();
+        }
+
+        const story = currentStories[currentIndex];
+        if (!story) {
+            closeViewer();
+            return;
+        }
+
+        $("#sc-story-viewer-name").textContent =
+            story.name || "Story";
+        $("#sc-story-viewer-caption").textContent =
+            story.caption || "";
+
+        const mediaBox = $("#sc-story-viewer-media");
+        if (story.type === "video") {
+            mediaBox.innerHTML = `
+                <video class="sc-stories-media"
+                    id="sc-story-playing-video"
+                    src="${story.media}" autoplay controls playsinline>
+                </video>`;
+            videoElement = $("#sc-story-playing-video");
+            videoElement.onended = nextStory;
+            videoElement.onloadedmetadata = () => {
+                if (videoElement.duration > 0) {
+                    remaining = videoElement.duration * 1000;
+                }
+            };
+        } else {
+            mediaBox.innerHTML = `
+                <img class="sc-stories-media"
+                    src="${story.media}" alt="Story">`;
+            remaining = PHOTO_DURATION;
+        }
+
+        story.seen = true;
+        saveStories(readStories().map(s =>
+            s.id === story.id ? { ...s, seen: true } : s
+        ));
+        refreshStoryCircle();
+
+        const fill = $("#sc-story-progress-fill");
+        fill.style.transition = "none";
+        fill.style.width = "0%";
+        requestAnimationFrame(() => {
+            fill.style.transition = `width ${remaining}ms linear`;
+            fill.style.width = "100%";
+        });
+
+        startedAt = Date.now();
+        if (story.type === "image") {
+            timer = setTimeout(nextStory, PHOTO_DURATION);
+        }
+    }
+
+    function nextStory() {
+        if (currentIndex < currentStories.length - 1) {
+            currentIndex++;
+            renderCurrentStory();
+        } else {
+            closeViewer();
+        }
+    }
+
+    function previousStory() {
+        if (currentIndex > 0) {
+            currentIndex--;
+            renderCurrentStory();
+        }
+    }
+
+    function skipPerson() {
+        closeViewer();
+        showAllStories();
+    }
+
+    function closeViewer() {
+        clearTimeout(timer);
+        timer = null;
+        if (videoElement) {
+            videoElement.pause();
+            videoElement = null;
+        }
+        const viewer = $("#sc-stories-viewer");
+        if (viewer) viewer.remove();
+        refreshStoryCircle();
+    }
+
+    function timeAgo(timestamp) {
+        const minutes = Math.max(
+            0, Math.floor((Date.now() - timestamp) / 60000)
+        );
+        if (minutes < 1) return "Just now";
+        if (minutes < 60) return minutes + "m ago";
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return hours + "h ago";
+        return "Expired";
+    }
+
+    function showAllStories() {
+        const stories = readStories();
+        const groups = new Map();
+
+        stories.forEach(story => {
+            if (!groups.has(story.owner)) groups.set(story.owner, []);
+            groups.get(story.owner).push(story);
+        });
+
+        const own = groups.get("me") || [];
+        const cards = [];
+
+        if (own.length) {
+            cards.push({
+                owner: "me",
+                name: getMyName(),
+                picture: getMyPicture(),
+                stories: own
+            });
+        }
+
+        groups.forEach((items, owner) => {
+            if (owner === "me") return;
+            cards.push({
+                owner,
+                name: items[0].name || "User",
+                picture: items[0].picture || "",
+                stories: items
+            });
+        });
+
+        cards.sort((a, b) => {
+            const aSeen = a.stories.every(s => s.seen);
+            const bSeen = b.stories.every(s => s.seen);
+            return Number(aSeen) - Number(bSeen);
+        });
+
+        showScreen("View All Stories", `
+            <button class="sc-stories-action"
+                id="sc-stories-add-from-list">＋ Add a Story</button>
+            <div id="sc-stories-all-list"></div>
+            ${cards.length ? "" :
+                '<p class="sc-stories-empty">No active stories yet.</p>'}
+        `);
+
+        $("#sc-stories-add-from-list").onclick = showUploadOptions;
+        const list = $("#sc-stories-all-list");
+
+        cards.forEach(card => {
+            const latest = Math.max(...card.stories.map(s => s.createdAt));
+            const row = document.createElement("button");
+            row.type = "button";
+            row.className = "sc-stories-list-card";
+            row.style.width = "100%";
+            row.style.background = "transparent";
+            row.innerHTML = `
+                <img alt="" src="${card.picture || ""}">
+                <span>
+                    <strong></strong>
+                    <small></small>
+                </span>
+            `;
+            $("strong", row).textContent = card.name;
+            $("small", row).textContent =
+                `${card.stories.length} ${card.stories.length === 1
+                    ? "story" : "stories"} · ${timeAgo(latest)}`;
+            row.onclick = () => {
+                if (card.owner === "me") openViewer(card.stories, 0);
+                else alert("Stories from other accounts will be connected later.");
+            };
+            list.appendChild(row);
+        });
+    }
+
+    function bindControls() {
+        const ownCircle = $(".your-story");
+        if (ownCircle && !ownCircle.dataset.scStoriesBound) {
+            ownCircle.dataset.scStoriesBound = "1";
+            ownCircle.addEventListener("click", event => {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                openMyStories();
+            }, true);
+        }
+
+        const viewAll = $("#sc-stories-view-all");
+        if (viewAll && !viewAll.dataset.scStoriesBound) {
+            viewAll.dataset.scStoriesBound = "1";
+            viewAll.addEventListener("click", event => {
+                event.preventDefault();
+                showAllStories();
+            });
+        }
+    }
+
+    function init() {
+        makeOverlay();
+        bindControls();
+        refreshStoryCircle();
+
+        // Remove expired stories whenever this app becomes active.
+        document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) {
+                readStories();
+                refreshStoryCircle();
+            }
+        });
+
+        // Allow the existing View All button to receive its ID if needed.
+        const heading = $(".stories-section .section-heading");
+        if (heading && !$("#sc-stories-view-all")) {
+            const buttons = heading.querySelectorAll("button");
+            buttons.forEach(button => {
+                if (button.textContent.trim().toLowerCase() === "view all") {
+                    button.id = "sc-stories-view-all";
+                }
+            });
+        }
+        bindControls();
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
+    }
+})();
