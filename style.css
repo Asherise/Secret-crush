@@ -31061,3 +31061,80 @@ MODULE: MY SPACE — VIDEO MOMENT CARDS
     color: #aaaabb;
     text-align: center;
 }
+
+/* =====================================================
+   FIX: DETAILED PROFILE MOMENT VIEWER SCROLLING
+===================================================== */
+
+#mutual-profile-post-viewer.active {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    overflow: hidden;
+    pointer-events: auto;
+    z-index: 2100;
+}
+
+#mutual-profile-post-viewer .sc-profile-moment-shell {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+}
+
+#mutual-profile-post-viewer #sc-profile-moment-scroll {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow-x: hidden;
+    overflow-y: scroll;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    scroll-snap-type: y mandatory;
+    scroll-behavior: auto;
+}
+
+#mutual-profile-post-viewer .sc-profile-moment-card {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    min-height: 100%;
+    min-height: 100dvh;
+    overflow: hidden;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+}
+
+#mutual-profile-post-viewer .sc-profile-moment-media {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+#mutual-profile-post-viewer .sc-profile-moment-video,
+#mutual-profile-post-viewer .sc-profile-moment-media > img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+}
+
+#mutual-profile-post-viewer .sc-profile-moment-close {
+    z-index: 30;
+}
+
+#mutual-profile-post-viewer .sc-profile-moment-counter {
+    z-index: 25;
+    pointer-events: none;
+}

@@ -19748,12 +19748,12 @@ const facultyThemeCategory =
                                         >
 
                                                                                         ${
-                                                post.videoMediaId
-                                                ?
+                                                SC_Profile_GetVideoMediaId(post)
+?
                                                 `
                                                 <video
                                                     class="mutual-profile-post-video"
-                                                    data-moment-video-id="${escapePostHTML(post.videoMediaId)}"
+                                                    data-moment-video-id="${escapePostHTML(SC_Profile_GetVideoMediaId(post))}"
                                                     muted
                                                     playsinline
                                                     preload="metadata"
@@ -20057,65 +20057,87 @@ if(secretCrushButton){
 
 /* =====================================================
    OPEN POSTS — DETAILED PROFILE
-   Preserve the exact posts rendered in this profile.
+   Reliable moment selection and viewer opening
 ===================================================== */
 
 if (mutualProfileContent) {
 
-    mutualProfileContent.addEventListener(
-        "click",
-        function(event) {
+    mutualProfileContent.onclick = function(event) {
 
-            const card = event.target.closest(
-                ".mutual-profile-post-card[data-mutual-post-index]"
-            );
+        const card = event.target.closest(
+            ".mutual-profile-post-card[data-mutual-post-index]"
+        );
 
-            if (
-                !card ||
-                !mutualProfileContent.contains(card)
-            ) {
-                return;
-            }
+        if (!card || !mutualProfileContent.contains(card)) {
+            return;
+        }
 
-            event.preventDefault();
+        // Ignore clicks on buttons inside a card.
+        if (event.target.closest("button, a")) {
+            return;
+        }
 
-            const index = Number(
-                card.dataset.mutualPostIndex
-            );
+        event.preventDefault();
+        event.stopPropagation();
 
-            const post = posts[index];
+        const index = Number(card.dataset.mutualPostIndex);
 
-            if (!post) {
-                console.warn(
-                    "Secret Crush: Selected profile moment was not found.",
-                    index
-                );
-                return;
-            }
+        if (!Number.isInteger(index) || index < 0) {
+            return;
+        }
 
-            /*
-             * IMPORTANT:
-             * Pass the same posts array that created
-             * the visible cards into the full-screen viewer.
-             */
-            const viewerProfile = {
-                ...crush,
-                posts: posts.slice()
-            };
+        const selectedPost = posts[index];
 
-            openMutualProfilePostViewer(
-                viewerProfile,
-                post,
+        if (!selectedPost) {
+            console.error(
+                "Secret Crush: The selected profile moment could not be found.",
                 index,
-                posts.length
+                posts
             );
+            return;
+        }
 
-        },
-        { passive: false }
-    );
+        // Pass the exact moment list used to render this profile.
+        const viewerProfile = {
+            ...crush,
+            posts: posts.slice()
+        };
+
+        openMutualProfilePostViewer(
+            viewerProfile,
+            selectedPost,
+            index,
+            posts.length
+        );
+
+    };
 
 }
+}
 
+/* =====================================================
+   PROFILE MOMENT MEDIA — VIDEO ID RECOVERY
+===================================================== */
+
+function SC_Profile_GetVideoMediaId(post) {
+    if (!post) return "";
+
+    // Use the stored media ID whenever it exists.
+    if (post.videoMediaId) {
+        return String(post.videoMediaId);
+    }
+
+    // Videos created by the moment composer are stored
+    // using the post ID followed by "-video".
+    const isVideo =
+        String(post.mediaType || "").toLowerCase() === "video" ||
+        String(post.type || "").toLowerCase() === "video";
+
+    if (isVideo && post.id) {
+        return String(post.id) + "-video";
+    }
+
+    return "";
 }
 
 
@@ -20502,11 +20524,49 @@ function SC_ProfileMoment_Render(){
 
 
     SC_ProfileMoment_AttachEvents();
-    
-        SC_Moment_HydrateVideoElements(viewer).then(() => {
-        const cur = viewer.querySelectorAll(".sc-profile-moment-card")[data.index];
-        const v = cur && cur.querySelector("video");
-        if (v) SC_VT_Play(v);
+    /* =====================================================
+   LOAD AND PLAY THE CURRENT PROFILE VIDEO
+===================================================== */
+
+SC_Moment_HydrateVideoElements(viewer)
+    .then(() => {
+
+        const data = SC_ProfileMomentViewerData;
+
+        if (!data || !Array.isArray(data.posts)) {
+            return;
+        }
+
+        const scroll = viewer.querySelector(
+            "#sc-profile-moment-scroll"
+        );
+
+        if (!scroll) {
+            return;
+        }
+
+        const cards = scroll.querySelectorAll(
+            ".sc-profile-moment-card"
+        );
+
+        const currentCard = cards[data.index];
+
+        if (!currentCard) {
+            return;
+        }
+
+        const video = currentCard.querySelector("video");
+
+        if (video) {
+            SC_VT_Play(video);
+        }
+
+    })
+    .catch(error => {
+        console.error(
+            "Secret Crush: Could not load profile moment videos.",
+            error
+        );
     });
 
 
@@ -20602,12 +20662,12 @@ function SC_ProfileMoment_CreateCard(
             >
 
                                 ${
-                    post.videoMediaId
-                    ?
+                    SC_Profile_GetVideoMediaId(post)
+?
                     `
                     <video
                         class="sc-profile-moment-video"
-                        data-moment-video-id="${escapePostHTML(post.videoMediaId)}"
+                        data-moment-video-id="${escapePostHTML(SC_Profile_GetVideoMediaId(post))}"
                         playsinline
                         loop
                         preload="metadata"
