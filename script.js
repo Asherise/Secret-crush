@@ -20055,44 +20055,65 @@ if(secretCrushButton){
 }
 
 
+/* =====================================================
+   OPEN POSTS — DETAILED PROFILE
+   Preserve the exact posts rendered in this profile.
+===================================================== */
 
-/* OPEN POSTS — RELIABLE CLICK HANDLER */
+if (mutualProfileContent) {
 
-if (
-    mutualProfileContent &&
-    !mutualProfileContent.dataset.momentClickBound
-) {
-    mutualProfileContent.addEventListener("click", function(event) {
+    mutualProfileContent.addEventListener(
+        "click",
+        function(event) {
 
-        const card = event.target.closest(
-            ".mutual-profile-post-card[data-mutual-post-index]"
-        );
-
-        if (!card || !mutualProfileContent.contains(card)) {
-            return;
-        }
-
-        const index = Number(card.dataset.mutualPostIndex);
-        const post = posts[index];
-
-        if (!post) {
-            console.warn(
-                "Secret Crush: Could not find the selected moment.",
-                index
+            const card = event.target.closest(
+                ".mutual-profile-post-card[data-mutual-post-index]"
             );
-            return;
-        }
 
-        openMutualProfilePostViewer(
-            crush,
-            post,
-            index,
-            posts.length
-        );
+            if (
+                !card ||
+                !mutualProfileContent.contains(card)
+            ) {
+                return;
+            }
 
-    });
+            event.preventDefault();
 
-    mutualProfileContent.dataset.momentClickBound = "true";
+            const index = Number(
+                card.dataset.mutualPostIndex
+            );
+
+            const post = posts[index];
+
+            if (!post) {
+                console.warn(
+                    "Secret Crush: Selected profile moment was not found.",
+                    index
+                );
+                return;
+            }
+
+            /*
+             * IMPORTANT:
+             * Pass the same posts array that created
+             * the visible cards into the full-screen viewer.
+             */
+            const viewerProfile = {
+                ...crush,
+                posts: posts.slice()
+            };
+
+            openMutualProfilePostViewer(
+                viewerProfile,
+                post,
+                index,
+                posts.length
+            );
+
+        },
+        { passive: false }
+    );
+
 }
 
 }
@@ -20128,18 +20149,42 @@ function openMutualProfilePostViewer(
     total
 ){
 
-    const sourcePosts =
-        Array.isArray(
-            crush?.posts
-        )
+    const sourcePosts = Array.isArray(crush?.posts)
+    ? crush.posts.slice()
+    : [];
+    
+    /*
+ * RECOVER THE SELECTED POST IF THE PROFILE LIST
+ * DOES NOT CONTAIN IT.
+ *
+ * This prevents an empty or incomplete post list
+ * from breaking the viewer.
+ */
 
-            ?
+if (
+    post &&
+    !sourcePosts.some(item => {
+        if (!item) return false;
 
-            crush.posts
+        if (item.id && post.id) {
+            return String(item.id) === String(post.id);
+        }
 
-            :
-
-            [];
+        return item === post;
+    })
+) {
+    sourcePosts.splice(
+        Math.max(
+            0,
+            Math.min(
+                Number(index) || 0,
+                sourcePosts.length
+            )
+        ),
+        0,
+        post
+    );
+}
 
 
     const posts =
