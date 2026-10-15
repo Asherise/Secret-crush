@@ -20056,46 +20056,44 @@ if(secretCrushButton){
 
 
 
+/* OPEN POSTS — RELIABLE CLICK HANDLER */
 
-    /* OPEN POSTS */
+if (
+    mutualProfileContent &&
+    !mutualProfileContent.dataset.momentClickBound
+) {
+    mutualProfileContent.addEventListener("click", function(event) {
 
-    mutualProfileContent
-        .querySelectorAll(
-            "[data-mutual-post-index]"
-        )
-        .forEach(card => {
+        const card = event.target.closest(
+            ".mutual-profile-post-card[data-mutual-post-index]"
+        );
 
-            card.addEventListener(
-                "click",
-                () => {
+        if (!card || !mutualProfileContent.contains(card)) {
+            return;
+        }
 
-                    const index =
-                        Number(
-                            card.dataset
-                                .mutualPostIndex
-                        );
+        const index = Number(card.dataset.mutualPostIndex);
+        const post = posts[index];
 
-
-                    const post =
-                        posts[index];
-
-
-                    if(!post){
-                        return;
-                    }
-
-
-                    openMutualProfilePostViewer(
-                        crush,
-                        post,
-                        index,
-                        posts.length
-                    );
-
-                }
+        if (!post) {
+            console.warn(
+                "Secret Crush: Could not find the selected moment.",
+                index
             );
+            return;
+        }
 
-        });
+        openMutualProfilePostViewer(
+            crush,
+            post,
+            index,
+            posts.length
+        );
+
+    });
+
+    mutualProfileContent.dataset.momentClickBound = "true";
+}
 
 }
 
