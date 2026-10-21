@@ -372,7 +372,7 @@ MODULE: APPLICATION — HOMEPAGE
     <section class="home-search-section">
         <div class="search-box">
             <span class="search-icon">⌕</span>
-            <input id="home-search-input" type="search" placeholder="Search by name or username...">
+      <input id="home-search-input" type="search" placeholder="Search by name or username..." readonly aria-haspopup="dialog" inputmode="none">
             <button id="home-filter-button">⚱</button>
         </div>
 
@@ -380,10 +380,16 @@ MODULE: APPLICATION — HOMEPAGE
         MODULE: HOME — FILTER PILLS
         ===================================================== -->
     <div class="filter-pills">
-            <button class="filter-pill active" data-filter="institution">
-                <span id="my-school-filter" class="sc-filter-pill-label">My School</span>
-                <span>⌄</span>
-            </button>
+<div
+    class="filter-pill active institution-filter-locked"
+    id="home-institution-filter"
+    aria-label="Your institution, set in your profile"
+>
+    <span id="my-school-filter" class="sc-filter-pill-label">
+        My Institution
+    </span>
+
+</div>
 
             <button class="filter-pill" data-filter="year">
                 <span class="sc-filter-pill-label">Year</span> <span>⌄</span>
@@ -409,71 +415,58 @@ MODULE: APPLICATION — HOMEPAGE
             <button class="text-button" id="refresh-recommendations">Refresh ↻</button>
         </div>
 
-        <div class="recommendation-grid">
-
-            <article class="user-card">
-                <img src="https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=500" alt="">
-                <div class="user-card-info">
-                    <h3>Aisha Wanjiku</h3>
-                    <p>Kenyatta University</p>
-                    <small>3rd Year • Law</small>
-                    <button class="crush-button">♡ Send Crush</button>
-                </div>
-            </article>
-
-            <article class="user-card">
-                <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=500" alt="">
-                <div class="user-card-info">
-                    <h3>Brian Otieno</h3>
-                    <p>Jomo Kenyatta University</p>
-                    <small>2nd Year • Engineering</small>
-                    <button class="crush-button">♡ Send Crush</button>
-                </div>
-            </article>
-
-            <article class="user-card">
-                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500" alt="">
-                <div class="user-card-info">
-                    <h3>Belly Moraa</h3>
-                    <p>Moi University</p>
-                    <small>4th Year • Medicine</small>
-                    <button class="crush-button">♡ Send Crush</button>
-                </div>
-            </article>
-
-        </div>
+   <div class="recommendation-grid" aria-live="polite">
+    <!-- Homepage recommendation cards are rendered from the user's real follow/follower lists. -->
+</div>
     </section>
 
-    <!-- =====================================================
-    MODULE: HOME — MOMENTS PREVIEW
-    ===================================================== -->
-    <section class="moments-preview-section">
-        <div class="section-heading">
-            <h2>✦ Moments around you</h2>
-            <button class="text-button" id="open-feed-from-home">View all</button>
+  <!-- =====================================================
+MODULE: HOME — MOMENTS AROUND YOU
+===================================================== -->
+<section class="moments-preview-section" id="home-moments-preview">
+    <div class="section-heading">
+        <h2>✦ Moments around you</h2>
+        <button class="text-button" id="open-feed-from-home" type="button">
+            View all
+        </button>
+    </div>
+
+    <div id="home-moments-list" class="home-moments-list">
+        <!-- Institution-matched moments are rendered here. -->
+    </div>
+</section>
+
+<!-- =====================================================
+MODULE: HOME — EXPANDED MOMENTS PAGE
+===================================================== -->
+<section
+    id="home-expanded-moments"
+    class="home-expanded-moments"
+    aria-hidden="true"
+>
+    <header class="home-expanded-moments-header">
+        <button
+            type="button"
+            id="home-moments-return-top"
+            aria-label="Return to the top of the homepage"
+        >↑</button>
+
+        <div>
+            <span class="page-eyebrow">SECRET CRUSH</span>
+            <h2>Moments around you</h2>
         </div>
 
-        <article class="moment-preview">
-            <div class="moment-header">
-                <div class="moment-user">
-                    <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100" alt="">
-                    <div>
-                        <h3>Kevin Mutua</h3>
-                        <p id="moment-institution">My Institution</p>
-                    </div>
-                </div>
-                <span>2h ago</span>
-            </div>
+        <button
+            type="button"
+            id="home-moments-refresh"
+            aria-label="Refresh moments"
+        >↻</button>
+    </header>
 
-            <img class="moment-image" src="https://images.unsplash.com/photo-1519608487953-e999c86e7455?w=900" alt="Moment">
-
-            <div class="moment-actions">
-                <button class="like-action">♡ <span>124</span></button>
-                <button class="crush-action">♡ Send Crush</button>
-                <button class="note-action">▣ Secret Note</button>
-            </div>
-        </article>
-    </section>
+    <div id="home-expanded-moments-list" class="home-expanded-moments-list">
+        <!-- Real institution-matched Feed posts appear here. -->
+    </div>
+</section>
 
 </section>
 

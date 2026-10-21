@@ -1705,54 +1705,31 @@ function SC_Filters_UpdatePillLabels(){
      * but the stored filter category is "school".
      */
 
-    const homeInstitutionPills =
-        document.querySelectorAll(
-            '[data-filter="institution"]'
+    /*
+ * HOME — LOCKED INSTITUTION LABEL
+ * Always follows the institution saved in the user's profile.
+ */
+
+const homeInstitutionLabel = document.getElementById(
+    "my-school-filter"
+);
+
+if (homeInstitutionLabel) {
+    let profile = {};
+
+    try {
+        profile = JSON.parse(
+            localStorage.getItem("secretCrushProfile") || "{}"
         );
+    } catch (error) {
+        profile = {};
+    }
 
-
-    homeInstitutionPills.forEach(pill => {
-
-        const label =
-            pill.querySelector(
-                ".sc-filter-pill-label"
-            );
-
-
-        if(!label){
-            return;
-        }
-
-
-        const selections =
-            SC_activeFilters.home.school;
-
-
-        if(
-            selections.length === 1
-        ){
-
-            label.textContent =
-                selections[0];
-
-        }else{
-
-            const profile =
-                JSON.parse(
-                    localStorage.getItem(
-                        "secretCrushProfile"
-                    ) || "{}"
-                );
-
-
-            label.textContent =
-                profile.institution ||
-                "My School";
-
-        }
-
-    });
-
+    homeInstitutionLabel.textContent =
+        profile.institution ||
+        profile.school ||
+        "Set Institution in Profile";
+}
     /*
      * FEED — BEYOND MY SCHOOL
      */
@@ -2492,9 +2469,16 @@ function SC_Filters_Open(
     type
 ){
 
+        // The homepage institution pill is locked.
+    if (
+        scope === "home" &&
+        type === "school"
+    ) {
+        return;
+    }
+
     const panel =
         SC_Filters_BuildPanel();
-
     SC_filterPanelMode =
         "filter";
 
@@ -5385,6 +5369,157 @@ function SC_Moment_ReadPostFromCard(
 }
 
 
+/* =====================================================
+MODULE: HOME — EXPANDED MOMENTS VIEWER STATE
+===================================================== */
+
+let SC_HomeExpandedMomentsActive = false;
+let SC_HomeExpandedMomentsScrollTop = 0;
+let SC_HomeExpandedMomentsReturnScrollTop = 0;
+
+function SC_HomeGetInstitution(){
+    try {
+        const profile = JSON.parse(
+            localStorage.getItem("secretCrushProfile") || "{}"
+        );
+
+        return String(
+            profile.institution || profile.school || ""
+        ).trim();
+    } catch (error) {
+        return "";
+    }
+}
+
+function SC_HomeNormalizeInstitution(value){
+    return String(value || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+}
+
+function SC_HomeSameInstitution(value){
+    const current = SC_HomeNormalizeInstitution(
+        SC_HomeGetInstitution()
+    );
+
+    const candidate = SC_HomeNormalizeInstitution(value);
+
+    if (!current || !candidate) return false;
+    if (current === candidate) return true;
+
+    const aliases = [
+        ["kenyatta university", "ku"],
+        [
+            "jomo kenyatta university of agriculture and technology",
+            "jkuat"
+        ],
+        ["university of nairobi", "uon"],
+        ["moi university", "moi"]
+    ];
+
+    return aliases.some(group =>
+        group.includes(current) && group.includes(candidate)
+    );
+}
+
+function SC_HomeGetInstitutionMoments(){
+    const cards = Array.from(
+        document.querySelectorAll(".feed-card[data-post-id]")
+    );
+
+    return cards.filter(card => {
+        const post = SC_Moment_ReadPostFromCard(card);
+
+        if (!post) return false;
+
+        return SC_HomeSameInstitution(
+            post.institution || card.dataset.institution ||
+            card.dataset.school || ""
+        );
+    });
+}
+
+function SC_HomeRenderExpandedMoments(){
+    const target = document.getElementById(
+        "home-expanded-moments-list"
+    );
+
+    if (!target) return;
+
+    const cards = SC_HomeGetInstitutionMoments();
+
+    if (!cards.length) {
+        target.innerHTML = `
+            <div class="home-moments-empty">
+                No moments from your institution are available yet.
+                New eligible posts will appear here when available.
+            </div>
+        `;
+        return;
+    }
+
+    target.innerHTML = cards.map(card => {
+        const clone = card.cloneNode(true);
+        clone.classList.add("home-expanded-moment-card");
+
+        // Keep the real post ID so the existing viewer can open it.
+        clone.dataset.postId = card.dataset.postId;
+
+        return clone.outerHTML;
+    }).join("");
+}
+
+function SC_HomeOpenExpandedMoments(){
+    const page = document.getElementById(
+        "home-expanded-moments"
+    );
+
+    if (!page) return;
+
+    SC_HomeExpandedMomentsReturnScrollTop = window.scrollY;
+
+    SC_HomeRenderExpandedMoments();
+
+    page.classList.add("active");
+    page.setAttribute("aria-hidden", "false");
+
+    document.body.classList.add("home-expanded-moments-open");
+
+    SC_HomeExpandedMomentsActive = true;
+    SC_HomeExpandedMomentsScrollTop = 0;
+
+    const list = document.getElementById(
+        "home-expanded-moments-list"
+    );
+
+    if (list) list.scrollTop = 0;
+}
+
+function SC_HomeCloseExpandedMoments(){
+    const page = document.getElementById(
+        "home-expanded-moments"
+    );
+
+    if (!page) return;
+
+    page.classList.remove("active");
+    page.setAttribute("aria-hidden", "true");
+
+    document.body.classList.remove("home-expanded-moments-open");
+
+    SC_HomeExpandedMomentsActive = false;
+
+    window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+    });
+}
+
+
+
 /* -----------------------------------------------------
    GET CURRENT FEED MOMENTS
 ----------------------------------------------------- */
@@ -5406,15 +5541,20 @@ function SC_FeedMoment_GetItems(){
 
 
     return cards
-        .map(
-            card =>
-                SC_Moment_ReadPostFromCard(
-                    card
-                )
-        )
-        .filter(Boolean);
-
+    .map(card => SC_Moment_ReadPostFromCard(card))
+    .filter(Boolean)
+    .filter(post => {
+        // Only apply the institution restriction when the viewer
+        // was opened from the expanded homepage Moments page.
+        if (!SC_HomeExpandedMomentsActive) return true;
+        
+        return SC_HomeSameInstitution(
+            post.institution || post.school || ""
+        );
+    });
 }
+
+
 
 
 /* -----------------------------------------------------
@@ -6513,6 +6653,19 @@ function closeFeedMomentViewer(){
     SC_FeedMomentViewer.classList.remove(
         "active"
     );
+    
+    if (SC_HomeExpandedMomentsActive) {
+    requestAnimationFrame(() => {
+        const list = document.getElementById(
+            "home-expanded-moments-list"
+        );
+
+        if (list) {
+            list.scrollTop = SC_HomeExpandedMomentsScrollTop;
+        }
+    });
+}
+
 
 
     SC_FeedMomentViewer.setAttribute(
@@ -50041,4 +50194,1078 @@ document.addEventListener("click", event => {
     } else {
         init();
     }
+})();
+
+
+
+/* =====================================================
+MODULE: HOMEPAGE — NETWORK RECOMMENDATIONS + INSTITUTION MOMENTS
+
+Uses the app's existing local profile, follow lists, search overlay,
+and feed content. This is frontend/localStorage behavior, not a backend.
+===================================================== */
+
+(function SC_HomepageDiscoveryModule(){
+    "use strict";
+
+    const byId = id => document.getElementById(id);
+
+    const normalize = value => String(value || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+
+    const readArray = key => {
+        try {
+            const value = JSON.parse(
+                localStorage.getItem(key) || "[]"
+            );
+
+            return Array.isArray(value) ? value : [];
+        } catch (error) {
+            return [];
+        }
+    };
+
+    const escapeHTML = value => String(value ?? "").replace(
+        /[&<>"']/g,
+        char => ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;"
+        })[char]
+    );
+
+    const profileOf = person => ({
+        id: String(
+            person?.id ||
+            person?.userId ||
+            person?.targetId ||
+            person?.username ||
+            person?.name ||
+            ""
+        ).trim(),
+
+        name: String(
+            person?.name ||
+            person?.username ||
+            "Secret Crush"
+        ).trim(),
+
+        username: String(
+            person?.username ||
+            person?.name ||
+            ""
+        ).trim(),
+
+        photo:
+            person?.photo ||
+            person?.profilePicture ||
+            person?.image ||
+            "",
+
+        school:
+            person?.school ||
+            person?.institution ||
+            person?.university ||
+            "",
+
+        faculty: person?.faculty || "",
+        year: person?.year || ""
+    });
+
+    const getMe = () => {
+        try {
+            return typeof getCurrentProfile === "function"
+                ? getCurrentProfile()
+                : JSON.parse(
+                    localStorage.getItem(
+                        "secretCrushProfile"
+                    ) || "null"
+                );
+        } catch (error) {
+            return null;
+        }
+    };
+
+    const currentUserKey = () => {
+        const me = getMe();
+
+        return normalize(
+            me?.userId ||
+            me?.username ||
+            me?.name
+        );
+    };
+
+    const isCurrentUser = person => {
+        const me = getMe();
+
+        const personId = normalize(
+            person?.id ||
+            person?.userId ||
+            person?.targetId
+        );
+
+        const personName = normalize(
+            person?.name ||
+            person?.username
+        );
+
+        return !!me && (
+            (
+                personId &&
+                personId === normalize(me.userId)
+            ) ||
+            (
+                personName &&
+                personName === normalize(me.name)
+            )
+        );
+    };
+
+
+    /* =================================================
+    RECOMMENDED FOR YOU — ROTATION HISTORY
+    ================================================= */
+
+    const RECENT_KEY =
+        "secretCrushHomeRecommendationHistory";
+
+    const LAST_ORDER_KEY =
+        "secretCrushHomeRecommendationLastOrder";
+
+
+    function readHistory(){
+        try {
+            const value = JSON.parse(
+                localStorage.getItem(RECENT_KEY) || "[]"
+            );
+
+            return Array.isArray(value) ? value : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+
+    function shuffle(list){
+        const result = [...list];
+
+        for(let i = result.length - 1; i > 0; i--){
+            const j = Math.floor(
+                Math.random() * (i + 1)
+            );
+
+            [result[i], result[j]] =
+                [result[j], result[i]];
+        }
+
+        return result;
+    }
+
+
+    function chooseNetworkPeople(
+        list,
+        count,
+        used,
+        history
+    ){
+        const unique = [];
+        const seen = new Set();
+
+        list.forEach(raw => {
+            const person = profileOf(raw);
+
+            const key = normalize(
+                person.id ||
+                person.username ||
+                person.name
+            );
+
+            if(
+                !key ||
+                !person.name ||
+                isCurrentUser(person) ||
+                seen.has(key) ||
+                used.has(key)
+            ){
+                return;
+            }
+
+            seen.add(key);
+
+            unique.push({
+                ...person,
+                _key: key
+            });
+        });
+
+        const fresh = unique.filter(
+            person => !history.includes(person._key)
+        );
+
+        const pool = fresh.length >= count
+            ? fresh
+            : unique;
+
+        const chosen = shuffle(pool).slice(0, count);
+
+        chosen.forEach(person => {
+            used.add(person._key);
+        });
+
+        return chosen;
+    }
+
+
+    function renderRecommendations(){
+        const grid = document.querySelector(
+            ".recommendation-grid"
+        );
+
+        if(!grid) return;
+
+        const following = readArray(
+            "secretCrushFollowing"
+        );
+
+        const followers = readArray(
+            "secretCrushFollowers"
+        );
+
+        const history = readHistory();
+        const used = new Set();
+
+        // First try to select two people the user follows.
+        const fromFollowing = chooseNetworkPeople(
+            following,
+            2,
+            used,
+            history
+        );
+
+        // Then try to select two of the user's followers.
+        const fromFollowers = chooseNetworkPeople(
+            followers,
+            2,
+            used,
+            history
+        );
+
+        let selected = [
+            ...fromFollowing,
+            ...fromFollowers
+        ];
+
+        // If there are fewer than four unique people across
+        // both lists, use any remaining eligible people.
+        // Never invent profiles or duplicate a person.
+        if(selected.length < 4){
+            const extraFollowing = chooseNetworkPeople(
+                following,
+                4,
+                used,
+                history
+            );
+
+            const extraFollowers = chooseNetworkPeople(
+                followers,
+                4,
+                used,
+                history
+            );
+
+            selected = [
+                ...selected,
+                ...extraFollowing,
+                ...extraFollowers
+            ]
+                .filter(
+                    (person, index, all) =>
+                        all.findIndex(
+                            other =>
+                                other._key === person._key
+                        ) === index
+                )
+                .slice(0, 4);
+        }
+
+        const lastOrder =
+            localStorage.getItem(LAST_ORDER_KEY) || "";
+
+        let order = selected
+            .map(person => person._key)
+            .join("|");
+
+        // Even if the same four people are all we have,
+        // avoid repeating the exact same card order.
+        if(
+            selected.length > 1 &&
+            order === lastOrder
+        ){
+            selected = [
+                ...selected.slice(1),
+                selected[0]
+            ];
+
+            order = selected
+                .map(person => person._key)
+                .join("|");
+        }
+
+        if(!selected.length){
+            grid.innerHTML = `
+                <div class="home-discovery-empty">
+                    Follow people or connect with followers
+                    to see your network recommendations here.
+                </div>
+            `;
+
+            localStorage.setItem(LAST_ORDER_KEY, "");
+            return;
+        }
+
+        grid.innerHTML = selected.map(person => {
+            const yearText = person.year
+                ? (
+                    /\byear\b/i.test(String(person.year))
+                        ? String(person.year)
+                        : `${person.year} Year`
+                )
+                : "";
+
+            const academic = [
+                yearText,
+                person.faculty
+            ].filter(Boolean).join(" • ");
+
+            const photo = person.photo || "";
+
+            return `
+                <article
+                    class="user-card home-network-card"
+                    data-home-person-id="${escapeHTML(person.id)}"
+                    data-home-person-name="${escapeHTML(person.name)}"
+                >
+                    ${
+                        photo
+                            ? `
+                                <img
+                                    src="${escapeHTML(photo)}"
+                                    alt="${escapeHTML(person.name)}"
+                                    loading="lazy"
+                                >
+                            `
+                            : `
+                                <div class="home-card-avatar-fallback">
+                                    ♡
+                                </div>
+                            `
+                    }
+
+                    <div class="user-card-info">
+                        <h3>${escapeHTML(person.name)}</h3>
+
+                        <p>
+                            ${escapeHTML(
+                                person.school ||
+                                "Institution not added"
+                            )}
+                        </p>
+
+                        <small>
+                            ${escapeHTML(
+                                academic ||
+                                "Secret Crush member"
+                            )}
+                        </small>
+
+                        <button
+                            type="button"
+                            class="crush-button"
+                            data-home-crush="${escapeHTML(person.id)}"
+                        >
+                            ♡ Send Crush
+                        </button>
+                    </div>
+                </article>
+            `;
+        }).join("");
+
+        localStorage.setItem(
+            LAST_ORDER_KEY,
+            order
+        );
+
+        const updatedHistory = [
+            ...selected.map(person => person._key),
+            ...history
+        ]
+            .filter(
+                (value, index, all) =>
+                    all.indexOf(value) === index
+            )
+            .slice(0, 30);
+
+        localStorage.setItem(
+            RECENT_KEY,
+            JSON.stringify(updatedHistory)
+        );
+    }
+
+
+    /* =================================================
+    MOMENTS AROUND YOU — INSTITUTION MATCHING
+    ================================================= */
+
+    function institutionMatches(
+        candidateSchool,
+        currentSchool
+    ){
+        const candidate = normalize(candidateSchool);
+        const current = normalize(currentSchool);
+
+        if(!candidate || !current) return false;
+        if(candidate === current) return true;
+
+        const aliases = [
+            ["kenyatta university", "ku"],
+            [
+                "jomo kenyatta university of agriculture and technology",
+                "jkuat"
+            ],
+            ["moi university", "moi"],
+            ["university of nairobi", "uon"]
+        ];
+
+        return aliases.some(
+            group =>
+                group.includes(candidate) &&
+                group.includes(current)
+        );
+    }
+
+
+    function collectMomentCandidates(){
+        const candidates = [];
+
+        const add = item => {
+            if(
+                !item ||
+                !item.name ||
+                !item.image
+            ){
+                return;
+            }
+
+            const key =
+                normalize(
+                    item.id ||
+                    item.userId ||
+                    item.username ||
+                    item.name
+                ) +
+                "|" +
+                String(
+                    item.postId ||
+                    item.id ||
+                    item.image
+                );
+
+            if(
+                !candidates.some(
+                    existing => existing._key === key
+                )
+            ){
+                candidates.push({
+                    ...item,
+                    _key: key
+                });
+            }
+        };
+
+
+        // Read posts already represented in the Feed.
+        document.querySelectorAll(
+            "#feed-page .feed-card"
+        ).forEach((card, index) => {
+            const name =
+                card.querySelector(
+                    ".feed-user-info h3"
+                )?.textContent?.trim() ||
+                card.querySelector(
+                    ".user-card-info h3"
+                )?.textContent?.trim();
+
+            const photo =
+                card.querySelector(
+                    ".feed-user-info img"
+                )?.src ||
+                card.querySelector(
+                    ".user-card-info img"
+                )?.src ||
+                "";
+
+            const school =
+                card.dataset.institution ||
+                card.dataset.school ||
+                card.querySelector(
+                    ".feed-user-info p"
+                )?.textContent?.split("•")[0]?.trim() ||
+                card.querySelector(
+                    ".user-card-info p"
+                )?.textContent?.trim() ||
+                "";
+
+            const media = card.querySelector(
+                ".feed-media img, .feed-media video, .moment-image"
+            );
+
+            const image =
+                media?.currentSrc ||
+                media?.src ||
+                media?.poster ||
+                "";
+
+            add({
+                id:
+                    card.dataset.userId ||
+                    `feed-user-${normalize(name)}`,
+
+                postId:
+                    card.dataset.postId ||
+                    `feed-post-${index}`,
+
+                name,
+                photo,
+                school,
+                image,
+
+                caption:
+                    card.querySelector(
+                        ".feed-caption, .feed-post-text"
+                    )?.textContent?.trim() || ""
+            });
+        });
+
+
+        // Also read saved moments where their media URL is
+        // directly available in localStorage.
+        readArray("secretCrushMoments").forEach(
+            (post, index) => {
+                const image =
+                    post.image ||
+                    post.imageUrl ||
+                    post.mediaUrl ||
+                    post.videoUrl ||
+                    post.photo ||
+                    "";
+
+                add({
+                    id:
+                        post.ownerId ||
+                        post.userId ||
+                        post.username ||
+                        `saved-user-${normalize(post.name)}`,
+
+                    postId:
+                        post.id ||
+                        `saved-post-${index}`,
+
+                    name:
+                        post.name ||
+                        post.username,
+
+                    photo:
+                        post.profilePicture ||
+                        post.photo ||
+                        "",
+
+                    school:
+                        post.institution ||
+                        post.school ||
+                        "",
+
+                    image,
+
+                    caption:
+                        post.caption ||
+                        post.text ||
+                        "",
+
+                    isVideo:
+                        post.type === "video" ||
+                        post.mediaType === "video" ||
+                        !!post.videoUrl
+                });
+            }
+        );
+
+        return candidates;
+    }
+
+
+    function renderMoments(){
+        const container = byId("home-moments-list");
+
+        if(!container) return;
+
+        const me = getMe() || {};
+
+        const school =
+            me.institution ||
+            me.school ||
+            "";
+
+        const meKey = currentUserKey();
+
+        const candidates = collectMomentCandidates()
+            .filter(person => {
+                if(isCurrentUser(person)) return false;
+
+                if(
+                    normalize(person.id || person.name) ===
+                    meKey
+                ){
+                    return false;
+                }
+
+                return institutionMatches(
+                    person.school,
+                    school
+                );
+            });
+
+
+        const historyKey =
+            "secretCrushHomeMomentHistory";
+
+        let history = [];
+
+        try {
+            history = JSON.parse(
+                localStorage.getItem(historyKey) || "[]"
+            );
+        } catch (error) {
+            history = [];
+        }
+
+        if(!Array.isArray(history)) history = [];
+
+        const fresh = candidates.filter(
+            person => !history.includes(person._key)
+        );
+
+        const pool = fresh.length
+            ? fresh
+            : candidates;
+
+        const chosen = shuffle(pool).slice(0, 4);
+
+
+        if(!chosen.length){
+            container.innerHTML = `
+                <div class="home-discovery-empty">
+                    ${
+                        school
+                            ? "No moments from your institution are available yet. Check back after people at your school post."
+                            : "Add your institution to your profile to see moments from people at your school."
+                    }
+                </div>
+            `;
+
+            return;
+        }
+
+
+        container.innerHTML = chosen.map(person => {
+            const initials = escapeHTML(
+                (person.name || "SC")
+                    .split(/\s+/)
+                    .slice(0, 2)
+                    .map(part => part[0] || "")
+                    .join("")
+            );
+
+            const userPhoto = person.photo
+                ? `
+                    <img
+                        src="${escapeHTML(person.photo)}"
+                        alt="${escapeHTML(person.name)}"
+                        loading="lazy"
+                    >
+                `
+                : `
+                    <span class="home-moment-avatar-fallback">
+                        ${initials}
+                    </span>
+                `;
+
+            const isVideo =
+                person.isVideo ||
+                /\.(mp4|webm|ogg)(\?|$)/i.test(person.image);
+
+            const media = isVideo
+                ? `
+                    <video
+                        class="moment-image"
+                        src="${escapeHTML(person.image)}"
+                        controls
+                        playsinline
+                        preload="metadata"
+                    ></video>
+                `
+                : `
+                    <img
+                        class="moment-image"
+                        src="${escapeHTML(person.image)}"
+                        alt="Moment by ${escapeHTML(person.name)}"
+                        loading="lazy"
+                    >
+                `;
+
+            return `
+                <article
+                    class="moment-preview home-network-moment"
+                    data-home-moment-id="${escapeHTML(
+                        person.postId || person._key
+                    )}"
+                >
+                    <div class="moment-header">
+                        <div class="moment-user">
+                            ${userPhoto}
+
+                            <div>
+                                <h3>${escapeHTML(person.name)}</h3>
+                                <p>${escapeHTML(person.school)}</p>
+                            </div>
+                        </div>
+
+                        <span>From your institution</span>
+                    </div>
+
+                    ${media}
+
+                    ${
+                        person.caption
+                            ? `
+                                <p class="home-moment-caption">
+                                    ${escapeHTML(person.caption)}
+                                </p>
+                            `
+                            : ""
+                    }
+
+                    <div class="moment-actions">
+                        <button
+                            type="button"
+                            class="home-moment-view-feed"
+                        >
+                            View in Feed ↗
+                        </button>
+                    </div>
+                </article>
+            `;
+        }).join("");
+
+
+        const nextHistory = [
+            ...chosen.map(person => person._key),
+            ...history
+        ]
+            .filter(
+                (value, index, all) =>
+                    all.indexOf(value) === index
+            )
+            .slice(0, 40);
+
+        localStorage.setItem(
+            historyKey,
+            JSON.stringify(nextHistory)
+        );
+    }
+
+
+    /* =================================================
+    HOMEPAGE CONTROLS
+    ================================================= */
+
+    function openFeed(){
+        const trigger = byId("open-feed-from-home");
+
+        if(trigger){
+            trigger.click();
+            return;
+        }
+
+        const feed = byId("feed-page");
+        const home = byId("homepage");
+
+        if(home) home.classList.remove("active");
+        if(feed) feed.classList.add("active");
+    }
+
+
+    function bind(){
+        const homeSearch = byId("home-search-input");
+
+        if(homeSearch){
+            homeSearch.setAttribute("readonly", "readonly");
+            homeSearch.setAttribute("aria-haspopup", "dialog");
+            homeSearch.setAttribute("inputmode", "none");
+
+            homeSearch.addEventListener(
+                "keydown",
+                event => event.preventDefault()
+            );
+
+            homeSearch.addEventListener(
+                "beforeinput",
+                event => event.preventDefault()
+            );
+
+            homeSearch.addEventListener(
+                "focus",
+                () => homeSearch.blur()
+            );
+
+            homeSearch.addEventListener(
+                "click",
+                event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    if(
+                        typeof openFeedUserSearch ===
+                        "function"
+                    ){
+                        openFeedUserSearch();
+                    }
+                }
+            );
+
+            const searchBox =
+                homeSearch.closest(".search-box");
+
+            searchBox?.addEventListener(
+                "click",
+                event => {
+                    if(
+                        event.target.closest(
+                            "#home-filter-button"
+                        )
+                    ){
+                        return;
+                    }
+
+                    if(
+                        typeof openFeedUserSearch ===
+                        "function"
+                    ){
+                        openFeedUserSearch();
+                    }
+                }
+            );
+        }
+
+
+        byId("refresh-recommendations")
+            ?.addEventListener("click", event => {
+                event.preventDefault();
+                renderRecommendations();
+            });
+
+
+        byId("refresh-home-moments")
+            ?.addEventListener("click", event => {
+                event.preventDefault();
+                renderMoments();
+            });
+
+
+        document.addEventListener("click", event => {
+            const crush = event.target.closest(
+                "[data-home-crush]"
+            );
+
+            if(crush){
+                event.preventDefault();
+                event.stopPropagation();
+
+                alert(
+                    "Send Crush will use the same reveal system."
+                );
+
+                return;
+            }
+
+            if(
+                event.target.closest(
+                    ".home-moment-view-feed"
+                )
+            ){
+                event.preventDefault();
+                openFeed();
+            }
+
+            const card = event.target.closest(
+                ".home-network-card"
+            );
+
+            if(card && !event.target.closest("button")){
+                const person = [
+                    ...readArray("secretCrushFollowing"),
+                    ...readArray("secretCrushFollowers")
+                ]
+                    .map(profileOf)
+                    .find(
+                        item =>
+                            String(item.id) ===
+                                card.dataset.homePersonId ||
+                            item.name ===
+                                card.dataset.homePersonName
+                    );
+
+                if(
+                    person &&
+                    typeof openSecretCrushUserProfile ===
+                    "function"
+                ){
+                    openSecretCrushUserProfile(person);
+                }
+            }
+        });
+
+
+        renderRecommendations();
+        renderMoments();
+    }
+
+
+    if(document.readyState === "loading"){
+        document.addEventListener(
+            "DOMContentLoaded",
+            bind,
+            { once: true }
+        );
+    } else {
+        bind();
+    }
+
+})();
+
+
+/* =====================================================
+MODULE: HOME — EXPANDED MOMENTS NAVIGATION
+===================================================== */
+
+(function SC_HomeExpandedMomentsNavigation(){
+    "use strict";
+
+    const preview = document.getElementById(
+        "home-moments-preview"
+    );
+
+    const viewAll = document.getElementById(
+        "open-feed-from-home"
+    );
+
+    const returnTop = document.getElementById(
+        "home-moments-return-top"
+    );
+
+    const refresh = document.getElementById(
+        "home-moments-refresh"
+    );
+
+    const expandedList = document.getElementById(
+        "home-expanded-moments-list"
+    );
+
+    if (!preview) return;
+
+    function openExpanded(){
+        SC_HomeOpenExpandedMoments();
+    }
+
+    viewAll?.addEventListener("click", event => {
+        event.preventDefault();
+        openExpanded();
+    });
+
+    returnTop?.addEventListener("click", () => {
+        SC_HomeCloseExpandedMoments();
+    });
+
+    refresh?.addEventListener("click", () => {
+        SC_HomeRenderExpandedMoments();
+    });
+
+    // Scroll inside the expanded list, not the whole document.
+    expandedList?.addEventListener("scroll", () => {
+        SC_HomeExpandedMomentsScrollTop = expandedList.scrollTop;
+    }, { passive: true });
+
+    // A moment tap opens the existing viewer with its real post ID.
+    expandedList?.addEventListener("click", event => {
+        const card = event.target.closest(
+            ".feed-card[data-post-id]"
+        );
+
+        if (!card) return;
+
+        // Let existing buttons and profile links retain their actions.
+        if (
+            event.target.closest(
+                ".feed-actions, .feed-user, button, a"
+            )
+        ) {
+            return;
+        }
+
+        SC_HomeExpandedMomentsScrollTop =
+            expandedList.scrollTop;
+
+        if (typeof openFeedMomentViewer === "function") {
+            event.preventDefault();
+            openFeedMomentViewer(card.dataset.postId);
+        }
+    });
+
+    // Auto-expand only while scrolling down towards the section.
+    let lastY = window.scrollY;
+    let autoOpened = false;
+
+    window.addEventListener("scroll", () => {
+        const currentY = window.scrollY;
+        const movingDown = currentY > lastY;
+        lastY = currentY;
+
+        if (
+            autoOpened ||
+            !movingDown ||
+            SC_HomeExpandedMomentsActive
+        ) {
+            return;
+        }
+
+        const rect = preview.getBoundingClientRect();
+        const threshold = window.innerHeight * 0.75;
+
+        if (rect.top < threshold && rect.bottom > 0) {
+            autoOpened = true;
+            openExpanded();
+        }
+    }, { passive: true });
+
+    // Re-arm auto-expansion after returning to the top.
+    returnTop?.addEventListener("click", () => {
+        autoOpened = false;
+    });
+
 })();

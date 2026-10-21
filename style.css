@@ -31138,3 +31138,240 @@ MODULE: MY SPACE — VIDEO MOMENT CARDS
     z-index: 25;
     pointer-events: none;
 }
+
+
+/* =====================================================
+MODULE: HOMEPAGE — DYNAMIC DISCOVERY STATES
+===================================================== */
+
+.home-section-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.recommendation-grid {
+    min-height: 1px;
+}
+
+.home-discovery-empty {
+    grid-column: 1 / -1;
+    padding: 18px 15px;
+    border: 1px dashed rgba(160, 110, 255, .28);
+    border-radius: 16px;
+    color: #a9a2b8;
+    background: rgba(255, 255, 255, .025);
+    font-size: 12px;
+    line-height: 1.55;
+    text-align: center;
+}
+
+.home-network-card {
+    min-width: 0;
+    cursor: pointer;
+}
+
+.home-network-card > img {
+    background: #111;
+    object-fit: cover;
+}
+
+.home-card-avatar-fallback {
+    height: 145px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #211338, #111827);
+    color: #cbb7ff;
+    font-size: 42px;
+}
+
+.home-moments-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+}
+
+.home-moment-avatar-fallback {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #9a62ff;
+    border-radius: 50%;
+    background: #171022;
+    color: #d8c7ff;
+    font-size: 11px;
+}
+
+.home-network-moment .moment-image {
+    max-height: 520px;
+    background: #09090d;
+}
+
+.home-network-moment video.moment-image {
+    height: auto;
+    aspect-ratio: 4 / 5;
+    object-fit: contain;
+}
+
+.home-moment-caption {
+    padding: 10px 12px;
+    color: #ddd;
+    font-size: 12px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.home-network-moment .moment-actions {
+    justify-content: flex-end;
+}
+
+.home-moment-view-feed {
+    padding: 7px 12px;
+    border: 1px solid rgba(160, 110, 255, .28);
+    border-radius: 999px;
+    background: rgba(145, 84, 255, .1);
+    color: #cbb7ff;
+    font-size: 11px;
+}
+
+@media (max-width: 360px) {
+    .recommendation-grid {
+        gap: 8px;
+        padding: 0 12px;
+    }
+
+    .user-card > img,
+    .home-card-avatar-fallback {
+        height: 120px;
+    }
+
+    .user-card-info {
+        padding: 8px;
+    }
+
+    .user-card-info h3 {
+        font-size: 12px;
+    }
+
+    .home-section-actions {
+        gap: 7px;
+    }
+}
+
+/* =====================================================
+MODULE: HOME — EXPANDED MOMENTS PAGE
+===================================================== */
+
+.home-expanded-moments {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    overflow: hidden;
+    background: #08080d;
+    color: #fff;
+}
+
+.home-expanded-moments.active {
+    display: flex;
+    flex-direction: column;
+}
+
+.home-expanded-moments-header {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: 44px 1fr 44px;
+    align-items: center;
+    gap: 10px;
+    padding: calc(env(safe-area-inset-top, 0px) + 12px) 14px 12px;
+    border-bottom: 1px solid rgba(160, 110, 255, .2);
+    background: #08080d;
+}
+
+.home-expanded-moments-header h2 {
+    margin: 2px 0 0;
+    font-size: 16px;
+}
+
+#home-moments-return-top,
+#home-moments-refresh {
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(168, 121, 255, .6);
+    border-radius: 50%;
+    background: #171022;
+    color: #d5bcff;
+    font-size: 25px;
+}
+
+#home-moments-return-top {
+    font-size: 29px;
+    font-weight: 700;
+}
+
+.home-expanded-moments-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px 0 calc(24px + env(safe-area-inset-bottom, 0px));
+}
+
+.home-expanded-moment-card {
+    margin: 0 12px 16px;
+    overflow: hidden;
+    border: 1px solid rgba(160, 110, 255, .18);
+    border-radius: 18px;
+    background: #0b0b10;
+}
+
+.home-expanded-moment-card .feed-media img,
+.home-expanded-moment-card .feed-media video {
+    display: block;
+    width: 100%;
+    max-height: 72vh;
+    object-fit: contain;
+    background: #050507;
+}
+
+.home-moments-empty {
+    margin: 20px 14px;
+    padding: 22px 16px;
+    border: 1px dashed rgba(160, 110, 255, .35);
+    border-radius: 16px;
+    color: #b7aec8;
+    font-size: 13px;
+    line-height: 1.6;
+    text-align: center;
+}
+
+body.home-expanded-moments-open {
+    overflow: hidden;
+}
+
+/* =====================================================
+MODULE: HOME — LOCKED INSTITUTION FILTER
+===================================================== */
+
+.institution-filter-locked {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: default;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.institution-filter-locked:focus,
+.institution-filter-locked:hover {
+    outline: none;
+    filter: none;
+    transform: none;
+}
