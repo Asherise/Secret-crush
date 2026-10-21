@@ -1087,10 +1087,63 @@ function continueAfterIntro(){
 MODULE: REGISTRATION — PAGE 1 VALIDATION
 ===================================================== */
 registrationNext.addEventListener("click",()=>{
-    const profileName=document.getElementById("profile-name").value.trim();
-    const institution=document.getElementById("institution").value;
-    const faculty=document.getElementById("faculty").value;
-    const studyYear=document.getElementById("study-year").value;
+    const profileName =
+    document.getElementById("profile-name").value.trim();
+
+const dateOfBirth =
+    document.getElementById("date-of-birth").value;
+
+const institution =
+    document.getElementById("institution").value;
+
+const faculty =
+    document.getElementById("faculty").value;
+
+const studyYear =
+    document.getElementById("study-year").value;
+
+if (!dateOfBirth) {
+    showSCMessage({
+        type: "INFORMATION",
+        icon: "🔞",
+        title: "Date of Birth Required",
+        message: "Please enter your date of birth to continue.",
+        buttonText: "Got It"
+    });
+    return;
+}
+
+const birthDate = new Date(dateOfBirth + "T00:00:00");
+const today = new Date();
+
+let age = today.getFullYear() - birthDate.getFullYear();
+
+const birthdayNotReached =
+    today.getMonth() < birthDate.getMonth() ||
+    (
+        today.getMonth() === birthDate.getMonth() &&
+        today.getDate() < birthDate.getDate()
+    );
+
+if (birthdayNotReached) {
+    age--;
+}
+
+if (
+    Number.isNaN(birthDate.getTime()) ||
+    birthDate > today ||
+    age < 18
+) {
+    showSCMessage({
+        type: "INFORMATION",
+        icon: "🔞",
+        title: "Adults Only",
+        message:
+            "Secret Crush is currently available only to people aged 18 and above. You cannot continue with registration.",
+        buttonText: "Got It"
+    });
+    return;
+}
 
     if(!profileName||!institution||!faculty||!studyYear){
 
@@ -1246,6 +1299,8 @@ const profileData={
             )
             .value
             .trim(),
+            dateOfBirth:
+    document.getElementById("date-of-birth").value,
             
         institution:document.getElementById("institution").value,
         faculty:document.getElementById("faculty").value,
@@ -51269,3 +51324,572 @@ MODULE: HOME — EXPANDED MOMENTS NAVIGATION
     });
 
 })();
+
+
+
+/* =====================================================
+MODULE: ASHERISE — TERMS, PRIVACY, ABOUT & ONBOARDING GATE
+===================================================== */
+
+const SC_TERMS_VERSION = "1.0";
+const SC_TERMS_ACCEPTANCE_KEY = "secretCrushTermsAcceptance";
+
+const scLegalPage = document.getElementById("sc-legal-page");
+const scInfoTitle = document.getElementById("sc-info-title");
+const scInfoContent = document.getElementById("sc-info-content");
+const scInfoBack = document.getElementById("sc-info-back");
+const scTermsGate = document.getElementById("sc-terms-gate");
+const scTermsAgree = document.getElementById("sc-terms-agree");
+const scTermsDecline = document.getElementById("sc-terms-decline");
+
+let scInfoCurrentTab = "terms";
+let scInfoReturnToGate = false;
+let scInfoPreviousPage = "";
+
+const SC_INFO_DOCUMENTS = {
+    terms: {
+        title: "Terms & Conditions",
+        html: `
+            <p><strong>ASHERISE · Secret Crush</strong></p>
+            <p>Version 1.0 · Draft for review before public launch</p>
+
+            <p class="sc-info-notice">
+                These terms explain the intended rules for using Secret Crush.
+                They must be reviewed against the final product, operator details
+                and applicable Kenyan law before public launch.
+            </p>
+
+            <h2>1. Eligibility</h2>
+            <p>Secret Crush is intended only for people aged 18 and above.
+            By using the service, you confirm that you meet this age requirement.
+            Do not create an account using false age information or another
+            person's identity. The current prototype's date-of-birth field is
+            not a reliable independent age-verification system.</p>
+
+            <h2>2. Your account</h2>
+            <p>Provide accurate registration information and use an account
+            that you are authorised to control. Keep access to your device and
+            account private. Do not impersonate another person, misuse another
+            person's account or attempt to bypass eligibility checks.</p>
+
+            <h2>3. Respectful use</h2>
+            <p>You must not use Secret Crush to threaten, harass, stalk,
+            intimidate, defraud, exploit or repeatedly target another person.
+            Do not publish another person's private information without
+            permission, send unlawful content, or share private images or
+            recordings without the necessary consent.</p>
+
+            <h2>4. Crushes, clues and reveals</h2>
+            <p>Crush submissions, clues, matching, identity reveals and chat
+            access depend on the app's available rules and functionality.
+            An anonymous feature is not a promise of absolute anonymity.
+            Do not use it to threaten, identify, track or pressure another user.
+            Do not try to bypass reveal or matching rules.</p>
+
+            <h2>5. Coins, rewards and gifts</h2>
+            <p>Where virtual coins, game rewards or gifts are offered, their
+            displayed rules and prices apply. Virtual items should not be
+            treated as cash or as having cash value unless the service expressly
+            says otherwise. Before any real-money purchases are introduced,
+            clear purchase, cancellation and refund terms must be provided.</p>
+
+            <h2>6. User content</h2>
+            <p>You are responsible for content you upload or send and must have
+            the rights and permissions needed to share it. You retain rights
+            you already hold in your content. You permit the service to host,
+            store, display and transmit it only as reasonably necessary to
+            operate the features you choose, subject to the Privacy Policy
+            and applicable law.</p>
+
+            <h2>7. Reporting and enforcement</h2>
+            <p>Content or accounts that violate these rules may be restricted
+            or removed when appropriate moderation and reporting processes are
+            available. Serious or unlawful conduct may be referred to relevant
+            authorities where required or permitted by law. Do not assume a
+            reporting or blocking feature exists until it is visible and
+            operational in the app.</p>
+
+            <h2>8. Availability and changes</h2>
+            <p>Features may change as the service develops. We will not describe
+            an experimental or unavailable feature as guaranteed. Material
+            changes to these terms should be communicated appropriately, and
+            renewed acceptance requested where required.</p>
+
+            <h2>9. Disclaimers and responsibility</h2>
+            <p>Online interactions involve risks. Use judgment when sharing
+            information or meeting people. Nothing in these terms excludes
+            rights or liabilities that cannot lawfully be excluded under
+            applicable law.</p>
+
+            <h2>10. Applicable law and contact</h2>
+            <p>These terms must be finalised to identify the responsible legal
+            operator, appropriate contact details, dispute process and
+            applicable law before public launch. The service must not publish
+            invented company details or contact information.</p>
+        `
+    },
+
+    privacy: {
+        title: "Privacy Policy",
+        html: `
+            <p><strong>ASHERISE · Secret Crush</strong></p>
+            <p>Version 1.0 · Draft for review before public launch</p>
+
+            <p class="sc-info-notice">
+                This policy describes intended privacy principles. The final
+                policy must match the data actually collected, where it is
+                stored, who can access it, and the services used to process it.
+            </p>
+
+            <h2>1. Information you provide</h2>
+            <p>Depending on the features you use, the service may process your
+            name or display name, date of birth, institution, faculty, study
+            year, gender selection, interests, profile picture, About text,
+            posts, stories, messages, crush interactions, game activity and
+            virtual-coin activity.</p>
+
+            <h2>2. Date of birth and age eligibility</h2>
+            <p>Your date of birth is collected for the intended 18-and-over
+            eligibility rule and should not be displayed on public profile
+            cards or feeds. Access to it should be restricted. In the current
+            browser-based prototype, information stored in local storage can
+            be inspected or altered by someone with access to the browser.
+            This is not a secure production storage arrangement.</p>
+
+            <h2>3. How information may be used</h2>
+            <p>Information may be used to create and maintain accounts, show
+            profile details, display content, operate crushes and matching,
+            deliver messages, maintain game or coin state, protect the service
+            from abuse and provide support. The final version must state the
+            actual purposes and lawful basis for each relevant processing
+            activity.</p>
+
+            <h2>4. What other users may see</h2>
+            <p>Information intentionally included in a profile, post, story or
+            message may be visible to the audiences supported by that feature.
+            Do not assume a post, anonymous interaction or message is private
+            unless the interface clearly establishes that restriction.
+            Your date of birth should not be part of public profile displays.</p>
+
+            <h2>5. Storage and service providers</h2>
+            <p>The prototype uses browser storage for some information. A
+            future production version may use a database, hosting provider or
+            other service providers. Before launch, this policy must identify
+            the actual storage arrangements, processors, relevant transfers
+            outside Kenya, safeguards and retention periods.</p>
+
+            <h2>6. Retention and deletion</h2>
+            <p>Information should be retained only for documented purposes and
+            for an appropriate period, subject to applicable legal obligations.
+            The final service must explain how users can request access,
+            correction or deletion and which records may need to be retained.
+            Do not assume that clearing a browser or uninstalling the app
+            deletes copies held by any future server or other user.</p>
+
+            <h2>7. Security</h2>
+            <p>Reasonable technical and organisational safeguards should be
+            implemented for the production service. No internet service can
+            promise absolute security. Security claims must reflect safeguards
+            that have actually been implemented and tested.</p>
+
+            <h2>8. Your privacy rights</h2>
+            <p>Depending on applicable law and the circumstances, you may have
+            rights to access, correct, object to or request deletion of personal
+            data, and to raise a complaint with the relevant authority. The
+            final policy must provide a working contact route for requests.</p>
+
+            <h2>9. Adults-only service</h2>
+            <p>Secret Crush is intended for people aged 18 and above. If the
+            operator becomes aware that an ineligible person has created an
+            account, an appropriate response process must be followed.</p>
+
+            <h2>10. Policy changes and contact</h2>
+            <p>Material changes should be communicated appropriately. The final
+            policy must identify ASHERISE's legal operator and publish verified
+            privacy contact details before public launch.</p>
+        `
+    },
+
+    guidelines: {
+        title: "Community Guidelines",
+        html: `
+            <p>Secret Crush should be a fun, respectful space for adults to
+            connect. These guidelines explain the behaviour expected from
+            everyone using the service.</p>
+
+            <h2>Respect boundaries</h2>
+            <ul>
+                <li>Respect a person's decision not to reply, match or continue a conversation.</li>
+                <li>Do not pressure someone to reveal a crush or disclose personal information.</li>
+                <li>Do not use repeated messages, anonymous notes or gifts to intimidate someone.</li>
+            </ul>
+
+            <h2>Protect privacy</h2>
+            <ul>
+                <li>Never publish private contact details, addresses or identifying information without permission.</li>
+                <li>Do not share private images, recordings or conversations unlawfully or without appropriate consent.</li>
+                <li>Remember that anonymity features may have limits.</li>
+            </ul>
+
+            <h2>Be authentic</h2>
+            <ul>
+                <li>Do not impersonate people, run scams or mislead users to obtain money or private information.</li>
+                <li>Do not exploit another person's trust or vulnerability.</li>
+            </ul>
+
+            <h2>Keep interactions safe</h2>
+            <ul>
+                <li>Do not threaten, harass, stalk or discriminate against others.</li>
+                <li>Do not use the service for illegal activity or malicious links.</li>
+                <li>Use available reporting and blocking tools when they are provided.</li>
+            </ul>
+
+            <h2>What happens after a violation?</h2>
+            <p>Depending on the seriousness of a violation and the safeguards
+            actually implemented, action may include content removal, feature
+            restrictions or account suspension. Reporting, blocking, review
+            and appeal processes must be implemented and explained before they
+            are advertised as available protections.</p>
+        `
+    },
+
+    about: {
+        title: "About Secret Crush",
+        html: `
+            <p>Welcome to Secret Crush, powered by ASHERISE — an adults-only
+            social experience designed around profiles, moments, crushes,
+            clues, matches and conversations.</p>
+
+            <div class="sc-guide-card">
+                <h2>1. Create your profile</h2>
+                <p>Enter your required profile details, choose a profile
+                picture where supported, select your gender option and choose
+                five interests. You must be 18 or older to register. Your date
+                of birth is for age eligibility and should not be displayed
+                publicly.</p>
+            </div>
+
+            <div class="sc-guide-card">
+                <h2>2. Home and discovery</h2>
+                <p>Use the Home screen to explore the content and navigation
+                available to your account. Where search and filters are shown,
+                use them to narrow the content displayed. Tap a profile or
+                post to open its available details.</p>
+            </div>
+
+            <div class="sc-guide-card">
+                <h2>3. Feed and moments</h2>
+                <p>Browse available photo and video posts. Open a post to view
+                its details and use the actions actually shown on the screen.
+                Before publishing, check the content and audience settings
+                offered by the app. Do not upload material you do not have
+                permission to share.</p>
+            </div>
+
+            <div class="sc-guide-card">
+                <h2>4. Stories</h2>
+                <p>When Stories are available, open the Stories area to view
+                updates and use the creation controls shown to add your own.
+                Review the selected media before posting. Expiry and visibility
+                depend on the implemented story rules.</p>
+            </div>
+
+            <div class="sc-guide-card">
+                <h2>5. Crushes and clues</h2>
+                <p>Follow the instructions on the Crushes or game screens to
+                send a crush, view clues or play available guessing games.
+                Read any coin cost before confirming an action. A match or
+                reveal depends on the rules displayed by the game.</p>
+            </div>
+
+            <div class="sc-guide-card">
+                <h2>6. Matches and chats</h2>
+                <p>Open a match or conversation using the relevant screen.
+                Use the available message and attachment controls, and check
+                media before sending. Do not share private content without
+                permission. Deleting a message from your screen may not remove
+                copies already saved by another person.</p>
+            </div>
+
+            <div class="sc-guide-card">
+                <h2>7. Gifts, coins and rewards</h2>
+                <p>Check the item, quantity, total cost and confirmation
+                details before sending a gift or claiming a reward. Follow
+                the current in-app instructions; do not assume virtual coins
+                can be converted to cash.</p>
+            </div>
+
+            <div class="sc-guide-card">
+                <h2>8. My Space and profile</h2>
+                <p>Use My Space to review your profile and personal content.
+                Where an edit control is available, use it to update your
+                information. Keep your About text and posts free of private
+                details you do not want others to see.</p>
+            </div>
+
+            <div class="sc-guide-card">
+                <h2>9. Bank and activity</h2>
+                <p>Open the Bank or activity area to review the balances,
+                rewards or transaction details actually provided by your
+                current version of the app. Review the displayed rules before
+                spending or claiming anything.</p>
+            </div>
+
+            <div class="sc-guide-card">
+                <h2>10. Settings and safety</h2>
+                <p>Settings contains app information and support navigation.
+                Read the Terms, Privacy Policy and Community Guidelines.
+                If a report, block or account-control option is provided,
+                follow its on-screen instructions. If you feel unsafe, stop
+                interacting and seek appropriate help.</p>
+            </div>
+
+            <p class="sc-info-notice">
+                This guide describes the intended navigation. Some functions
+                may still be under development; the controls currently visible
+                in your version of Secret Crush determine what is available.
+            </p>
+        `
+    }
+};
+
+function scHasAcceptedCurrentTerms() {
+    try {
+        const saved = JSON.parse(
+            localStorage.getItem(SC_TERMS_ACCEPTANCE_KEY) || "null"
+        );
+
+        const profile = JSON.parse(
+            localStorage.getItem("secretCrushProfile") || "null"
+        );
+
+        return Boolean(
+            saved &&
+            profile &&
+            saved.version === SC_TERMS_VERSION &&
+            saved.userId === profile.userId
+        );
+    } catch (error) {
+        return false;
+    }
+}
+
+function scOpenTermsGate() {
+    if (!scTermsGate) return;
+    scTermsGate.hidden = false;
+    document.body.classList.add("sc-terms-open");
+}
+
+function scCloseTermsGate() {
+    if (!scTermsGate) return;
+    scTermsGate.hidden = true;
+    document.body.classList.remove("sc-terms-open");
+}
+
+function scRenderInfoTab(tab) {
+    const doc = SC_INFO_DOCUMENTS[tab];
+    if (!doc || !scInfoContent || !scInfoTitle) return;
+
+    scInfoCurrentTab = tab;
+    scInfoTitle.textContent = doc.title;
+    scInfoContent.innerHTML = doc.html;
+
+    document.querySelectorAll("[data-info-tab]").forEach(button => {
+        button.classList.toggle(
+            "active",
+            button.dataset.infoTab === tab
+        );
+    });
+}
+
+function scOpenInfoPage(tab, fromGate = false) {
+    if (!scLegalPage) return;
+
+    scInfoReturnToGate = fromGate;
+    scInfoPreviousPage = document.querySelector(".app-page.active")?.id || "";
+
+    document.querySelectorAll(".app-page").forEach(page => {
+        page.classList.remove("active");
+    });
+
+    scLegalPage.classList.add("active");
+    scLegalPage.scrollTop = 0;
+    hideAppNavigation();
+    scRenderInfoTab(tab);
+}
+
+function scCloseInfoPage() {
+    if (!scLegalPage) return;
+    scLegalPage.classList.remove("active");
+
+    if (scInfoReturnToGate) {
+        scOpenTermsGate();
+        scInfoReturnToGate = false;
+        return;
+    }
+
+    if (scInfoPreviousPage) {
+        const previous = document.getElementById(scInfoPreviousPage);
+        if (previous) {
+            previous.classList.add("active");
+            return;
+        }
+    }
+
+    openHomepage();
+}
+
+document.querySelectorAll("[data-info-tab]").forEach(button => {
+    button.addEventListener("click", () => {
+        scRenderInfoTab(button.dataset.infoTab);
+    });
+});
+
+document.querySelectorAll("[data-open-legal]").forEach(button => {
+    button.addEventListener("click", () => {
+        scOpenInfoPage(button.dataset.openLegal, true);
+    });
+});
+
+if (scInfoBack) {
+    scInfoBack.addEventListener("click", scCloseInfoPage);
+}
+
+const scAboutButton =
+    document.getElementById("about-secret-crush-button");
+
+const scHelpButton =
+    document.getElementById("open-help-support-button");
+
+const scTermsPrivacyButton =
+    document.getElementById("open-terms-privacy-button");
+
+if (scAboutButton) {
+    scAboutButton.addEventListener("click", () => {
+        scOpenInfoPage("about");
+    });
+}
+
+if (scTermsPrivacyButton) {
+    scTermsPrivacyButton.addEventListener("click", () => {
+        scOpenInfoPage("terms");
+    });
+}
+
+if (scHelpButton) {
+    scHelpButton.addEventListener("click", () => {
+        if (typeof openHelpSupportPage === "function") {
+            openHelpSupportPage();
+        }
+    });
+}
+
+/* Terms and Privacy links are also available from the gate. */
+if (scTermsAgree) {
+    scTermsAgree.addEventListener("click", () => {
+        const profile = JSON.parse(
+            localStorage.getItem("secretCrushProfile") || "null"
+        );
+
+        if (!profile || !profile.userId) {
+            scCloseTermsGate();
+            document.querySelectorAll(".screen").forEach(screen => {
+                screen.classList.remove("active");
+            });
+            document.querySelectorAll(".app-page").forEach(page => {
+                page.classList.remove("active");
+            });
+
+            const registration = document.getElementById("registration-page");
+            if (registration) registration.classList.add("active");
+            hideAppNavigation();
+            return;
+        }
+
+        localStorage.setItem(
+            SC_TERMS_ACCEPTANCE_KEY,
+            JSON.stringify({
+                version: SC_TERMS_VERSION,
+                acceptedAt: new Date().toISOString(),
+                userId: profile.userId
+            })
+        );
+
+        scCloseTermsGate();
+
+        if (typeof openHomepage === "function") {
+            openHomepage();
+        }
+    });
+}
+
+if (scTermsDecline) {
+    scTermsDecline.addEventListener("click", () => {
+        scCloseTermsGate();
+
+        /* Declining must not allow access to the homepage. */
+        localStorage.removeItem("secretCrushSession");
+        localStorage.removeItem(SC_TERMS_ACCEPTANCE_KEY);
+
+        document.querySelectorAll(".screen").forEach(screen => {
+            screen.classList.remove("active");
+        });
+        document.querySelectorAll(".app-page").forEach(page => {
+            page.classList.remove("active");
+        });
+
+        const registration = document.getElementById("registration-page");
+        if (registration) registration.classList.add("active");
+
+        hideAppNavigation();
+
+        if (typeof showSCMessage === "function") {
+            showSCMessage({
+                type: "INFORMATION",
+                icon: "✦",
+                title: "Agreement Required",
+                message:
+                    "You need to agree to the current Terms to use Secret Crush. Your profile details remain on this device; you can review the documents before deciding.",
+                buttonText: "Got It"
+            });
+        }
+    });
+}
+
+/* Keep the gate in front of homepage navigation until accepted. */
+const scOriginalOpenHomepage = openHomepage;
+
+openHomepage = function() {
+    if (!scHasAcceptedCurrentTerms()) {
+        document.querySelectorAll(".app-page").forEach(page => {
+            page.classList.remove("active");
+        });
+
+        document.querySelectorAll(".screen").forEach(screen => {
+            screen.classList.remove("active");
+        });
+
+        scOpenTermsGate();
+        hideAppNavigation();
+        return;
+    }
+
+    scOriginalOpenHomepage();
+};
+
+/* Existing users also need to accept before entering the homepage. */
+document.addEventListener("DOMContentLoaded", () => {
+    const savedSession = localStorage.getItem("secretCrushSession");
+    const savedProfile = localStorage.getItem("secretCrushProfile");
+
+    if (savedSession && savedProfile && !scHasAcceptedCurrentTerms()) {
+        document.querySelectorAll(".screen").forEach(screen => {
+            screen.classList.remove("active");
+        });
+        document.querySelectorAll(".app-page").forEach(page => {
+            page.classList.remove("active");
+        });
+        scOpenTermsGate();
+        hideAppNavigation();
+    }
+});

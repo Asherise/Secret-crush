@@ -93,10 +93,31 @@ MODULE: REGISTRATION — PAGE 1
         ===================================================== -->
         <form id="profile-form">
 
-            <div class="input-group">
-                <label for="profile-name">Profile name</label>
-                <input type="text" id="profile-name" placeholder="Preferably your real name" autocomplete="off">
-            </div>
+            <!-- MODULE: REGISTRATION — AGE VERIFICATION -->
+<div class="input-group">
+    <label for="profile-name">Profile name</label>
+    <input
+        type="text"
+        id="profile-name"
+        placeholder="Preferably your real name"
+        autocomplete="off"
+        required
+    >
+</div>
+
+<div class="input-group">
+    <label for="date-of-birth">Date of birth</label>
+    <input
+        type="date"
+        id="date-of-birth"
+        autocomplete="bday"
+        required
+    >
+    <small class="age-privacy-hint">
+        Secret Crush is for adults aged 18 and above.
+        Your date of birth will not appear on your public profile.
+    </small>
+</div>
 
             <!-- =====================================================
             MODULE: INSTITUTION SELECTION
@@ -1793,10 +1814,11 @@ MODULE: SETTINGS PAGE
 
         <div class="settings-card">
 
-            <button
-                type="button"
-                class="settings-row settings-action"
-            >
+<button
+    type="button"
+    class="settings-row settings-action"
+    id="about-secret-crush-button"
+>
 
                 <span class="settings-icon">ⓘ</span>
 
@@ -1810,11 +1832,11 @@ MODULE: SETTINGS PAGE
             </button>
 
 
-            <button
-                type="button"
-                class="settings-row settings-action"
-            >
-
+<button
+    type="button"
+    class="settings-row settings-action"
+    id="open-help-support-button"
+>
                 <span class="settings-icon">?</span>
 
                 <span class="settings-row-content">
@@ -1827,10 +1849,11 @@ MODULE: SETTINGS PAGE
             </button>
 
 
-            <button
-                type="button"
-                class="settings-row settings-action"
-            >
+<button
+    type="button"
+    class="settings-row settings-action"
+    id="open-terms-privacy-button"
+>
 
                 <span class="settings-icon">▤</span>
 
@@ -9013,6 +9036,86 @@ SEND CRUSH / SECRET NOTE REVEAL MODAL
     </div>
 
 </div>
+
+
+<!-- =====================================================
+MODULE: LEGAL & ABOUT — DOCUMENT PAGES
+===================================================== -->
+
+<section id="sc-legal-page" class="app-page sc-info-page">
+    <header class="sc-info-header">
+        <button type="button" class="sc-info-back" id="sc-info-back">‹</button>
+        <div>
+            <small>POWERED BY ASHERISE</small>
+            <h1 id="sc-info-title">Terms &amp; Privacy</h1>
+        </div>
+    </header>
+
+    <nav class="sc-info-tabs" aria-label="Information pages">
+        <button type="button" data-info-tab="terms" class="active">Terms</button>
+        <button type="button" data-info-tab="privacy">Privacy</button>
+        <button type="button" data-info-tab="guidelines">Guidelines</button>
+        <button type="button" data-info-tab="about">About &amp; Guide</button>
+    </nav>
+
+    <article id="sc-info-content" class="sc-info-content"></article>
+</section>
+
+<!-- =====================================================
+MODULE: FIRST-TIME TERMS ACCEPTANCE
+===================================================== -->
+
+<div
+    id="sc-terms-gate"
+    class="sc-terms-gate"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="sc-terms-gate-title"
+    aria-describedby="sc-terms-gate-summary"
+    hidden
+>
+    <div class="sc-terms-gate-card">
+        <div class="sc-terms-gate-brand">ASHERISE</div>
+        <div class="sc-terms-gate-symbol">♡</div>
+        <h2 id="sc-terms-gate-title">Before you enter Secret Crush</h2>
+
+        <p id="sc-terms-gate-summary">
+            Secret Crush is an adults-only social experience for people aged
+            18 and above. Be respectful, protect your personal information,
+            and use crushes, messages and gifts responsibly.
+        </p>
+
+        <ul class="sc-terms-summary-list">
+            <li>You must be at least 18 years old.</li>
+            <li>Harassment, threats, impersonation and sharing private content without permission are not allowed.</li>
+            <li>Some profile information and content may be visible to other users according to the app's features and settings.</li>
+            <li>Read how your information is handled and how to use the app safely.</li>
+        </ul>
+
+        <div class="sc-terms-document-links">
+            <button type="button" data-open-legal="terms">Read full Terms &amp; Conditions</button>
+            <button type="button" data-open-legal="privacy">Read full Privacy Policy</button>
+            <button type="button" data-open-legal="guidelines">Read Community Guidelines</button>
+        </div>
+
+        <p class="sc-terms-consent-note">
+            By selecting Agree &amp; Continue, you confirm that you have read
+            and agree to the Terms and acknowledge the Privacy Policy.
+            This does not replace any separate consent that may be required
+            by law.
+        </p>
+
+        <div class="sc-terms-gate-actions">
+            <button type="button" id="sc-terms-decline">Decline</button>
+            <button type="button" id="sc-terms-agree">Agree &amp; Continue</button>
+        </div>
+
+        <small class="sc-terms-version">Terms version 1.0</small>
+    </div>
+</div>
+
+
+
 
 <!-- =====================================================
      MODULE: ASHERISE MESSAGE SYSTEM — INFORMATION
