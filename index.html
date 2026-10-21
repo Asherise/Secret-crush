@@ -57,6 +57,227 @@ MODULE: CUPID INTRO
 
 </section>
 
+
+<!-- =====================================================
+MODULE: AUTHENTICATION — WELCOME
+===================================================== -->
+<section id="auth-welcome-page" class="screen auth-screen">
+    <div class="auth-shell">
+        <div class="auth-brand">
+            <span>powered by</span>
+            <strong>ASHERISE</strong>
+        </div>
+
+        <div class="auth-heart">♡</div>
+
+        <h1>Welcome to Secret Crush</h1>
+        <p class="auth-subtitle">
+            Discover connections. Keep a little mystery.
+        </p>
+
+        <button type="button" id="auth-google-button" class="auth-primary">
+            <span class="auth-google-mark">G</span>
+            Continue with Google
+        </button>
+
+        <div class="auth-divider"><span>or</span></div>
+
+        <button type="button" id="auth-email-button" class="auth-secondary">
+            Continue with email
+        </button>
+
+        <p class="auth-switch">
+            Already have an account?
+            <button type="button" id="auth-login-button">Log in</button>
+        </p>
+
+        <p class="auth-legal-note">
+            By continuing, you agree to review the Secret Crush Terms
+            and Privacy Policy before using the app.
+        </p>
+    </div>
+</section>
+
+<!-- =====================================================
+MODULE: AUTHENTICATION — EMAIL
+===================================================== -->
+<section id="auth-email-page" class="screen auth-screen">
+    <div class="auth-shell">
+        <button type="button" class="auth-back" data-auth-back="welcome">
+            ‹ <span>Back</span>
+        </button>
+
+        <div class="auth-step-label">YOUR ACCOUNT</div>
+        <h1 id="auth-email-heading">Continue with email</h1>
+        <p class="auth-subtitle" id="auth-email-description">
+            Enter the email address you want to use for Secret Crush.
+        </p>
+
+        <form id="auth-email-form" novalidate>
+            <div class="auth-field">
+                <label for="auth-email-input">Email address</label>
+                <input
+                    type="email"
+                    id="auth-email-input"
+                    placeholder="you@example.com"
+                    autocomplete="email"
+                    inputmode="email"
+                    required
+                >
+            </div>
+
+            <button type="submit" class="auth-primary">
+                Continue
+            </button>
+        </form>
+
+        <p class="auth-switch">
+            New here?
+            <button type="button" id="auth-new-account-button">
+                Create an account
+            </button>
+        </p>
+    </div>
+</section>
+
+<!-- =====================================================
+MODULE: AUTHENTICATION — PASSWORD
+===================================================== -->
+<section id="auth-password-page" class="screen auth-screen">
+    <div class="auth-shell">
+        <button type="button" class="auth-back" data-auth-back="email">
+            ‹ <span>Back</span>
+        </button>
+
+        <div class="auth-step-label">ACCOUNT SECURITY</div>
+        <h1 id="auth-password-heading">Create your password</h1>
+        <p class="auth-subtitle" id="auth-password-description">
+            Create a strong password to protect your account.
+        </p>
+
+        <form id="auth-password-form" novalidate>
+            <div class="auth-field">
+                <label for="auth-password-input">Password</label>
+                <div class="auth-password-wrap">
+                    <input
+                        type="password"
+                        id="auth-password-input"
+                        autocomplete="new-password"
+                        placeholder="Create a strong password"
+                        required
+                    >
+                    <button
+                        type="button"
+                        class="auth-password-toggle"
+                        data-toggle-password="auth-password-input"
+                        aria-label="Show password"
+                    >Show</button>
+                </div>
+            </div>
+
+            <div class="auth-field" id="auth-confirm-field">
+                <label for="auth-confirm-password">Confirm password</label>
+                <div class="auth-password-wrap">
+                    <input
+                        type="password"
+                        id="auth-confirm-password"
+                        autocomplete="new-password"
+                        placeholder="Enter your password again"
+                        required
+                    >
+                    <button
+                        type="button"
+                        class="auth-password-toggle"
+                        data-toggle-password="auth-confirm-password"
+                        aria-label="Show confirmation password"
+                    >Show</button>
+                </div>
+            </div>
+
+            <div class="auth-password-rules">
+                <p id="auth-rule-length">○ At least 8 characters</p>
+                <p id="auth-rule-upper">○ One uppercase letter (A–Z)</p>
+                <p id="auth-rule-lower">○ One lowercase letter (a–z)</p>
+                <p id="auth-rule-number">○ One number (0–9)</p>
+                <p id="auth-rule-special">○ One special character (!@#$...)</p>
+                <p id="auth-rule-match">○ Passwords match</p>
+            </div>
+
+            <button type="submit" class="auth-primary" id="auth-password-submit">
+                Create account
+            </button>
+        </form>
+
+        <p class="auth-legal-note">
+            Never share your password with anyone, including someone claiming
+            to represent Secret Crush.
+        </p>
+    </div>
+</section>
+
+<!-- =====================================================
+MODULE: AUTHENTICATION — EXISTING ACCOUNT
+===================================================== -->
+<section id="auth-login-page" class="screen auth-screen">
+    <div class="auth-shell">
+        <button type="button" class="auth-back" data-auth-back="email">
+            ‹ <span>Back</span>
+        </button>
+
+        <div class="auth-step-label">WELCOME BACK</div>
+        <h1>Log in</h1>
+        <p class="auth-subtitle">
+            Use the email address and password associated with your account.
+        </p>
+
+        <form id="auth-login-form" novalidate>
+            <div class="auth-field">
+                <label for="auth-login-email">Email address</label>
+                <input
+                    type="email"
+                    id="auth-login-email"
+                    autocomplete="username"
+                    placeholder="you@example.com"
+                    required
+                >
+            </div>
+
+            <div class="auth-field">
+                <label for="auth-login-password">Password</label>
+                <div class="auth-password-wrap">
+                    <input
+                        type="password"
+                        id="auth-login-password"
+                        autocomplete="current-password"
+                        placeholder="Enter your password"
+                        required
+                    >
+                    <button
+                        type="button"
+                        class="auth-password-toggle"
+                        data-toggle-password="auth-login-password"
+                        aria-label="Show password"
+                    >Show</button>
+                </div>
+            </div>
+
+            <button type="submit" class="auth-primary">
+                Log in
+            </button>
+        </form>
+
+        <button type="button" id="auth-forgot-password" class="auth-text-button">
+            Forgot your password?
+        </button>
+    </div>
+</section>
+
+
+
+
+
+
+
 <!-- =====================================================
 MODULE: REGISTRATION — PAGE 1
 ===================================================== -->
@@ -1896,6 +2117,147 @@ MODULE: SETTINGS PAGE
 
 
     <div class="settings-bottom-space"></div>
+    
+    <!-- MODULE: CHANGE ACCOUNT PASSWORD OVERLAY -->
+<div id="change-account-password-overlay" class="sc-password-overlay">
+
+    <div class="sc-password-panel">
+
+        <button
+            type="button"
+            id="close-change-password-overlay"
+            class="sc-password-close"
+            aria-label="Close password settings"
+        >×</button>
+
+        <h2>Account Password</h2>
+        <p class="sc-password-subtitle">
+            Manage your account password.
+        </p>
+
+        <div class="sc-password-account-details">
+            <label for="account-password-email">Logged-in email</label>
+            <input
+                type="email"
+                id="account-password-email"
+                readonly
+                value=""
+                placeholder="Your account email"
+            >
+
+            <label for="account-current-password-display">
+                Current password
+            </label>
+            <input
+                type="password"
+                id="account-current-password-display"
+                value=""
+                placeholder="••••••••"
+                readonly
+                autocomplete="off"
+            >
+
+            <button
+                type="button"
+                id="open-change-password-form"
+                class="sc-password-primary"
+            >
+                Change Account Password
+            </button>
+        </div>
+
+        <div id="change-password-form-section" hidden>
+
+            <div class="sc-password-divider"></div>
+
+            <h3>Verify your current password</h3>
+
+            <div class="sc-password-field">
+                <label for="change-password-old">Old password</label>
+                <div class="sc-password-input-row">
+                    <input
+                        type="password"
+                        id="change-password-old"
+                        autocomplete="current-password"
+                        placeholder="Enter your old password"
+                    >
+                    <button
+                        type="button"
+                        class="sc-password-toggle"
+                        data-password-target="change-password-old"
+                    >Show</button>
+                </div>
+            </div>
+
+            <div class="sc-password-divider"></div>
+
+            <h3>Create your new password</h3>
+
+            <div class="sc-password-field">
+                <label for="change-password-new">New password</label>
+                <div class="sc-password-input-row">
+                    <input
+                        type="password"
+                        id="change-password-new"
+                        autocomplete="new-password"
+                        placeholder="Enter your new password"
+                    >
+                    <button
+                        type="button"
+                        class="sc-password-toggle"
+                        data-password-target="change-password-new"
+                    >Show</button>
+                </div>
+            </div>
+
+            <div class="sc-password-field">
+                <label for="change-password-confirm">
+                    Confirm new password
+                </label>
+                <div class="sc-password-input-row">
+                    <input
+                        type="password"
+                        id="change-password-confirm"
+                        autocomplete="new-password"
+                        placeholder="Re-enter your new password"
+                    >
+                    <button
+                        type="button"
+                        class="sc-password-toggle"
+                        data-password-target="change-password-confirm"
+                    >Show</button>
+                </div>
+            </div>
+
+            <ul class="sc-password-rules">
+                <li id="change-rule-length">At least 8 characters</li>
+                <li id="change-rule-upper">At least one uppercase letter</li>
+                <li id="change-rule-lower">At least one lowercase letter</li>
+                <li id="change-rule-number">At least one number</li>
+                <li id="change-rule-special">At least one special character</li>
+                <li id="change-rule-match">New passwords must match</li>
+            </ul>
+
+            <button
+                type="button"
+                id="confirm-account-password-change"
+                class="sc-password-primary"
+            >
+                Confirm Changes
+            </button>
+
+        </div>
+
+        <p
+            id="change-password-status"
+            class="sc-password-status"
+            role="status"
+            aria-live="polite"
+        ></p>
+
+    </div>
+</div>
+<!-- END MODULE: CHANGE ACCOUNT PASSWORD OVERLAY -->
 
 </section>
 

@@ -1064,28 +1064,48 @@ function startCupidSequence(){
 /* =====================================================
 MODULE: INTRO → SESSION ROUTING
 ===================================================== */
-function continueAfterIntro(){
 
+function continueAfterIntro() {
     cupidIntro.classList.remove("active");
 
-    const savedSession=localStorage.getItem("secretCrushSession");
-    const savedProfile=localStorage.getItem("secretCrushProfile");
-
-    if(savedSession && savedProfile){
-
-        openHomepage();
-
-    }else{
-
-        hideAppNavigation();
-
-        registrationPage.classList.add("active");
-
+    if (typeof window.openSecretCrushAuth === "function") {
+        window.openSecretCrushAuth();
+        return;
     }
+
+    /* Safe fallback if the authentication module fails to load. */
+    hideAppNavigation();
+    registrationPage.classList.add("active");
 }
+
 /* =====================================================
 MODULE: REGISTRATION — PAGE 1 VALIDATION
 ===================================================== */
+
+
+/* MODULE: REGISTRATION — OPEN NATIVE DATE PICKER */
+
+const dateOfBirthInput = document.getElementById("date-of-birth");
+
+if (dateOfBirthInput) {
+    dateOfBirthInput.addEventListener("click", function () {
+        if (typeof this.showPicker === "function") {
+            try {
+                this.showPicker();
+            } catch (error) {
+                // Keep the native input usable if the browser
+                // does not allow an explicit picker request.
+                this.focus();
+            }
+        } else {
+            this.focus();
+        }
+    });
+}
+
+
+
+
 registrationNext.addEventListener("click",()=>{
     const profileName =
     document.getElementById("profile-name").value.trim();
@@ -51893,3 +51913,264 @@ document.addEventListener("DOMContentLoaded", () => {
         hideAppNavigation();
     }
 });
+
+
+
+/* =====================================================
+MODULE: AUTHENTICATION — SCREEN FLOW & PASSWORD RULES
+UI PROTOTYPE: server authentication is not connected yet.
+===================================================== */
+
+(() => {
+    const authPages = [
+        "auth-welcome-page",
+        "auth-email-page",
+        "auth-password-page",
+        "auth-login-page"
+    ];
+
+    const authEmailInput = document.getElementById("auth-email-input");
+    const authLoginEmail = document.getElementById("auth-login-email");
+    const authPasswordInput = document.getElementById("auth-password-input");
+    const authConfirmPassword = document.getElementById("auth-confirm-password");
+    const authPasswordForm = document.getElementById("auth-password-form");
+    const authLoginForm = document.getElementById("auth-login-form");
+    const authEmailForm = document.getElementById("auth-email-form");
+
+    let authFlowMode = "signup";
+    let authCurrentPage = "auth-welcome-page";
+    let authPendingEmail = "";
+
+    function authShowPage(pageId) {
+        authPages.forEach(id => {
+            const page = document.getElementById(id);
+            if (page) page.classList.toggle("active", id === pageId);
+        });
+
+        document.querySelectorAll(".screen").forEach(screen => {
+            if (!authPages.includes(screen.id)) {
+                screen.classList.remove("active");
+            }
+        });
+
+        document.querySelectorAll(".app-page").forEach(page => {
+            page.classList.remove("active");
+        });
+
+        authCurrentPage = pageId;
+        if (typeof hideAppNavigation === "function") hideAppNavigation();
+    }
+
+    function authShowNotice(title, message) {
+        if (typeof showSCMessage === "function") {
+            showSCMessage({
+                type: "INFORMATION",
+                icon: "✦",
+                title,
+                message,
+                buttonText: "Got It"
+            });
+        } else {
+            alert(title + "\n\n" + message);
+        }
+    }
+
+    document.getElementById("auth-email-button")?.addEventListener("click", () => {
+        authFlowMode = "signup";
+        document.getElementById("auth-email-heading").textContent =
+            "Continue with email";
+        document.getElementById("auth-email-description").textContent =
+            "Enter the email address you want to use for Secret Crush.";
+        authShowPage("auth-email-page");
+    });
+
+    document.getElementById("auth-login-button")?.addEventListener("click", () => {
+        authFlowMode = "login";
+        authShowPage("auth-login-page");
+    });
+
+    document.getElementById("auth-new-account-button")?.addEventListener("click", () => {
+        authFlowMode = "signup";
+        authShowPage("auth-email-page");
+    });
+
+    document.querySelectorAll("[data-auth-back]").forEach(button => {
+        button.addEventListener("click", () => {
+            const target = button.dataset.authBack;
+            if (target === "email") {
+                authShowPage("auth-email-page");
+            } else {
+                authShowPage("auth-welcome-page");
+            }
+        });
+    });
+
+    document.querySelectorAll("[data-toggle-password]").forEach(button => {
+        button.addEventListener("click", () => {
+            const input = document.getElementById(button.dataset.togglePassword);
+            if (!input) return;
+
+            const show = input.type === "password";
+            input.type = show ? "text" : "password";
+            button.textContent = show ? "Hide" : "Show";
+            button.setAttribute(
+                "aria-label",
+                show ? "Hide password" : "Show password"
+            );
+        });
+    });
+
+    function authPasswordChecks() {
+        const password = authPasswordInput?.value || "";
+        const confirm = authConfirmPassword?.value || "";
+
+        const checks = {
+            length: password.length >= 8,
+            upper: /[A-Z]/.test(password),
+            lower: /[a-z]/.test(password),
+            number: /[0-9]/.test(password),
+            special: /[^A-Za-z0-9]/.test(password),
+            match: password.length > 0 && password === confirm
+        };
+
+        Object.entries(checks).forEach(([key, valid]) => {
+            const item = document.getElementById("auth-rule-" + key);
+            if (!item) return;
+
+            item.classList.toggle("valid", valid);
+            const text = item.textContent.replace(/^[○✓]\s*/, "");
+            item.textContent = (valid ? "✓ " : "○ ") + text;
+        });
+
+        return checks;
+    }
+
+    authPasswordInput?.addEventListener("input", authPasswordChecks);
+    authConfirmPassword?.addEventListener("input", authPasswordChecks);
+
+    authEmailForm?.addEventListener("submit", event => {
+        event.preventDefault();
+
+        const email = authEmailInput.value.trim().toLowerCase();
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            authShowNotice(
+                "Check your email",
+                "Enter a valid email address and try again."
+            );
+            return;
+        }
+
+        authPendingEmail = email;
+
+        /*
+         * IMPORTANT:
+         * Email existence lookup belongs on the authentication server.
+         * This prototype intentionally does not pretend to query a database
+         * or tell users whether a real account exists.
+         */
+        authShowNotice(
+            "Authentication not connected yet",
+            "The email account lookup will work once Secret Crush is connected to an authentication provider. No account has been created yet."
+        );
+    });
+
+    authPasswordForm?.addEventListener("submit", event => {
+        event.preventDefault();
+
+        const checks = authPasswordChecks();
+        const valid = Object.values(checks).every(Boolean);
+
+        if (!valid) {
+            authShowNotice(
+                "Password requirements",
+                "Use at least 8 characters, including uppercase and lowercase letters, a number and a special character. Both password fields must match."
+            );
+            return;
+        }
+
+        /*
+         * Do not save a password or claim account creation here.
+         * The password must be sent over HTTPS to a real authentication
+         * provider, which should manage password hashing and verification.
+         */
+        authShowNotice(
+            "Account creation not connected yet",
+            "Your password meets the required format. Secure account creation will be enabled when the authentication provider is connected."
+        );
+    });
+
+    authLoginForm?.addEventListener("submit", event => {
+        event.preventDefault();
+
+        const email = authLoginEmail.value.trim().toLowerCase();
+        const password = document.getElementById("auth-login-password").value;
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !password) {
+            authShowNotice(
+                "Complete your details",
+                "Enter the email address and password for your account."
+            );
+            return;
+        }
+
+        authShowNotice(
+            "Login not connected yet",
+            "Your credentials have not been sent or checked. Connect Secret Crush to an authentication provider to verify your account and restore your saved data."
+        );
+    });
+
+    document.getElementById("auth-google-button")?.addEventListener("click", () => {
+        authShowNotice(
+            "Google sign-in not connected yet",
+            "Google authentication requires a configured authentication provider and authorised app settings. This button is ready for that integration, but it does not sign you in yet."
+        );
+    });
+
+    document.getElementById("auth-forgot-password")?.addEventListener("click", () => {
+        authShowNotice(
+            "Password recovery",
+            "Password recovery will use the authentication provider to send a verified reset link to your email address. That service has not been connected yet."
+        );
+    });
+
+    /*
+     * Expose a single navigation entry point for the existing splash flow.
+     * The authentication screens are UI only until server authentication
+     * and account-scoped data storage have been implemented.
+     */
+/* MODULE: DEVELOPMENT MODE — TEMPORARY AUTHENTICATION BYPASS */
+
+window.openSecretCrushAuth = function() {
+    const registrationPage = document.getElementById(
+        "registration-page-1"
+    );
+
+    if (!registrationPage) {
+        console.error(
+            "Secret Crush: registration-page-1 was not found."
+        );
+        return;
+    }
+
+    // Hide the splash, Cupid intro and other screens.
+    document.querySelectorAll(".screen").forEach(screen => {
+        screen.classList.remove("active");
+    });
+
+    // Hide any previously active app pages.
+    document.querySelectorAll(".app-page").forEach(page => {
+        page.classList.remove("active");
+    });
+
+    // Open the real first registration screen.
+    registrationPage.classList.add("active");
+
+    // Keep app navigation hidden during registration.
+    if (typeof hideAppNavigation === "function") {
+        hideAppNavigation();
+    }
+};
+
+
+})();
