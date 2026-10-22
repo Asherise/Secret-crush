@@ -1771,6 +1771,22 @@ function SC_Filters_GetPillLabel(scope, type){
 FILTER PILL LABELS
 ===================================================== */
 
+function SC_Filters_NormaliseYear(value){
+
+    const match = String(value || "").match(/\d+/);
+
+    if(!match){
+        return String(value || "");
+    }
+
+    const n = parseInt(match[0], 10);
+
+    return ["","1st","2nd","3rd","4th","5th","6th"][n] || "+6";
+
+}
+
+
+
 function SC_Filters_UpdatePillLabels(){
 
     /*
@@ -2935,8 +2951,16 @@ function SC_Filters_ShowPrimarySchoolWarning(){
 /* =====================================================
 APPLY FILTERS TO CARDS
 ===================================================== */
-function SC_Filters_Apply(scope){
-
+function SC_Filters_Apply(scope) {
+    
+    if (
+        scope === "home" &&
+        typeof window.SC_RenderHomeRecommendations === "function"
+    ) {
+        window.SC_RenderHomeRecommendations();
+        return;
+    }
+    
     const cards =
         scope === "home"
             ? document.querySelectorAll(
@@ -2979,9 +3003,10 @@ function SC_Filters_Apply(scope){
             "";
 
 
-        const year =
-            card.dataset.year ||
-            "";
+                const year =
+            SC_Filters_NormaliseYear(
+                card.dataset.year || ""
+            );
 
 
         const gender =
@@ -18424,24 +18449,61 @@ document.addEventListener(
             });
 
 
-        if(
-            post &&
-            !person.posts.some(
-                item =>
-                    item?.id === post.id
-            )
-        ){
+        
+/* =====================================================
+   MODULE: PROFILE OPENING — RESTORE OWNER MOMENTS
+===================================================== */
 
-            person.posts.push(
-                post
-            );
+const source = SC_Profile_FindSource({
+    id: person.id || person.userId || "",
+    userId: person.userId || person.id || "",
+    name: person.name || name,
+    username: person.username || ""
+});
 
-        }
+const existingPosts = Array.isArray(person.posts)
+    ? person.posts
+    : [];
 
+const combinedPosts = [
+    ...source.posts,
+    ...existingPosts
+];
 
-        openSecretCrushUserProfile(
-            person
-        );
+/* Keep each post only once, using its actual post ID. */
+const uniquePosts = [];
+const seenPostIds = new Set();
+
+combinedPosts.forEach(item => {
+    if (!item || !item.id) {
+        return;
+    }
+
+    const id = String(item.id);
+
+    if (seenPostIds.has(id)) {
+        return;
+    }
+
+    seenPostIds.add(id);
+    uniquePosts.push(item);
+});
+
+/* Keep the selected post available if it is not stored locally. */
+if (
+    post &&
+    post.id &&
+    !seenPostIds.has(String(post.id))
+) {
+    uniquePosts.push(post);
+}
+
+person = {
+    ...person,
+    posts: uniquePosts
+};
+
+openSecretCrushUserProfile(person);
 
     }
 );
@@ -20347,26 +20409,44 @@ if (mutualProfileContent) {
    PROFILE MOMENT MEDIA — VIDEO ID RECOVERY
 ===================================================== */
 
-function SC_Profile_GetVideoMediaId(post) {
-    if (!post) return "";
+/* =====================================================
+   MODULE: PROFILE MOMENTS — VIDEO MEDIA ID RESOLUTION
+===================================================== */
 
-    // Use the stored media ID whenever it exists.
+function SC_Profile_GetVideoMediaId(post) {
+    if (!post) {
+        return "";
+    }
+
+    /*
+     * Prefer the original stored media ID.
+     */
     if (post.videoMediaId) {
         return String(post.videoMediaId);
     }
 
-    // Videos created by the moment composer are stored
-    // using the post ID followed by "-video".
+    /*
+     * Recover the ID for older video records that
+     * use the post ID plus "-video" convention.
+     */
+    const type = String(
+        post.mediaType ||
+        post.type ||
+        ""
+    ).toLowerCase();
+
     const isVideo =
-        String(post.mediaType || "").toLowerCase() === "video" ||
-        String(post.type || "").toLowerCase() === "video";
+        type === "video" ||
+        post.isVideo === true ||
+        Boolean(post.videoDuration && post.video);
 
     if (isVideo && post.id) {
-        return String(post.id) + "-video";
+        return `${post.id}-video`;
     }
 
     return "";
 }
+
 
 
 /* =====================================================
@@ -48631,49 +48711,177 @@ function SC_Moment_RefreshAllLikeUI() {
     }
 }
 
-/* About statement: use the person's own value, else look it up. */
-/* Find the saved data (about, interests, moments) that belongs to a person. */
+
+/* =====================================================
+   MODULE: PROFILE — CANONICAL MOMENT LOOKUP
+   Resolve moments by permanent owner ID first.
+   Use names only for legacy posts without owner IDs.
+===================================================== */
+
 function SC_Profile_FindSource(crush) {
-    const norm = v => String(v || "").trim().toLowerCase();
-    const out = { about: "", interests: [], posts: [] };
-    if (!crush) return out;
+    const normalize = value =>
+        String(value || "").trim().toLowerCase();
 
-    let me = null;
-    try { me = getCurrentProfile(); } catch (e) {}
+    const result = {
+        about: "",
+        interests: [],
+        posts: []
+    };
 
-    const names = [norm(crush.name), norm(crush.username)].filter(Boolean);
-    const isMe = !!(me && (
-        (me.userId && me.userId === crush.id) ||
-        names.includes(norm(me.name)) ||
-        names.includes(norm(me.username))
-    ));
+    if (!crush) {
+        return result;
+    }
 
-    let saved = [];
+    let currentProfile = null;
+
     try {
-        saved = JSON.parse(localStorage.getItem("secretCrushMoments") || "[]");
-    } catch (e) {}
-    if (!Array.isArray(saved)) saved = [];
-
-    const mine = saved.filter(p => {
-        if (!p) return false;
-        if (crush.id && (p.ownerId === crush.id || p.userId === crush.id)) return true;
-        if (isMe && me.userId && (p.ownerId === me.userId || p.userId === me.userId)) return true;
-        return names.length > 0 && (names.includes(norm(p.name)) || names.includes(norm(p.username)));
-    });
-
-    out.posts = mine;
-
-    if (isMe && me) {
-        out.about = String(me.about || "").trim();
-        out.interests = Array.isArray(me.interests) ? me.interests : [];
+        currentProfile = getCurrentProfile();
+    } catch (error) {
+        console.warn(
+            "Could not read current profile:",
+            error
+        );
     }
-    const withAbout = mine.find(p => p.about);
-    if (!out.about && withAbout) out.about = String(withAbout.about).trim();
-    if (!out.interests.length) {
-        const withInterests = mine.find(p => Array.isArray(p.interests) && p.interests.length);
-        if (withInterests) out.interests = withInterests.interests;
+
+    let savedPosts = [];
+
+    try {
+        const stored = JSON.parse(
+            localStorage.getItem("secretCrushMoments") || "[]"
+        );
+
+        if (Array.isArray(stored)) {
+            savedPosts = stored.filter(
+                post => post && post.id
+            );
+        }
+    } catch (error) {
+        console.error(
+            "Could not read saved moments:",
+            error
+        );
     }
-    return out;
+
+    const profileId = String(
+        crush.id ||
+        crush.userId ||
+        crush.ownerId ||
+        ""
+    );
+
+    const currentUserId = String(
+        currentProfile?.userId || ""
+    );
+
+    const isCurrentUser = Boolean(
+        currentUserId &&
+        profileId &&
+        currentUserId === profileId
+    );
+
+    const targetNames = [
+        normalize(crush.name),
+        normalize(crush.username)
+    ].filter(Boolean);
+
+    /*
+     * First choice: exact permanent owner ID.
+     * Never mix another owner's identified posts
+     * into this person's profile.
+     */
+    let ownedPosts = profileId
+        ? savedPosts.filter(post =>
+            String(post.ownerId || post.userId || "") ===
+            profileId
+        )
+        : [];
+
+    /*
+     * Legacy fallback: older posts may have no owner ID.
+     * Only use a name match for those unidentified records.
+     */
+    if (ownedPosts.length === 0 && targetNames.length) {
+        ownedPosts = savedPosts.filter(post => {
+            const postOwnerId = String(
+                post.ownerId || post.userId || ""
+            );
+
+            if (postOwnerId) {
+                return false;
+            }
+
+            return [
+                normalize(post.name),
+                normalize(post.username)
+            ].some(name =>
+                name && targetNames.includes(name)
+            );
+        });
+    }
+
+    /*
+     * For the current user's own profile, also recognise
+     * older posts explicitly marked as the user's posts.
+     */
+    if (isCurrentUser) {
+        const knownIds = new Set(
+            ownedPosts.map(post => String(post.id))
+        );
+
+        savedPosts.forEach(post => {
+            if (
+                post.isUserPost === true &&
+                !post.ownerId &&
+                !post.userId &&
+                !knownIds.has(String(post.id))
+            ) {
+                ownedPosts.push(post);
+                knownIds.add(String(post.id));
+            }
+        });
+
+        result.about = String(
+            currentProfile.about || ""
+        ).trim();
+
+        result.interests = Array.isArray(
+            currentProfile.interests
+        )
+            ? currentProfile.interests
+            : [];
+    }
+
+    result.posts = ownedPosts.sort(
+        (a, b) =>
+            new Date(b.createdAt || 0) -
+            new Date(a.createdAt || 0)
+    );
+
+    if (!result.about) {
+        const postWithAbout = result.posts.find(
+            post => post.about
+        );
+
+        if (postWithAbout) {
+            result.about = String(
+                postWithAbout.about
+            ).trim();
+        }
+    }
+
+    if (!result.interests.length) {
+        const postWithInterests = result.posts.find(
+            post =>
+                Array.isArray(post.interests) &&
+                post.interests.length
+        );
+
+        if (postWithInterests) {
+            result.interests = postWithInterests.interests;
+        }
+    }
+
+    return result;
 }
 
 function SC_Profile_ResolveAbout(crush) {
@@ -48706,7 +48914,12 @@ function SC_OpenPosterProfile(postId) {
         gender: post.gender || "",
         about: post.about || "",
         interests: Array.isArray(post.interests) ? post.interests : [],
-        posts: []
+        posts: SC_Profile_FindSource({
+    id: post.ownerId || post.userId || "",
+    userId: post.ownerId || post.userId || "",
+    name: post.name || "",
+    username: post.username || ""
+}).posts
     };
 
     try {
@@ -50349,8 +50562,9 @@ and feed content. This is frontend/localStorage behavior, not a backend.
             person?.university ||
             "",
 
-        faculty: person?.faculty || "",
-        year: person?.year || ""
+                faculty: person?.faculty || "",
+        year: person?.year || "",
+        gender: person?.gender || ""
     });
 
     const getMe = () => {
@@ -50505,15 +50719,41 @@ and feed content. This is frontend/localStorage behavior, not a backend.
 
         if(!grid) return;
 
+                const filters =
+            (typeof SC_activeFilters !== "undefined" &&
+                SC_activeFilters.home) ||
+            { school: [], faculty: [], year: [], gender: [] };
+
+        const hasActiveFilter = Object.values(filters).some(
+            list => Array.isArray(list) && list.length
+        );
+
+        const matchesHomeFilters = raw => {
+            const person = profileOf(raw);
+
+            const yearKey =
+                typeof SC_Filters_NormaliseYear === "function"
+                    ? SC_Filters_NormaliseYear(person.year)
+                    : person.year;
+
+            return (
+                (!filters.school.length  || filters.school.includes(person.school)) &&
+                (!filters.faculty.length || filters.faculty.includes(person.faculty)) &&
+                (!filters.year.length    || filters.year.includes(yearKey)) &&
+                (!filters.gender.length  || filters.gender.includes(person.gender))
+            );
+        };
+
         const following = readArray(
             "secretCrushFollowing"
-        );
+        ).filter(matchesHomeFilters);
 
         const followers = readArray(
             "secretCrushFollowers"
-        );
+        ).filter(matchesHomeFilters);
 
         const history = readHistory();
+        
         const used = new Set();
 
         // First try to select two people the user follows.
@@ -50596,8 +50836,11 @@ and feed content. This is frontend/localStorage behavior, not a backend.
         if(!selected.length){
             grid.innerHTML = `
                 <div class="home-discovery-empty">
-                    Follow people or connect with followers
-                    to see your network recommendations here.
+                    ${
+                        hasActiveFilter
+                            ? "No one in your network matches these filters. Try changing or clearing them."
+                            : "Follow people or connect with followers to see your network recommendations here."
+                    }
                 </div>
             `;
 
@@ -51147,7 +51390,7 @@ and feed content. This is frontend/localStorage behavior, not a backend.
                 }
             );
         }
-
+        window.SC_RenderHomeRecommendations = renderRecommendations;
 
         byId("refresh-recommendations")
             ?.addEventListener("click", event => {
