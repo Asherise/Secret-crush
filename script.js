@@ -52136,13 +52136,54 @@ UI PROTOTYPE: server authentication is not connected yet.
      * The authentication screens are UI only until server authentication
      * and account-scoped data storage have been implemented.
      */
-/* MODULE: DEVELOPMENT MODE — TEMPORARY AUTHENTICATION BYPASS */
+
+/* MODULE: DEVELOPMENT MODE — RESTORE SAVED LOCAL PROFILE */
 
 window.openSecretCrushAuth = function() {
     const registrationPage = document.getElementById(
         "registration-page-1"
     );
 
+    const savedProfile = localStorage.getItem(
+        "secretCrushProfile"
+    );
+
+    const savedSession = localStorage.getItem(
+        "secretCrushSession"
+    );
+
+    // If a saved profile exists, try to restore it.
+    if (savedProfile) {
+        try {
+            const profile = JSON.parse(savedProfile);
+
+            if (
+                profile &&
+                typeof profile === "object" &&
+                profile.userId
+            ) {
+                // Restore a missing local prototype session token.
+                // This is not real server authentication.
+                if (!savedSession) {
+                    localStorage.setItem(
+                        "secretCrushSession",
+                        createSessionToken()
+                    );
+                }
+
+                // openHomepage() also checks Terms acceptance.
+                openHomepage();
+                return;
+            }
+        } catch (error) {
+            console.error(
+                "Secret Crush: saved profile could not be read.",
+                error
+            );
+        }
+    }
+
+    // No usable saved profile: begin registration.
     if (!registrationPage) {
         console.error(
             "Secret Crush: registration-page-1 was not found."
@@ -52150,20 +52191,16 @@ window.openSecretCrushAuth = function() {
         return;
     }
 
-    // Hide the splash, Cupid intro and other screens.
     document.querySelectorAll(".screen").forEach(screen => {
         screen.classList.remove("active");
     });
 
-    // Hide any previously active app pages.
     document.querySelectorAll(".app-page").forEach(page => {
         page.classList.remove("active");
     });
 
-    // Open the real first registration screen.
     registrationPage.classList.add("active");
 
-    // Keep app navigation hidden during registration.
     if (typeof hideAppNavigation === "function") {
         hideAppNavigation();
     }
