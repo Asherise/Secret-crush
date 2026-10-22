@@ -51371,13 +51371,8 @@ const SC_INFO_DOCUMENTS = {
         title: "Terms & Conditions",
         html: `
             <p><strong>ASHERISE · Secret Crush</strong></p>
-            <p>Version 1.0 · Draft for review before public launch</p>
+            <p>Version 1.0</p>
 
-            <p class="sc-info-notice">
-                These terms explain the intended rules for using Secret Crush.
-                They must be reviewed against the final product, operator details
-                and applicable Kenyan law before public launch.
-            </p>
 
             <h2>1. Eligibility</h2>
             <p>Secret Crush is intended only for people aged 18 and above.
@@ -51576,9 +51571,11 @@ const SC_INFO_DOCUMENTS = {
     about: {
         title: "About Secret Crush",
         html: `
-            <p>Welcome to Secret Crush, powered by ASHERISE — an adults-only
-            social experience designed around profiles, moments, crushes,
-            clues, matches and conversations.</p>
+            <p>
+            Secret Crush is an interactive social platform designed to make meeting people, building friendships, and discovering unexpected connections more exciting. Through anonymous crushes, mystery clues, fun challenges, and mutual matches, users can uncover secret admirers, express interest, and connect with people from their campus and beyond. With private chats, shared moments, and personalized profiles, Secret Crush blends social discovery, entertainment, and authentic connections into one engaging experience.
+            <br>
+
+Secret Crush — Someone likes you… but who? 💜</p>
 
             <div class="sc-guide-card">
                 <h2>1. Create your profile</h2>
