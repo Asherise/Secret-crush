@@ -18125,338 +18125,194 @@ feedUserSearchClear?.addEventListener(
     }
 );
 
-
 /* =====================================================
-PROFILE OPENING FROM FEED / HOMEPAGE
+MODULE: PROFILE OPENING FROM FEED / HOMEPAGE
+Restore the original post and the owner's saved moments.
 ===================================================== */
 
-document.addEventListener(
-    "click",
-    event => {
+document.addEventListener("click", event => {
+const trigger = event.target.closest(
+".feed-user-info img, " +
+".feed-user-info h3, " +
+".moment-user img, " +
+".moment-user h3, " +
+".home-post-user-info img, " +
+".home-post-user-info h3, " +
+".user-card > img, " +
+".user-card-info h3"
+);
 
-        const trigger =
-            event.target.closest(
-                ".feed-user-info img, " +
-                ".feed-user-info h3, " +
-                ".moment-user img, " +
-                ".moment-user h3, " +
-                ".home-post-user-info img, " +
-                ".home-post-user-info h3, " +
-                ".user-card > img, " +
-                ".user-card-info h3"
+if (!trigger) {
+    return;
+}
+
+const feedCard = trigger.closest(".feed-card");
+const homePost = trigger.closest(".home-user-post");
+const momentPreview = trigger.closest(".moment-preview");
+const recommendation = trigger.closest(".user-card");
+
+let name = "";
+let photo = "";
+let school = "";
+let faculty = "";
+let year = "";
+let post = null;
+
+/* MODULE: Identify the clicked post and its owner. */
+
+const card = feedCard || homePost || momentPreview;
+
+if (feedCard) {
+    name = feedCard.querySelector(
+        ".feed-user-info h3"
+    )?.textContent?.trim() || "";
+
+    photo = feedCard.querySelector(
+        ".feed-user-info img"
+    )?.src || "";
+
+    const academic = feedCard.querySelector(
+        ".feed-user-info p"
+    )?.textContent?.trim() || "";
+
+    const parsed = SC_Search_ParseAcademicText(academic);
+
+    school =
+        feedCard.dataset.school ||
+        feedCard.dataset.institution ||
+        parsed.school;
+
+    faculty = feedCard.dataset.faculty || parsed.faculty;
+    year = feedCard.dataset.year || parsed.year;
+} else if (homePost) {
+    name = homePost.querySelector(
+        ".home-post-user-info h3"
+    )?.textContent?.trim() || "";
+
+    photo = homePost.querySelector(
+        ".home-post-user-info img"
+    )?.src || "";
+
+    const parsed = SC_Search_ParseAcademicText(
+        homePost.querySelector(
+            ".home-post-user-info p"
+        )?.textContent || ""
+    );
+
+    school = parsed.school;
+    faculty = parsed.faculty;
+    year = parsed.year;
+} else if (momentPreview) {
+    name = momentPreview.querySelector(
+        ".moment-user h3"
+    )?.textContent?.trim() || "";
+
+    photo = momentPreview.querySelector(
+        ".moment-user img"
+    )?.src || "";
+
+    school = momentPreview.querySelector(
+        ".moment-user p"
+    )?.textContent?.trim() || "";
+} else if (recommendation) {
+    name = recommendation.querySelector(
+        "h3"
+    )?.textContent?.trim() || "";
+
+    photo = recommendation.querySelector(
+        "img"
+    )?.src || "";
+
+    school = recommendation.querySelector(
+        "p"
+    )?.textContent?.trim() || "";
+
+    const parsed = SC_Search_ParseAcademicText(
+        recommendation.querySelector("small")?.textContent || ""
+    );
+
+    faculty = parsed.faculty;
+    year = parsed.year;
+}
+
+if (!name) {
+    return;
+}
+
+/* MODULE: Recover the original saved post. */
+
+if (card) {
+    const postId = card.dataset.postId || "";
+
+    if (postId) {
+        try {
+            const savedMoments = JSON.parse(
+                localStorage.getItem("secretCrushMoments") || "[]"
             );
 
-
-        if(!trigger){
-            return;
-        }
-
-
-        const feedCard =
-            trigger.closest(
-                ".feed-card"
+            if (Array.isArray(savedMoments)) {
+                post = savedMoments.find(
+                    item =>
+                        item &&
+                        String(item.id) === String(postId)
+                ) || null;
+            }
+        } catch (error) {
+            console.error(
+                "Secret Crush: Could not restore the selected post.",
+                error
             );
-
-
-        const homePost =
-            trigger.closest(
-                ".home-user-post"
-            );
-
-
-        const momentPreview =
-            trigger.closest(
-                ".moment-preview"
-            );
-
-
-        const recommendation =
-            trigger.closest(
-                ".user-card"
-            );
-
-
-        let name = "";
-        let photo = "";
-        let school = "";
-        let faculty = "";
-        let year = "";
-        let post = null;
-
-
-        if(feedCard){
-
-            name =
-                feedCard.querySelector(
-                    ".feed-user-info h3"
-                )?.textContent?.trim() ||
-                "";
-
-
-            photo =
-                feedCard.querySelector(
-                    ".feed-user-info img"
-                )?.src ||
-                "";
-
-
-            const academic =
-                feedCard.querySelector(
-                    ".feed-user-info p"
-                )?.textContent?.trim() ||
-                "";
-
-
-            const parsed =
-                SC_Search_ParseAcademicText(
-                    academic
-                );
-
-
-            school =
-                feedCard.dataset.school ||
-                feedCard.dataset.institution ||
-                parsed.school;
-
-
-            faculty =
-                feedCard.dataset.faculty ||
-                parsed.faculty;
-
-
-            year =
-                feedCard.dataset.year ||
-                parsed.year;
-
-
-            post = {
-
-                id:
-                    feedCard.dataset.postId,
-
-                image:
-                    feedCard.querySelector(
-                        ".feed-media img"
-                    )?.src ||
-                    "",
-
-                caption:
-                    feedCard.querySelector(
-                        ".feed-caption"
-                    )?.textContent?.trim() ||
-
-                    feedCard.querySelector(
-                        ".feed-post-text"
-                    )?.textContent?.trim() ||
-
-                    "",
-
-                likes:
-                    feedCard.querySelector(
-                        ".like-action .like-count"
-                    )?.textContent ||
-                    0
-
-            };
-
         }
-
-
-        else if(homePost){
-
-            name =
-                homePost.querySelector(
-                    ".home-post-user-info h3"
-                )?.textContent?.trim() ||
-                "";
-
-
-            photo =
-                homePost.querySelector(
-                    ".home-post-user-info img"
-                )?.src ||
-                "";
-
-
-            const parsed =
-                SC_Search_ParseAcademicText(
-                    homePost.querySelector(
-                        ".home-post-user-info p"
-                    )?.textContent ||
-                    ""
-                );
-
-
-            school =
-                parsed.school;
-
-            faculty =
-                parsed.faculty;
-
-            year =
-                parsed.year;
-
-
-            post = {
-
-                id:
-                    homePost.dataset.postId,
-
-                image:
-                    homePost.querySelector(
-                        ".home-post-media img"
-                    )?.src ||
-                    "",
-
-                caption:
-                    homePost.querySelector(
-                        ".home-post-caption"
-                    )?.textContent?.trim() ||
-
-                    homePost.querySelector(
-                        ".home-post-text"
-                    )?.textContent?.trim() ||
-
-                    ""
-
-            };
-
-        }
-
-
-        else if(momentPreview){
-
-            name =
-                momentPreview.querySelector(
-                    ".moment-user h3"
-                )?.textContent?.trim() ||
-                "";
-
-
-            photo =
-                momentPreview.querySelector(
-                    ".moment-user img"
-                )?.src ||
-                "";
-
-
-            school =
-                momentPreview.querySelector(
-                    ".moment-user p"
-                )?.textContent?.trim() ||
-                "";
-
-
-            post = {
-
-                id:
-                    `moment-preview-${SC_Search_Slug(name)}`,
-
-                image:
-                    momentPreview.querySelector(
-                        ".moment-image"
-                    )?.src ||
-                    "",
-
-                caption:""
-
-            };
-
-        }
-
-
-        else if(recommendation){
-
-            name =
-                recommendation.querySelector(
-                    "h3"
-                )?.textContent?.trim() ||
-                "";
-
-
-            photo =
-                recommendation.querySelector(
-                    "img"
-                )?.src ||
-                "";
-
-
-            school =
-                recommendation.querySelector(
-                    "p"
-                )?.textContent?.trim() ||
-                "";
-
-
-            const parsed =
-                SC_Search_ParseAcademicText(
-                    recommendation.querySelector(
-                        "small"
-                    )?.textContent ||
-                    ""
-                );
-
-
-            faculty =
-                parsed.faculty;
-
-            year =
-                parsed.year;
-
-        }
-
-
-        if(!name){
-            return;
-        }
-
-
-        const users =
-            SC_Search_IndexCurrentUsers();
-
-
-        const person =
-            users.find(
-                item =>
-                    SC_Search_NormalizeText(
-                        item.name
-                    ) ===
-                    SC_Search_NormalizeText(
-                        name
-                    )
-            ) ||
-
-            SC_Search_MakePublicDemoPerson({
-
-                id:
-                    `user-${SC_Search_Slug(name)}`,
-
-                name,
-
-                photo,
-
-                school,
-
-                faculty,
-
-                year,
-
-                posts:
-                    post
-                        ? [post]
-                        : []
-
-            });
-
-
-        
-/* =====================================================
-   MODULE: PROFILE OPENING — RESTORE OWNER MOMENTS
-===================================================== */
+    }
+
+    /* Fallback if the saved record is unavailable. */
+    if (!post) {
+        post = {
+            id: postId,
+            ownerId:
+                card.dataset.ownerId ||
+                card.dataset.userId ||
+                "",
+            userId: card.dataset.userId || "",
+            name,
+            profilePicture: photo,
+            image:
+                card.querySelector("img")?.src || "",
+            caption:
+                card.querySelector(".feed-caption")?.textContent?.trim() ||
+                card.querySelector(".feed-post-text")?.textContent?.trim() ||
+                card.querySelector(".home-post-caption")?.textContent?.trim() ||
+                card.querySelector(".home-post-text")?.textContent?.trim() ||
+                ""
+        };
+    }
+}
+
+/* MODULE: Resolve the profile. */
+
+const users = SC_Search_IndexCurrentUsers();
+
+let person =
+    users.find(item =>
+        SC_Search_NormalizeText(item.name) ===
+        SC_Search_NormalizeText(name)
+    ) ||
+    SC_Search_MakePublicDemoPerson({
+        id: post?.ownerId || post?.userId || `user-${SC_Search_Slug(name)}`,
+        name,
+        photo,
+        school,
+        faculty,
+        year,
+        posts: post ? [post] : []
+    });
+
+/* MODULE: Merge the owner's saved moments. */
 
 const source = SC_Profile_FindSource({
-    id: person.id || person.userId || "",
-    userId: person.userId || person.id || "",
+    id: person.id || person.userId || post?.ownerId || "",
+    userId: person.userId || person.id || post?.userId || "",
+    ownerId: post?.ownerId || "",
     name: person.name || name,
     username: person.username || ""
 });
@@ -18465,38 +18321,24 @@ const existingPosts = Array.isArray(person.posts)
     ? person.posts
     : [];
 
-const combinedPosts = [
-    ...source.posts,
-    ...existingPosts
-];
-
-/* Keep each post only once, using its actual post ID. */
 const uniquePosts = [];
 const seenPostIds = new Set();
 
-combinedPosts.forEach(item => {
-    if (!item || !item.id) {
-        return;
-    }
+[...source.posts, ...existingPosts, ...(post ? [post] : [])]
+    .forEach(item => {
+        if (!item || !item.id) {
+            return;
+        }
 
-    const id = String(item.id);
+        const id = String(item.id);
 
-    if (seenPostIds.has(id)) {
-        return;
-    }
+        if (seenPostIds.has(id)) {
+            return;
+        }
 
-    seenPostIds.add(id);
-    uniquePosts.push(item);
-});
-
-/* Keep the selected post available if it is not stored locally. */
-if (
-    post &&
-    post.id &&
-    !seenPostIds.has(String(post.id))
-) {
-    uniquePosts.push(post);
-}
+        seenPostIds.add(id);
+        uniquePosts.push(item);
+    });
 
 person = {
     ...person,
@@ -18505,8 +18347,7 @@ person = {
 
 openSecretCrushUserProfile(person);
 
-    }
-);
+});
     
     
     /* =====================================================

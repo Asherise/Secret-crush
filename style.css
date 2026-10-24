@@ -32096,3 +32096,34 @@ MODULE: AUTHENTICATION — WELCOME & ACCOUNT SCREENS
     pointer-events: auto;
     touch-action: manipulation;
 }
+
+
+/* =====================================================
+   MODULE: PROFILE MOMENTS — VIEWER LAYERING FIX
+   Keep the selected profile's moment viewer above
+   both the fullscreen feed and the profile overlay.
+===================================================== */
+
+#mutual-profile-post-viewer.active {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    z-index: 7000 !important;
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Keep the profile moment viewer interactive. */
+#mutual-profile-post-viewer.active .sc-profile-moment-shell,
+#mutual-profile-post-viewer.active #sc-profile-moment-scroll {
+    pointer-events: auto;
+}
+
+/* Keep its close button above the moment media. */
+#mutual-profile-post-viewer.active .sc-profile-moment-close {
+    position: absolute;
+    z-index: 7010;
+}
