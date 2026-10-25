@@ -1007,13 +1007,77 @@ let selectedProfilePicture="";
 /* =====================================================
 MODULE: MASTER STARTUP
 ===================================================== */
+
+/* =====================================================
+MODULE: LAST SCREEN — SAVE & RESTORE
+Only the six bottom-navigation pages are restorable.
+===================================================== */
+function SC_GetRestorableScreens(){
+    return ["home","feed","bank","chats","profile","settings"];
+}
+function SC_SaveLastScreen(page){
+    try{
+        if(!SC_GetRestorableScreens().includes(page))return;
+        const profile=JSON.parse(
+            localStorage.getItem("secretCrushProfile")||"null"
+        );
+        if(!profile||!profile.userId)return;
+        localStorage.setItem(
+            "secretCrushLastScreen",
+            JSON.stringify({page,userId:profile.userId,savedAt:Date.now()})
+        );
+    }catch(error){
+        console.warn("Could not save last screen.",error);
+    }
+}
+function SC_ReadLastScreen(){
+    try{
+        const saved=JSON.parse(
+            localStorage.getItem("secretCrushLastScreen")||"null"
+        );
+        const profile=JSON.parse(
+            localStorage.getItem("secretCrushProfile")||"null"
+        );
+        if(!saved||!profile||!profile.userId)return "";
+        if(saved.userId!==profile.userId)return "";
+        if(!SC_GetRestorableScreens().includes(saved.page))return "";
+        return saved.page;
+    }catch(error){
+        return "";
+    }
+}
+function SC_RestoreLastScreen(page){
+    if(!page||page==="home")return;
+    if(!localStorage.getItem("secretCrushSession"))return;
+    if(
+        typeof scHasAcceptedCurrentTerms==="function"&&
+        !scHasAcceptedCurrentTerms()
+    )return;
+    const navItem=document.querySelector(
+        `.nav-item[data-page="${page}"]`
+    );
+    if(navItem)navItem.click();
+}
+
+
+
 function startSecretCrushApp(){
     hideAppNavigation();
-
     if(!asheriseSplash||!cupidIntro)return;
-
+    let showIntro=true;
+    try{
+        showIntro=getSettings().showIntro!==false;
+    }catch(error){
+        showIntro=true;
+    }
+    if(!showIntro){
+        asheriseSplash.classList.remove("active");
+        cupidIntro.classList.remove("active");
+        /* Wait until the other DOMContentLoaded setup has run. */
+        setTimeout(continueAfterIntro,0);
+        return;
+    }
     setTimeout(transitionToCupid,2200);
-    
 }
 
 /* =====================================================
@@ -1384,6 +1448,7 @@ function loadHomepageProfile(){
         profile=JSON.parse(savedProfile);
     }catch(error){
         localStorage.removeItem("secretCrushProfile");
+                    localStorage.removeItem("secretCrushLastScreen");
         localStorage.removeItem("secretCrushSession");
         return;
     }
@@ -5286,6 +5351,8 @@ function setActiveNavigation(page){
     if(activeItem){
 
         activeItem.classList.add("active");
+                SC_SaveLastScreen(page);
+                
 
     }
 
@@ -46032,7 +46099,10 @@ function SC_ReceiveSecretNote(
 
 
     SC_SecretNotes_Render();
-
+    
+    if(window.SC_NotificationEvents){
+        window.SC_NotificationEvents.secretNoteReceived(note);
+    }
 
     return note;
 
@@ -47297,7 +47367,9 @@ const SC_MutualSync = {
         }
 
         SC_Mutual_ProcessNotices();
-
+        if(window.SC_NotificationEvents){
+            window.SC_NotificationEvents.mutualCrushFormed(record);
+        }
         return record;
 
     },
@@ -47409,6 +47481,12 @@ const SC_MutualSync = {
         }
 
         SC_Mutual_ProcessNotices();
+                if(window.SC_NotificationEvents){
+            window.SC_NotificationEvents.messageFromMatch(
+                crushId,
+                record.firstMessage.text
+            );
+        }
 
         return record;
 
@@ -52282,8 +52360,10 @@ window.openSecretCrushAuth = function() {
                     );
                 }
 
+                const lastScreen = SC_ReadLastScreen();
                 // openHomepage() also checks Terms acceptance.
                 openHomepage();
+                SC_RestoreLastScreen(lastScreen);
                 return;
             }
         } catch (error) {
@@ -52721,6 +52801,7 @@ and a backend event listener in the future.
     };
 
     const activeNotifications = new Map();
+        const seenEventIds = new Set();
     const maximumVisible = 3;
     const defaultDuration = 5500;
 
@@ -52845,9 +52926,16 @@ and a backend event listener in the future.
             ].join("-")
         );
 
-        /* Avoid displaying the same event twice. */
-        if (activeNotifications.has(eventId)) {
+                /* Avoid displaying the same event twice, even after dismissal. */
+        if (
+            activeNotifications.has(eventId) ||
+            seenEventIds.has(eventId)
+        ) {
             return false;
+        }
+        seenEventIds.add(eventId);
+        if (seenEventIds.size > 200) {
+            seenEventIds.delete(seenEventIds.values().next().value);
         }
 
         const notification = {
@@ -53089,4 +53177,195 @@ and a backend event listener in the future.
 
     });
 
+})();
+
+
+/* =====================================================
+MODULE: SECRET CRUSH — NOTIFICATION EVENT BRIDGE
+Turns app records into notification events.
+Event creation lives here; display lives in the central
+notification manager above. A future backend listener
+should call these same four functions.
+===================================================== */
+(() => {
+    "use strict";
+
+    /* Only notify a signed-in user who has accepted the Terms. */
+    function canNotify() {
+        try {
+            if (!localStorage.getItem("secretCrushSession")) return false;
+            const profile = JSON.parse(
+                localStorage.getItem("secretCrushProfile") || "null"
+            );
+            if (!profile || !profile.userId) return false;
+            if (
+                typeof scHasAcceptedCurrentTerms === "function" &&
+                !scHasAcceptedCurrentTerms()
+            ) {
+                return false;
+            }
+            return Boolean(window.SC_Notifications);
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function preview(text, max = 90) {
+        const clean = String(text || "").replace(/\s+/g, " ").trim();
+        return clean.length > max
+            ? clean.slice(0, max - 1) + "…"
+            : clean;
+    }
+
+    function emit(eventData) {
+        if (!canNotify()) return false;
+        try {
+            return window.SC_Notifications.notify(eventData);
+        } catch (error) {
+            console.error("Secret Crush notification failed.", error);
+            return false;
+        }
+    }
+
+    /* ---------------- destinations ---------------- */
+
+    function openChatDestination(crushId) {
+        const crush = typeof SC_DEMO_CRUSHES !== "undefined"
+            ? SC_DEMO_CRUSHES.find(item => item.id === crushId)
+            : null;
+        if (!crush || typeof openMutualChatThread !== "function") return;
+        openMutualChatThread(crush);
+    }
+
+    function openMutualDestination(matchId) {
+        if (typeof openMutualCrushesPage === "function") {
+            openMutualCrushesPage();
+        }
+        if (
+            typeof SC_Mutual_FindCrush === "function" &&
+            typeof openMutualProfilePage === "function" &&
+            SC_Mutual_FindCrush(matchId)
+        ) {
+            openMutualProfilePage(matchId);
+        }
+    }
+
+    function openSecretNoteDestination(noteId) {
+        if (typeof openSecretNotes !== "function") return;
+        openSecretNotes();
+        try {
+            const exists =
+                typeof SC_SecretNotes_GetReceived === "function" &&
+                SC_SecretNotes_GetReceived().some(
+                    item => item.id === noteId
+                );
+            if (exists && typeof SC_SecretNotes_OpenNote === "function") {
+                SC_SecretNotes_OpenNote(noteId, "received");
+            }
+        } catch (error) {
+            console.warn("Could not open the secret note.", error);
+        }
+    }
+
+    function openNewCrushDestination() {
+        if (typeof openIncomingCrushes === "function") {
+            openIncomingCrushes();
+        }
+    }
+
+    /* ---------------- events ---------------- */
+
+    /* A match sent the first chat message (receiver side). */
+    function messageFromMatch(crushId, text) {
+        const crush = typeof SC_DEMO_CRUSHES !== "undefined"
+            ? SC_DEMO_CRUSHES.find(item => item.id === crushId)
+            : null;
+        if (!crush || typeof SC_Mutual_AsViewer !== "function") {
+            return false;
+        }
+        const viewer = SC_Mutual_AsViewer(crush);
+        return emit({
+            id: "message-first-" + crushId,
+            type: "message",
+            actor: {
+                id: crushId,
+                name: viewer.name,
+                photo: viewer.photo
+            },
+            message: "New message: " + (preview(text) || "Hey 👋"),
+            onClick() {
+                openChatDestination(crushId);
+            }
+        });
+    }
+
+    /* A crush this user sent became mutual (sender side). */
+    function mutualCrushFormed(record) {
+        if (!record || !record.id) return false;
+        const profile = record.profile || {};
+        return emit({
+            id: "mutual-" + record.id,
+            type: "mutualCrush",
+            actor: {
+                id: profile.id || record.id,
+                name: profile.name || profile.username || "Your crush",
+                photo: profile.photo || ""
+            },
+            message: "It's mutual! 💜 Your crush likes you back.",
+            onClick() {
+                openMutualDestination(record.id);
+            }
+        });
+    }
+
+    /* A secret note was received. Identity follows revealedFields. */
+    function secretNoteReceived(note) {
+        if (!note || !note.id) return false;
+        const revealed =
+            typeof SC_SecretNotes_GetRevealedFields === "function"
+                ? SC_SecretNotes_GetRevealedFields(note)
+                : [];
+        const person =
+            typeof SC_SecretNotes_GetPerson === "function"
+                ? SC_SecretNotes_GetPerson(note, "received") || {}
+                : {};
+        const showName = revealed.includes("name");
+        const showPhoto = revealed.includes("photo");
+        return emit({
+            id: "note-" + note.id,
+            type: "secretNote",
+            actor: {
+                id: note.id,
+                name: showName ? (person.name || "Someone") : "Someone",
+                photo: showPhoto ? (person.photo || "") : ""
+            },
+            message:
+                "New secret note: " +
+                (preview(note.note) || "Someone wrote to you."),
+            onClick() {
+                openSecretNoteDestination(note.id);
+            }
+        });
+    }
+
+    /* Incoming crushes are anonymous until revealed. */
+    function newCrushReceived(crush) {
+        if (!crush || !crush.id) return false;
+        return emit({
+            id: "crush-" + crush.id,
+            type: "newCrush",
+            actor: { id: crush.id, name: "Someone", photo: "" },
+            message: "New secret crush: someone has a crush on you.",
+            onClick() {
+                openNewCrushDestination();
+            }
+        });
+    }
+
+    window.SC_NotificationEvents = Object.freeze({
+        messageFromMatch,
+        mutualCrushFormed,
+        secretNoteReceived,
+        newCrushReceived
+    });
 })();
