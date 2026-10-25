@@ -51825,6 +51825,8 @@ function scOpenInfoPage(tab, fromGate = false) {
 }
 
 function scCloseInfoPage() {
+
+showAppNavigation();
     if (!scLegalPage) return;
     scLegalPage.classList.remove("active");
 
@@ -51843,6 +51845,7 @@ function scCloseInfoPage() {
     }
 
     openHomepage();
+    
 }
 
 document.querySelectorAll("[data-info-tab]").forEach(button => {
@@ -52295,5 +52298,776 @@ window.openSecretCrushAuth = function() {
     }
 };
 
+
+})();
+
+/* =====================================================
+MODULE: ACCOUNT MANAGEMENT — PROFILE DATA & NAVIGATION
+===================================================== */
+
+(() => {
+
+    const accountPage = document.getElementById(
+        "account-management-page"
+    );
+
+    const settingsPageElement = document.getElementById(
+        "settings-page"
+    );
+
+    const accountButton = document.querySelector(
+        '[data-settings-action="account"]'
+    );
+
+    const accountBackButton = document.getElementById(
+        "am-back-button"
+    );
+
+
+    if (!accountPage || !settingsPageElement || !accountButton) {
+        return;
+    }
+
+
+    /* ---------------------------------------------
+       READ SAVED PROFILE
+    --------------------------------------------- */
+
+    function amGetProfile() {
+
+        try {
+
+            return JSON.parse(
+                localStorage.getItem("secretCrushProfile") || "{}"
+            );
+
+        } catch (error) {
+
+            console.error(
+                "Account Management: Could not read profile.",
+                error
+            );
+
+            return {};
+
+        }
+
+    }
+
+
+    /* ---------------------------------------------
+       DISPLAY A SAFE TEXT VALUE
+    --------------------------------------------- */
+
+    function amSetText(id, value, fallback = "Not provided") {
+
+        const element = document.getElementById(id);
+
+        if (!element) return;
+
+        const text = String(value ?? "").trim();
+
+        element.textContent = text || fallback;
+
+    }
+
+
+    /* ---------------------------------------------
+       LOAD ACCOUNT DETAILS
+    --------------------------------------------- */
+
+    function amLoadProfile() {
+
+        const profile = amGetProfile();
+
+        const name = profile.name || "Your Name";
+
+        const username =
+            profile.username ||
+            profile.userName ||
+            (
+                profile.name
+                    ? "@" + profile.name
+                        .toLowerCase()
+                        .trim()
+                        .replace(/\s+/g, "")
+                    : "@username"
+            );
+
+        const picture = document.getElementById(
+            "am-profile-picture"
+        );
+
+        if (picture) {
+
+            picture.src =
+                profile.profilePicture || "";
+
+            picture.alt = name + " profile picture";
+
+        }
+
+
+        amSetText("am-profile-name", name, "Your Name");
+
+        amSetText("am-profile-username", username, "@username");
+
+        amSetText("am-full-name", profile.name);
+
+        amSetText("am-username", username, "Not set");
+
+        amSetText(
+            "am-profile-institution",
+            profile.institution,
+            "Institution not set"
+        );
+
+        amSetText(
+            "am-institution",
+            profile.institution
+        );
+
+        amSetText(
+            "am-faculty",
+            profile.faculty
+        );
+
+        amSetText(
+            "am-year",
+            profile.year
+                ? "Year " + profile.year
+                : ""
+        );
+
+        amSetText(
+            "am-gender",
+            profile.gender
+        );
+
+        amSetText(
+            "am-profile-academic-details",
+            [
+                profile.faculty || "Faculty not set",
+                profile.year ? "Year " + profile.year : "Year not set"
+            ].join(" · ")
+        );
+
+        amSetText(
+            "am-about",
+            profile.about,
+            "You haven't added an About statement yet."
+        );
+
+
+        /* -----------------------------------------
+           INTERESTS
+        ----------------------------------------- */
+
+        const interestsContainer = document.getElementById(
+            "am-interests"
+        );
+
+        if (interestsContainer) {
+
+            interestsContainer.replaceChildren();
+
+            let interests = profile.interests || [];
+
+            if (typeof interests === "string") {
+
+                interests = interests
+                    .split(",")
+                    .map(item => item.trim())
+                    .filter(Boolean);
+
+            }
+
+            if (!Array.isArray(interests)) {
+                interests = [];
+            }
+
+            if (interests.length) {
+
+                interests.forEach(interest => {
+
+                    const chip = document.createElement("span");
+
+                    chip.className = "am-interest-chip";
+
+                    chip.textContent = interest;
+
+                    interestsContainer.appendChild(chip);
+
+                });
+
+            } else {
+
+                const empty = document.createElement("span");
+
+                empty.className = "am-empty-value";
+
+                empty.textContent = "No interests added yet.";
+
+                interestsContainer.appendChild(empty);
+
+            }
+
+        }
+
+
+        /* -----------------------------------------
+           BACKGROUND IMAGE
+           Use a saved background if the app has one.
+        ----------------------------------------- */
+
+        const banner = document.getElementById(
+            "am-banner-background"
+        );
+
+        if (banner) {
+
+            const background =
+                profile.profileBackground ||
+                profile.backgroundImage ||
+                profile.profileBackgroundImage ||
+                "";
+
+            if (background) {
+
+                banner.style.backgroundImage =
+                    `url("${background.replace(/["\\]/g, "")}")`;
+
+            } else {
+
+                banner.style.backgroundImage = "";
+
+            }
+
+        }
+
+
+        /* -----------------------------------------
+           EMAIL
+           The current prototype does not persist an
+           authenticated email address on the profile.
+        ----------------------------------------- */
+
+        amSetText(
+            "am-email-address",
+            profile.email || profile.emailAddress,
+            "Email authentication not connected"
+        );
+
+    }
+
+
+    /* ---------------------------------------------
+       OPEN ACCOUNT MANAGEMENT
+    --------------------------------------------- */
+
+    function amOpenPage() {
+
+        amLoadProfile();
+
+        document.querySelectorAll(".screen").forEach(screen => {
+            screen.classList.remove("active");
+        });
+
+        document.querySelectorAll(".app-page").forEach(page => {
+            page.classList.remove("active");
+        });
+
+        accountPage.classList.add("active");
+
+        if (typeof hideAppNavigation === "function") {
+            hideAppNavigation();
+        }
+
+        accountPage.scrollTop = 0;
+
+    }
+
+
+    /* ---------------------------------------------
+       RETURN TO SETTINGS
+    --------------------------------------------- */
+
+    function amReturnToSettings() {
+
+        accountPage.classList.remove("active");
+
+        document.querySelectorAll(".app-page").forEach(page => {
+            page.classList.remove("active");
+        });
+
+        settingsPageElement.classList.add("active");
+
+        if (typeof showAppNavigation === "function") {
+            showAppNavigation();
+        }
+
+        if (typeof setActiveNavigation === "function") {
+            setActiveNavigation("settings");
+        }
+
+    }
+
+
+    accountButton.addEventListener("click", event => {
+
+        event.preventDefault();
+
+        amOpenPage();
+
+    });
+
+
+    accountBackButton?.addEventListener("click", amReturnToSettings);
+
+
+    /* ---------------------------------------------
+       CHANGE PASSWORD
+       Reuse the existing Settings password interface.
+    --------------------------------------------- */
+
+    document.getElementById(
+        "am-change-password-button"
+    )?.addEventListener("click", () => {
+
+        amReturnToSettings();
+
+        const changePasswordButton = document.getElementById(
+            "change-password-button"
+        );
+
+        if (changePasswordButton) {
+
+            changePasswordButton.click();
+
+        }
+
+    });
+
+
+})();
+
+
+/* =====================================================
+MODULE: SECRET CRUSH — CENTRAL NOTIFICATION MANAGER
+
+One entry point for all notification categories.
+Designed to accept events from local app logic now
+and a backend event listener in the future.
+===================================================== */
+
+(() => {
+
+    "use strict";
+
+    const host = document.getElementById(
+        "sc-notification-host"
+    );
+
+    if (!host) {
+        console.error(
+            "Secret Crush: Notification host is missing."
+        );
+        return;
+    }
+
+    const notificationTypes = {
+        message: {
+            setting: "messages",
+            title: "New message",
+            fallback: "You have a new message."
+        },
+
+        newCrush: {
+            setting: "newCrush",
+            title: "New secret crush",
+            fallback: "Someone has a secret crush on you."
+        },
+
+        secretNote: {
+            setting: "secretNotes",
+            title: "New secret note",
+            fallback: "Someone has sent you a secret note."
+        },
+
+        mutualCrush: {
+            setting: "mutualCrush",
+            title: "It's mutual!",
+            fallback: "You have a new mutual crush."
+        }
+    };
+
+    const activeNotifications = new Map();
+    const maximumVisible = 3;
+    const defaultDuration = 5500;
+
+    let notificationQueue = [];
+
+
+    /* ---------------------------------------------
+       READ SETTINGS SAFELY
+    --------------------------------------------- */
+
+    function readSettings() {
+
+        if (typeof getSettings === "function") {
+            try {
+                return getSettings();
+            } catch (error) {
+                console.warn(
+                    "Could not read notification settings.",
+                    error
+                );
+            }
+        }
+
+        try {
+            return {
+                notifications: true,
+                newCrush: true,
+                secretNotes: true,
+                mutualCrush: true,
+                messages: true,
+                ...JSON.parse(
+                    localStorage.getItem(
+                        "secretCrushSettings"
+                    ) || "{}"
+                )
+            };
+        } catch {
+            return {
+                notifications: true,
+                newCrush: true,
+                secretNotes: true,
+                mutualCrush: true,
+                messages: true
+            };
+        }
+    }
+
+
+    /* ---------------------------------------------
+       CHECK WHETHER A CATEGORY IS ENABLED
+    --------------------------------------------- */
+
+    function isEnabled(type) {
+
+        const config = notificationTypes[type];
+
+        if (!config) return false;
+
+        const settings = readSettings();
+
+        return settings.notifications === true &&
+            settings[config.setting] !== false;
+    }
+
+
+    /* ---------------------------------------------
+       CREATE A NOTIFICATION
+       
+       Supported event shape:
+       {
+           id,
+           type,
+           actor: {
+               id,
+               name,
+               photo
+           },
+           message,
+           onClick
+       }
+    --------------------------------------------- */
+
+    function notify(eventData = {}) {
+
+        if (!eventData || typeof eventData !== "object") {
+            return false;
+        }
+
+        const type = eventData.type;
+        const config = notificationTypes[type];
+
+        if (!config || !isEnabled(type)) {
+            return false;
+        }
+
+        const actor = eventData.actor || {};
+
+        const actorName = String(
+            actor.name ||
+            actor.displayName ||
+            "Someone"
+        ).trim().slice(0, 100);
+
+        const actorPhoto = String(
+            actor.photo ||
+            actor.profilePicture ||
+            ""
+        ).trim();
+
+        const message = String(
+            eventData.message ||
+            config.fallback
+        ).trim().slice(0, 240);
+
+        const eventId = String(
+            eventData.id ||
+            [
+                type,
+                actor.id || actorName,
+                Date.now(),
+                Math.random().toString(36).slice(2, 8)
+            ].join("-")
+        );
+
+        /* Avoid displaying the same event twice. */
+        if (activeNotifications.has(eventId)) {
+            return false;
+        }
+
+        const notification = {
+            id: eventId,
+            type,
+            title: actorName,
+            message,
+            photo: actorPhoto,
+            onClick: typeof eventData.onClick === "function"
+                ? eventData.onClick
+                : null,
+            duration: Math.max(
+                2000,
+                Math.min(
+                    Number(eventData.duration) ||
+                        defaultDuration,
+                    15000
+                )
+            )
+        };
+
+        if (host.children.length >= maximumVisible) {
+            notificationQueue.push(notification);
+            return true;
+        }
+
+        display(notification);
+
+        return true;
+    }
+
+
+    /* ---------------------------------------------
+       RENDER NOTIFICATION SAFELY
+    --------------------------------------------- */
+
+    function display(item) {
+
+        if (!isEnabled(item.type)) {
+            processQueue();
+            return;
+        }
+
+        const card = document.createElement("div");
+
+        card.className = "sc-notification";
+        card.dataset.type = item.type;
+        card.dataset.notificationId = item.id;
+        card.tabIndex = item.onClick ? 0 : -1;
+        card.setAttribute(
+            "role",
+            item.onClick ? "button" : "status"
+        );
+
+        const avatar = document.createElement("img");
+
+        avatar.className = "sc-notification-avatar";
+        avatar.alt = "";
+
+        if (item.photo) {
+            avatar.src = item.photo;
+        } else {
+            avatar.src =
+                "data:image/svg+xml," +
+                encodeURIComponent(
+                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
+                    '<rect width="64" height="64" rx="32" fill="#211a3c"/>' +
+                    '<circle cx="32" cy="23" r="12" fill="#aa91e8"/>' +
+                    '<path d="M10 60c2-14 10-21 22-21s20 7 22 21" fill="#aa91e8"/>' +
+                    '</svg>'
+                );
+        }
+
+        avatar.addEventListener("error", () => {
+            avatar.removeAttribute("src");
+            avatar.style.visibility = "hidden";
+        }, { once: true });
+
+        const content = document.createElement("div");
+        content.className = "sc-notification-content";
+
+        const title = document.createElement("p");
+        title.className = "sc-notification-title";
+        title.textContent = item.title;
+
+        const message = document.createElement("p");
+        message.className = "sc-notification-message";
+        message.textContent = item.message;
+
+        content.append(title, message);
+
+        const close = document.createElement("button");
+        close.type = "button";
+        close.className = "sc-notification-close";
+        close.setAttribute("aria-label", "Dismiss notification");
+        close.textContent = "×";
+
+        close.addEventListener("click", event => {
+            event.stopPropagation();
+            dismiss(card);
+        });
+
+        card.append(avatar, content, close);
+
+        if (item.onClick) {
+
+            const openDestination = event => {
+
+                if (
+                    event.type === "keydown" &&
+                    event.key !== "Enter" &&
+                    event.key !== " "
+                ) {
+                    return;
+                }
+
+                if (event.type === "keydown") {
+                    event.preventDefault();
+                }
+
+                try {
+                    item.onClick();
+                } catch (error) {
+                    console.error(
+                        "Notification destination failed.",
+                        error
+                    );
+                }
+
+                dismiss(card);
+            };
+
+            card.addEventListener("click", event => {
+                if (event.target !== close) {
+                    openDestination(event);
+                }
+            });
+
+            card.addEventListener("keydown", openDestination);
+        }
+
+        host.appendChild(card);
+
+        activeNotifications.set(item.id, card);
+
+        const timeoutId = window.setTimeout(() => {
+            dismiss(card);
+        }, item.duration);
+
+        card.dataset.timeoutId = String(timeoutId);
+    }
+
+
+    /* ---------------------------------------------
+       DISMISS & PROCESS QUEUE
+    --------------------------------------------- */
+
+    function dismiss(card) {
+
+        if (!card || !card.isConnected) return;
+
+        const timeoutId = Number(card.dataset.timeoutId);
+
+        if (timeoutId) {
+            window.clearTimeout(timeoutId);
+        }
+
+        activeNotifications.delete(
+            card.dataset.notificationId
+        );
+
+        card.classList.add("sc-notification-leaving");
+
+        window.setTimeout(() => {
+            card.remove();
+            processQueue();
+        }, 190);
+    }
+
+
+    function processQueue() {
+
+        while (
+            notificationQueue.length &&
+            host.children.length < maximumVisible
+        ) {
+            const next = notificationQueue.shift();
+
+            if (isEnabled(next.type)) {
+                display(next);
+            }
+        }
+
+        /* Drop queued categories disabled in Settings. */
+        notificationQueue = notificationQueue.filter(
+            item => isEnabled(item.type)
+        );
+    }
+
+
+    /* ---------------------------------------------
+       BACKEND-FRIENDLY PUBLIC API
+    --------------------------------------------- */
+
+    window.SC_Notifications = Object.freeze({
+
+        notify,
+
+        isEnabled,
+
+        dismissAll() {
+            [...host.children].forEach(dismiss);
+            notificationQueue = [];
+        },
+
+        /* Test one category from the browser console. */
+        test(type) {
+            const config = notificationTypes[type];
+
+            if (!config) {
+                console.warn(
+                    "Unknown notification category:",
+                    type
+                );
+                return false;
+            }
+
+            return notify({
+                id: "test-" + type + "-" + Date.now(),
+                type,
+                actor: {
+                    id: "test-user",
+                    name: "Alex Morgan",
+                    photo: ""
+                },
+                message: config.fallback
+            });
+        }
+
+    });
 
 })();

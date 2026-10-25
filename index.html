@@ -2261,6 +2261,275 @@ MODULE: SETTINGS PAGE
 
 </section>
 
+
+<!-- =====================================================
+MODULE: ACCOUNT MANAGEMENT PAGE
+===================================================== -->
+
+<section
+    id="account-management-page"
+    class="app-page secondary-page"
+>
+
+    <!-- HEADER -->
+
+    <header class="am-header">
+
+        <button
+            type="button"
+            id="am-back-button"
+            class="am-back-button"
+            aria-label="Back to Settings"
+        >
+            ←
+        </button>
+
+        <div class="am-header-text">
+            <h1>Account Management</h1>
+            <p>Manage your profile and login details.</p>
+        </div>
+
+    </header>
+
+
+    <!-- PROFILE BANNER -->
+
+    <section class="am-profile-banner">
+
+        <div class="am-banner-background" id="am-banner-background"></div>
+
+        <div class="am-profile-banner-content">
+
+            <div class="am-avatar-wrapper">
+
+                <img
+                    id="am-profile-picture"
+                    class="am-profile-picture"
+                    src=""
+                    alt="Your profile picture"
+                >
+
+            </div>
+
+            <div class="am-profile-heading">
+
+                <h2 id="am-profile-name">Your Name</h2>
+
+                <p id="am-profile-username">@username</p>
+
+                <span
+                    id="am-profile-institution"
+                    class="am-institution-badge"
+                >
+                    Institution not set
+                </span>
+
+                <p
+                    id="am-profile-academic-details"
+                    class="am-academic-details"
+                >
+                    Faculty · Year of study
+                </p>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- PROFILE INFORMATION -->
+
+    <section class="am-card">
+
+        <div class="am-card-heading">
+
+            <div>
+                <h2>Profile Information</h2>
+                <p>Your personal profile details</p>
+            </div>
+
+        </div>
+
+
+        <div class="am-information-list">
+
+            <div class="am-information-row">
+                <span class="am-information-icon">♙</span>
+
+                <div>
+                    <small>Full Name</small>
+                    <p id="am-full-name">Not provided</p>
+                </div>
+            </div>
+
+
+            <div class="am-information-row">
+                <span class="am-information-icon">@</span>
+
+                <div>
+                    <small>Username</small>
+                    <p id="am-username">Not set</p>
+                </div>
+            </div>
+
+
+            <div class="am-information-row">
+                <span class="am-information-icon">⌂</span>
+
+                <div>
+                    <small>Institution</small>
+                    <p id="am-institution">Not provided</p>
+                </div>
+            </div>
+
+
+            <div class="am-information-row">
+                <span class="am-information-icon">◇</span>
+
+                <div>
+                    <small>Faculty</small>
+                    <p id="am-faculty">Not provided</p>
+                </div>
+            </div>
+
+
+            <div class="am-information-row">
+                <span class="am-information-icon">▦</span>
+
+                <div>
+                    <small>Year of Study</small>
+                    <p id="am-year">Not provided</p>
+                </div>
+            </div>
+
+
+            <div class="am-information-row">
+                <span class="am-information-icon">♡</span>
+
+                <div>
+                    <small>Gender</small>
+                    <p id="am-gender">Not provided</p>
+                </div>
+            </div>
+
+        </div>
+
+
+        <!-- INTERESTS -->
+
+        <div class="am-subsection">
+
+            <h3>Interests</h3>
+
+            <div
+                id="am-interests"
+                class="am-interest-list"
+            >
+                <span class="am-empty-value">
+                    No interests added yet.
+                </span>
+            </div>
+
+        </div>
+
+
+        <!-- ABOUT -->
+
+        <div class="am-subsection">
+
+            <h3>About Me</h3>
+
+            <p
+                id="am-about"
+                class="am-about-text"
+            >
+                You haven't added an About statement yet.
+            </p>
+
+        </div>
+
+    </section>
+
+
+    <!-- LOGIN INFORMATION -->
+
+    <section class="am-card">
+
+        <div class="am-card-heading">
+
+            <div>
+                <h2>Login Information</h2>
+                <p>Your account access details</p>
+            </div>
+
+        </div>
+
+
+        <!-- EMAIL -->
+
+        <div class="am-login-row">
+
+            <div class="am-login-icon">✉</div>
+
+            <div class="am-login-details">
+
+                <small>Email Address</small>
+
+                <p id="am-email-address">
+                    Email authentication not connected
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <!-- PASSWORD -->
+
+        <div class="am-login-row">
+
+            <div class="am-login-icon">♙</div>
+
+            <div class="am-login-details">
+
+                <small>Password</small>
+
+                <p class="am-masked-password">••••••••••</p>
+
+            </div>
+
+            <button
+                type="button"
+                id="am-change-password-button"
+                class="am-outline-button"
+            >
+                Change
+            </button>
+
+        </div>
+
+
+        <p class="am-security-note">
+            Your actual password is never displayed here.
+        </p>
+
+    </section>
+
+
+    <!-- FOOTER -->
+
+    <div class="am-footer">
+        <span>♡</span>
+        Secret Crush · Powered by ASHERISE
+    </div>
+
+    <div class="am-bottom-space"></div>
+
+</section>
+
+<!-- END MODULE: ACCOUNT MANAGEMENT PAGE -->
+
 <!-- =====================================================
 MODULE: STREAKS — MAIN PAGE
 ===================================================== -->
@@ -9571,6 +9840,17 @@ MODULE: FIRST-TIME TERMS ACCEPTANCE
     </section>
 
 </div>
+
+<!-- MODULE: SECRET CRUSH — GLOBAL NOTIFICATIONS -->
+
+<div
+    id="sc-notification-host"
+    class="sc-notification-host"
+    aria-live="polite"
+    aria-atomic="false"
+></div>
+
+<!-- END MODULE: GLOBAL NOTIFICATIONS -->
 
 <script src="script.js"></script>
 
