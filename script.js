@@ -18272,6 +18272,20 @@ if (card) {
 
     /* Fallback if the saved record is unavailable. */
     if (!post) {
+        const cardVideo = card.querySelector(
+            "video[data-moment-video-id]"
+        );
+        const videoMediaId =
+            cardVideo?.dataset.momentVideoId || "";
+
+        // Post image only, never the avatar
+        const cardImage = [...card.querySelectorAll("img")].find(
+            img => !img.closest(
+                ".feed-user-info, .home-post-user, " +
+                ".home-post-user-info, .moment-user"
+            )
+        );
+
         post = {
             id: postId,
             ownerId:
@@ -18281,8 +18295,12 @@ if (card) {
             userId: card.dataset.userId || "",
             name,
             profilePicture: photo,
-            image:
-                card.querySelector("img")?.src || "",
+            image: videoMediaId ? "" : (cardImage?.src || ""),
+            mediaType: videoMediaId
+                ? "video"
+                : cardImage ? "image" : "text",
+            videoMediaId,
+            videoDuration: 0,
             caption:
                 card.querySelector(".feed-caption")?.textContent?.trim() ||
                 card.querySelector(".feed-post-text")?.textContent?.trim() ||
@@ -18291,6 +18309,7 @@ if (card) {
                 ""
         };
     }
+    
 }
 
 /* MODULE: Resolve the profile. */
