@@ -16991,37 +16991,42 @@ function SC_Search_AddUser(
                     item.id === postKey
             )
         ){
+existing.posts.push({
 
-            existing.posts.push({
+    /*
+     * MODULE: SEARCH — PRESERVE COMPLETE POST DATA
+     * Keep video IDs and media metadata so profile
+     * moments can load the original saved media.
+     */
 
-                id:postKey,
+    ...post,
 
-                image:
-                    post.image ||
-                    post.media ||
-                    post.photo ||
-                    "",
+    id: postKey,
 
-                caption:
-                    post.caption ||
-                    post.text ||
-                    "",
+    image:
+        post.image ||
+        post.media ||
+        post.photo ||
+        "",
 
-                text:
-                    post.text ||
-                    "",
+    caption:
+        post.caption ||
+        post.text ||
+        "",
 
-                likes:
-                    Number(
-                        post.likes
-                    ) || 0,
+    text:
+        post.text ||
+        "",
 
-                createdAt:
-                    post.createdAt ||
-                    post.timestamp ||
-                    Date.now()
+    likes:
+        Number(post.likes) || 0,
 
-            });
+    createdAt:
+        post.createdAt ||
+        post.timestamp ||
+        Date.now()
+
+});
 
         }
 
