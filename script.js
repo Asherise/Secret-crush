@@ -53228,8 +53228,18 @@ should call these same four functions.
     }
 
     /* ---------------- destinations ---------------- */
+        /* Close the "It's mutual!" modal first so it cannot cover the destination. */
+    function closeMutualNotice() {
+        if (typeof SC_Mutual_CloseNotice === "function") {
+            SC_Mutual_CloseNotice(false);
+        }
+    }
+    
+    
 
     function openChatDestination(crushId) {
+    closeMutualNotice();
+    
         const crush = typeof SC_DEMO_CRUSHES !== "undefined"
             ? SC_DEMO_CRUSHES.find(item => item.id === crushId)
             : null;
@@ -53238,6 +53248,8 @@ should call these same four functions.
     }
 
     function openMutualDestination(matchId) {
+    
+    closeMutualNotice();
         if (typeof openMutualCrushesPage === "function") {
             openMutualCrushesPage();
         }
@@ -53336,8 +53348,12 @@ should call these same four functions.
             type: "secretNote",
             actor: {
                 id: note.id,
-                name: showName ? (person.name || "Someone") : "Someone",
-                photo: showPhoto ? (person.photo || "") : ""
+                                name: showName
+                    ? (person.name || note.senderName || "Someone")
+                    : "Someone",
+                photo: showPhoto
+                    ? (person.photo || note.senderPhoto || "")
+                    : ""
             },
             message:
                 "New secret note: " +
@@ -53367,5 +53383,69 @@ should call these same four functions.
         mutualCrushFormed,
         secretNoteReceived,
         newCrushReceived
+    });
+})();
+
+
+/* =====================================================
+MODULE: SECRET CRUSH — PWA (SERVICE WORKER & INSTALL)
+Registers the service worker and keeps the browser's
+install prompt so a custom "Install app" button can use
+it later. Service workers need https:// or localhost.
+===================================================== */
+(() => {
+    "use strict";
+
+    let deferredInstallPrompt = null;
+
+    const canRegister =
+        "serviceWorker" in navigator &&
+        (
+            location.protocol === "https:" ||
+            location.hostname === "localhost" ||
+            location.hostname === "127.0.0.1"
+        );
+
+    if (canRegister) {
+        window.addEventListener("load", () => {
+            navigator.serviceWorker
+                .register("./service-worker.js")
+                .catch(error => {
+                    console.warn(
+                        "Secret Crush: service worker registration failed.",
+                        error
+                    );
+                });
+        });
+    }
+
+    /* Not calling preventDefault keeps Chrome's own install
+       prompt working until you add your own button. */
+    window.addEventListener("beforeinstallprompt", event => {
+        deferredInstallPrompt = event;
+    });
+
+    window.addEventListener("appinstalled", () => {
+        deferredInstallPrompt = null;
+    });
+
+    window.SC_PWA = Object.freeze({
+        canInstall() {
+            return Boolean(deferredInstallPrompt);
+        },
+        isInstalled() {
+            return (
+                window.matchMedia("(display-mode: standalone)").matches ||
+                window.navigator.standalone === true
+            );
+        },
+        async promptInstall() {
+            if (!deferredInstallPrompt) return false;
+            const promptEvent = deferredInstallPrompt;
+            deferredInstallPrompt = null;
+            promptEvent.prompt();
+            const choice = await promptEvent.userChoice;
+            return choice.outcome === "accepted";
+        }
     });
 })();
