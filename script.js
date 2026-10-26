@@ -19748,7 +19748,12 @@ const facultyThemeCategory =
         >
 
             ${
-                mode === "mutual"
+                (
+    mode === "mutual" ||
+    mode === "public" ||
+    mode === "following" ||
+    mode === "follower"
+)
 
                 ?
 
@@ -20080,26 +20085,27 @@ const facultyThemeCategory =
 
     `;
 
+/* =====================================================
+MODULE: PROFILE — OPEN CHAT
+===================================================== */
 
-    /* OPEN CHAT */
+const chatButton = document.getElementById(
+    "mutual-profile-chat-button"
+);
 
-    const chatButton =
-        document.getElementById(
-            "mutual-profile-chat-button"
-        );
+if (chatButton) {
+    chatButton.addEventListener("click", () => {
+        if (mode === "mutual") {
+            // Preserve the existing mutual-crush chat rules.
+            attemptMutualChat(crush.id);
+            return;
+        }
 
-
-    if(chatButton){
-
-        chatButton.addEventListener(
-            "click",
-            () =>
-                attemptMutualChat(
-                    crush.id
-                )
-        );
-
-    }
+        // A public profile can start a conversation
+        // without requiring the Guess My Crush game.
+        SC_OpenProfileChat(crush);
+    });
+}
 
 
     /* FOLLOW / UNFOLLOW */
@@ -33646,6 +33652,136 @@ document.addEventListener(
 );
 
 /* =====================================================
+MODULE: CHAT — PROFILE-STARTED CONVERSATIONS
+===================================================== */
+
+const SC_OPEN_CHAT_CONTACTS_KEY =
+    "secretCrushOpenChatContacts";
+
+
+function SC_GetOpenChatContacts() {
+    try {
+        const contacts = JSON.parse(
+            localStorage.getItem(
+                SC_OPEN_CHAT_CONTACTS_KEY
+            ) || "[]"
+        );
+
+        return Array.isArray(contacts)
+            ? contacts
+            : [];
+    } catch (error) {
+        return [];
+    }
+}
+
+
+function SC_SaveOpenChatContacts(contacts) {
+    localStorage.setItem(
+        SC_OPEN_CHAT_CONTACTS_KEY,
+        JSON.stringify(contacts)
+    );
+}
+
+
+function SC_SaveOpenChatContact(person) {
+    if (!person || !person.id) {
+        return null;
+    }
+
+    const contacts = SC_GetOpenChatContacts();
+
+    const contact = {
+        ...person,
+        id: String(person.id),
+        profileKnown: true,
+        chatStartedViaProfile: true,
+        chatStartedAt: Date.now()
+    };
+
+    const existingIndex = contacts.findIndex(
+        item => String(item.id) === String(person.id)
+    );
+
+    if (existingIndex >= 0) {
+        contacts[existingIndex] = {
+            ...contacts[existingIndex],
+            ...contact
+        };
+    } else {
+        contacts.push(contact);
+    }
+
+    SC_SaveOpenChatContacts(contacts);
+
+    return contact;
+}
+
+
+function SC_FindOpenChatContact(personId) {
+    if (!personId) {
+        return null;
+    }
+
+    return SC_GetOpenChatContacts().find(
+        person =>
+            String(person.id) === String(personId)
+    ) || null;
+}
+
+
+function SC_OpenProfileChat(person) {
+    if (!person || !person.id) {
+        return;
+    }
+
+    // Do not start a conversation with the current user.
+    let currentProfile = {};
+
+    try {
+        currentProfile = JSON.parse(
+            localStorage.getItem(
+                "secretCrushProfile"
+            ) || "{}"
+        );
+    } catch (error) {
+        currentProfile = {};
+    }
+
+    const currentUserId =
+        currentProfile.userId || currentProfile.id;
+
+    if (
+        currentUserId &&
+        String(currentUserId) === String(person.id)
+    ) {
+        return;
+    }
+
+    const contact = SC_SaveOpenChatContact(person);
+
+    if (!contact) {
+        return;
+    }
+
+    ensureChatExists(contact);
+
+    const chatsNav = document.querySelector(
+        '.nav-item[data-page="chats"]'
+    );
+
+    if (chatsNav) {
+        chatsNav.click();
+    }
+
+    setTimeout(() => {
+        openChatThread(contact);
+    }, 120);
+}
+
+
+
+/* =====================================================
 MODULE: CHAT SYSTEM
 ===================================================== */
 
@@ -34657,17 +34793,43 @@ function renderChatList(){
      * Uses the mutual crushes that
      * already exist in Secret Crush.
      */
-const mutuals =
+    const mutualChats =
         typeof getMutualCrushes === "function"
             ? getMutualCrushes()
                 .filter(
                     crush =>
-                        crush.mutualChatUnlocked
-                        ||
+                        crush.mutualChatUnlocked ||
                         getChatMessages(crush.id).length
                 )
                 .map(SC_Mutual_AsViewer)
             : [];
+
+    const profileStartedChats =
+        SC_GetOpenChatContacts().filter(
+            contact =>
+                getChatMessages(contact.id).length >= 0
+        );
+
+    const chatMap = new Map();
+
+    mutualChats.forEach(person => {
+        chatMap.set(
+            String(person.id),
+            person
+        );
+    });
+
+    profileStartedChats.forEach(person => {
+        const key = String(person.id);
+
+        chatMap.set(key, {
+            ...(chatMap.get(key) || {}),
+            ...person,
+            profileKnown: true
+        });
+    });
+
+    const mutuals = [...chatMap.values()];
 
     const chats =
         mutuals
@@ -34901,6 +35063,22 @@ function openChatThread(crush){
         ||
         !chatThreadView
     ) return;
+    
+        /*
+     * A conversation started from a detailed profile
+     * establishes a known-person relationship.
+     * Keep that status separate from mutual-crush state.
+     */
+    const savedContact =
+        SC_FindOpenChatContact(crush.id);
+
+    if (savedContact) {
+        crush = {
+            ...crush,
+            ...savedContact,
+            profileKnown: true
+        };
+    }
 
 
     activeChatCrushId =
@@ -34990,6 +35168,54 @@ function openChatThread(crush){
         </div>
 
     `;
+    
+    
+        /*
+     * Open the detailed profile when the chat header
+     * is tapped. The saved contact retains the profile
+     * information used when the conversation began.
+     */
+    chatThreadPerson.style.cursor = "pointer";
+    chatThreadPerson.setAttribute(
+        "role",
+        "button"
+    );
+    chatThreadPerson.setAttribute(
+        "tabindex",
+        "0"
+    );
+    chatThreadPerson.setAttribute(
+        "aria-label",
+        "Open profile"
+    );
+
+    const openHeaderProfile = () => {
+        const contact =
+            SC_FindOpenChatContact(crush.id);
+
+        const profilePerson = {
+            ...crush,
+            ...(contact || {}),
+            profileKnown: !!contact ||
+                !!crush.profileKnown
+        };
+
+        openSecretCrushUserProfile(
+            profilePerson
+        );
+    };
+
+    chatThreadPerson.onclick = openHeaderProfile;
+
+    chatThreadPerson.onkeydown = event => {
+        if (
+            event.key === "Enter" ||
+            event.key === " "
+        ) {
+            event.preventDefault();
+            openHeaderProfile();
+        }
+    };
 
 
     renderChatMessages();
@@ -35077,21 +35303,43 @@ async function renderChatMessages(){
 
     chatThreadBody.innerHTML = `
 
-        <div
-            class="chat-match-banner"
-        >
+               ${
+            (() => {
+                const contact =
+                    SC_FindOpenChatContact(
+                        activeChatCrushId
+                    );
 
-            <span>♡</span>
+                if (contact) {
+                    return "";
+                }
 
-            <strong>
-                It's a match!
-            </strong>
+                const crush =
+                    typeof SC_Mutual_FindCrush === "function"
+                        ? SC_Mutual_FindCrush(
+                            activeChatCrushId
+                        )
+                        : null;
 
-            <small>
-                Be smooth and don't blow it.
-            </small>
+                if (
+                    !crush ||
+                    !crush.mutual
+                ) {
+                    return "";
+                }
 
-        </div>
+                return `
+                    <div class="chat-match-banner">
+                        <span>♡</span>
+                        <strong>It's a match!</strong>
+                        <small>
+                            Be smooth and don't blow it.
+                        </small>
+                    </div>
+                `;
+            })()
+        }
+        
 
 
         <div
