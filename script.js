@@ -8745,20 +8745,74 @@ if(editProfileButton){
 
 
         /* Fill form with current data */
-
-        if(editProfileName){
-            editProfileName.value=
-                profile.name || "";
-        }
-
         if(editInstitution){
-            editInstitution.value=
-                profile.institution || "";
+            const savedInstitution =
+                profile.institution ||
+                profile.school ||
+                "";
+
+            if(savedInstitution){
+                const exists =
+                    Array.from(editInstitution.options).some(
+                        option =>
+                            option.value === savedInstitution
+                    );
+
+                if(!exists){
+                    const option =
+                        document.createElement("option");
+
+                    option.value = savedInstitution;
+                    option.textContent = savedInstitution;
+
+                    editInstitution.insertBefore(
+                        option,
+                        editInstitution.options[
+                            editInstitution.options.length - 1
+                        ]
+                    );
+                }
+            }
+
+            editInstitution.value = savedInstitution;
+
+            editInstitution.dispatchEvent(
+                new Event("change", { bubbles: true })
+            );
         }
 
         if(editFaculty){
-            editFaculty.value=
+            const savedFaculty =
                 profile.faculty || "";
+
+            if(savedFaculty){
+                const exists =
+                    Array.from(editFaculty.options).some(
+                        option =>
+                            option.value === savedFaculty
+                    );
+
+                if(!exists){
+                    const option =
+                        document.createElement("option");
+
+                    option.value = savedFaculty;
+                    option.textContent = savedFaculty;
+
+                    editFaculty.insertBefore(
+                        option,
+                        editFaculty.options[
+                            editFaculty.options.length - 1
+                        ]
+                    );
+                }
+            }
+
+            editFaculty.value = savedFaculty;
+
+            editFaculty.dispatchEvent(
+                new Event("change", { bubbles: true })
+            );
         }
 
         if(editStudyYear){
@@ -8972,8 +9026,50 @@ localStorage.setItem(
  * interface system.
  */
 
+/*
+ * Reset the homepage's institution filter because
+ * the profile's institution has changed.
+ */
+if (
+    typeof SC_activeFilters !== "undefined" &&
+    SC_activeFilters.home
+) {
+    SC_activeFilters.home.school = [];
+    
+    try {
+        const savedFilters = JSON.parse(
+            localStorage.getItem(
+                "secretCrushSearchFilters"
+            ) || "{}"
+        );
+
+        if (savedFilters.home) {
+            savedFilters.home.school = [];
+        }
+
+        localStorage.setItem(
+            "secretCrushSearchFilters",
+            JSON.stringify(savedFilters)
+        );
+    } catch (error) {
+        console.warn(
+            "Could not reset the saved institution filter.",
+            error
+        );
+    }
+}
+
+/* Refresh every interface that displays profile data. */
 SC_ProfileSync_RefreshAll();
 
+/* Refresh the homepage and filter labels immediately. */
+if (typeof loadHomepageProfile === "function") {
+    loadHomepageProfile();
+}
+
+if (typeof SC_Filters_UpdatePillLabels === "function") {
+    SC_Filters_UpdatePillLabels();
+}
 
 
         /* Close editing panel */
@@ -53696,4 +53792,753 @@ it later. Service workers need https:// or localhost.
             return choice.outcome === "accepted";
         }
     });
+})();
+
+
+/* =====================================================
+MODULE: SEARCHABLE INSTITUTION & FACULTY PICKERS
+Works in onboarding and Edit Profile.
+===================================================== */
+
+(() => {
+    "use strict";
+
+    const CATALOG_KEY =
+        "secretCrushCustomAcademicOptions";
+
+    const pickerFields = [
+        {
+            id: "institution",
+            type: "school",
+            title: "Choose your institution",
+            placeholder: "Search institutions..."
+        },
+        {
+            id: "edit-institution",
+            type: "school",
+            title: "Change your institution",
+            placeholder: "Search institutions..."
+        },
+        {
+            id: "faculty",
+            type: "faculty",
+            title: "Choose your faculty",
+            placeholder: "Search faculties..."
+        },
+        {
+            id: "edit-faculty",
+            type: "faculty",
+            title: "Change your faculty",
+            placeholder: "Search faculties..."
+        }
+    ];
+
+    let activeOverlay = null;
+
+    function readCatalog() {
+        try {
+            const saved = JSON.parse(
+                localStorage.getItem(CATALOG_KEY) || "{}"
+            );
+
+            return {
+                school: Array.isArray(saved.school)
+                    ? saved.school
+                    : [],
+                faculty: Array.isArray(saved.faculty)
+                    ? saved.faculty
+                    : []
+            };
+        } catch (error) {
+            return {
+                school: [],
+                faculty: []
+            };
+        }
+    }
+
+    function saveCatalog(catalog) {
+        localStorage.setItem(
+            CATALOG_KEY,
+            JSON.stringify(catalog)
+        );
+    }
+
+    function cleanName(value) {
+        return String(value || "")
+            .trim()
+            .replace(/\s+/g, " ");
+    }
+
+    function getExistingOptions(type) {
+        const ids = type === "school"
+            ? ["institution", "edit-institution"]
+            : ["faculty", "edit-faculty"];
+
+        const names = [];
+
+        ids.forEach(id => {
+            const select = document.getElementById(id);
+
+            if (!select) return;
+
+            Array.from(select.options).forEach(option => {
+                const name = cleanName(option.value);
+
+                if (
+                    name &&
+                    name.toLowerCase() !== "other" &&
+                    !names.some(
+                        item =>
+                            item.toLowerCase() ===
+                            name.toLowerCase()
+                    )
+                ) {
+                    names.push(name);
+                }
+            });
+        });
+
+        const catalog = readCatalog();
+
+        (catalog[type] || []).forEach(name => {
+            name = cleanName(name);
+
+            if (
+                name &&
+                !names.some(
+                    item =>
+                        item.toLowerCase() ===
+                        name.toLowerCase()
+                )
+            ) {
+                names.push(name);
+            }
+        });
+
+        return names.sort((a, b) =>
+            a.localeCompare(b)
+        );
+    }
+
+    function addOptionToSelect(select, name) {
+        let option = Array.from(select.options).find(
+            item =>
+                cleanName(item.value).toLowerCase() ===
+                name.toLowerCase()
+        );
+
+        if (!option) {
+            option = document.createElement("option");
+            option.value = name;
+            option.textContent = name;
+
+            const otherOption = Array.from(
+                select.options
+            ).find(
+                item =>
+                    cleanName(item.value).toLowerCase() ===
+                    "other"
+            );
+
+            if (otherOption) {
+                select.insertBefore(option, otherOption);
+            } else {
+                select.appendChild(option);
+            }
+        }
+
+        return option;
+    }
+
+    function rememberCustomOption(type, name) {
+        const catalog = readCatalog();
+
+        if (
+            !catalog[type].some(
+                item =>
+                    item.toLowerCase() === name.toLowerCase()
+            )
+        ) {
+            catalog[type].push(name);
+            catalog[type].sort((a, b) =>
+                a.localeCompare(b)
+            );
+            saveCatalog(catalog);
+        }
+
+        const ids = type === "school"
+            ? ["institution", "edit-institution"]
+            : ["faculty", "edit-faculty"];
+
+        ids.forEach(id => {
+            const select = document.getElementById(id);
+
+            if (select) {
+                addOptionToSelect(select, name);
+            }
+        });
+
+        /*
+         * Add custom values to the existing search-filter
+         * option lists when those lists are available.
+         */
+        try {
+            if (
+                typeof SC_FILTER_OPTIONS !== "undefined"
+            ) {
+                const filterType =
+                    type === "school" ? "school" : "faculty";
+
+                if (
+                    Array.isArray(
+                        SC_FILTER_OPTIONS[filterType]
+                    ) &&
+                    !SC_FILTER_OPTIONS[filterType].some(
+                        item =>
+                            item.toLowerCase() ===
+                            name.toLowerCase()
+                    )
+                ) {
+                    SC_FILTER_OPTIONS[filterType].push(name);
+                }
+            }
+        } catch (error) {
+            console.warn(
+                "Could not update academic filter options.",
+                error
+            );
+        }
+    }
+
+    function addPickerStyles() {
+        if (document.getElementById(
+            "sc-academic-picker-styles"
+        )) {
+            return;
+        }
+
+        const style = document.createElement("style");
+        style.id = "sc-academic-picker-styles";
+
+        style.textContent = `
+            .sc-academic-picker-trigger {
+                width: 100%;
+                min-height: 48px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                padding: 12px 14px;
+                border: 1px solid rgba(174, 132, 255, .42);
+                border-radius: 12px;
+                background: rgba(255, 255, 255, .045);
+                color: inherit;
+                font: inherit;
+                text-align: left;
+                cursor: pointer;
+            }
+
+            .sc-academic-picker-trigger:focus-visible {
+                outline: 2px solid #b78aff;
+                outline-offset: 2px;
+            }
+
+            .sc-academic-picker-trigger .sc-picker-value {
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .sc-academic-picker-trigger .sc-picker-arrow {
+                flex-shrink: 0;
+                color: #c7a2ff;
+            }
+
+            .sc-academic-overlay {
+                position: fixed;
+                inset: 0;
+                z-index: 100500;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                padding: 18px;
+                background: rgba(0, 0, 0, .78);
+                backdrop-filter: blur(8px);
+            }
+
+            .sc-academic-overlay.is-open {
+                display: flex;
+            }
+
+            .sc-academic-dialog {
+                width: min(100%, 440px);
+                max-height: min(82dvh, 680px);
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                border: 1px solid rgba(183, 138, 255, .4);
+                border-radius: 20px;
+                background: #15121d;
+                color: #f8f5ff;
+                box-shadow: 0 20px 70px rgba(0, 0, 0, .55);
+            }
+
+            .sc-academic-dialog-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                padding: 18px 18px 12px;
+            }
+
+            .sc-academic-dialog-header h3 {
+                margin: 0;
+                font-size: 1.05rem;
+            }
+
+            .sc-academic-close {
+                width: 36px;
+                height: 36px;
+                flex-shrink: 0;
+                border: 0;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, .08);
+                color: white;
+                font-size: 1.3rem;
+                cursor: pointer;
+            }
+
+            .sc-academic-search {
+                width: calc(100% - 36px);
+                min-height: 46px;
+                margin: 0 18px 12px;
+                padding: 12px;
+                border: 1px solid rgba(183, 138, 255, .35);
+                border-radius: 12px;
+                background: #211b2c;
+                color: white;
+                font: inherit;
+                box-sizing: border-box;
+            }
+
+            .sc-academic-results {
+                min-height: 80px;
+                overflow-y: auto;
+                overscroll-behavior: contain;
+                padding: 0 12px 12px;
+            }
+
+            .sc-academic-option {
+                width: 100%;
+                display: block;
+                padding: 13px 12px;
+                border: 0;
+                border-radius: 10px;
+                background: transparent;
+                color: inherit;
+                font: inherit;
+                text-align: left;
+                cursor: pointer;
+            }
+
+            .sc-academic-option:hover,
+            .sc-academic-option:focus-visible {
+                outline: none;
+                background: rgba(183, 138, 255, .15);
+            }
+
+            .sc-academic-empty {
+                padding: 14px 10px;
+                color: #d3c6e7;
+                line-height: 1.5;
+            }
+
+            .sc-academic-custom {
+                display: grid;
+                gap: 10px;
+                padding: 14px 18px 18px;
+                border-top: 1px solid rgba(255, 255, 255, .09);
+            }
+
+            .sc-academic-custom p {
+                margin: 0;
+                color: #d3c6e7;
+                font-size: .9rem;
+                line-height: 1.45;
+            }
+
+            .sc-academic-custom input {
+                width: 100%;
+                min-height: 44px;
+                padding: 11px;
+                border: 1px solid rgba(183, 138, 255, .35);
+                border-radius: 10px;
+                background: #211b2c;
+                color: white;
+                font: inherit;
+                box-sizing: border-box;
+            }
+
+            .sc-academic-use-name {
+                min-height: 45px;
+                border: 0;
+                border-radius: 11px;
+                background: linear-gradient(110deg, #9b63ff, #c09aff);
+                color: #170e25;
+                font: inherit;
+                font-weight: 700;
+                cursor: pointer;
+            }
+
+            .sc-academic-use-name:disabled {
+                opacity: .45;
+                cursor: not-allowed;
+            }
+
+            @media (max-width: 480px) {
+                .sc-academic-overlay {
+                    align-items: flex-end;
+                    padding: 10px;
+                }
+
+                .sc-academic-dialog {
+                    max-height: 88dvh;
+                    border-radius: 20px 20px 14px 14px;
+                }
+            }
+        `;
+
+        document.head.appendChild(style);
+    }
+
+    function closeOverlay() {
+        if (!activeOverlay) return;
+
+        activeOverlay.remove();
+        activeOverlay = null;
+        document.body.style.overflow = "";
+    }
+
+    function openPicker(select, config, trigger) {
+        closeOverlay();
+
+        const overlay = document.createElement("div");
+        overlay.className = "sc-academic-overlay is-open";
+
+        const dialog = document.createElement("section");
+        dialog.className = "sc-academic-dialog";
+        dialog.setAttribute("role", "dialog");
+        dialog.setAttribute("aria-modal", "true");
+        dialog.setAttribute("aria-label", config.title);
+
+        const header = document.createElement("div");
+        header.className = "sc-academic-dialog-header";
+
+        const heading = document.createElement("h3");
+        heading.textContent = config.title;
+
+        const closeButton = document.createElement("button");
+        closeButton.type = "button";
+        closeButton.className = "sc-academic-close";
+        closeButton.textContent = "×";
+        closeButton.setAttribute("aria-label", "Close");
+
+        header.append(heading, closeButton);
+
+        const search = document.createElement("input");
+        search.className = "sc-academic-search";
+        search.type = "search";
+        search.placeholder = config.placeholder;
+        search.autocomplete = "off";
+        search.setAttribute(
+            "aria-label",
+            config.placeholder
+        );
+
+        const results = document.createElement("div");
+        results.className = "sc-academic-results";
+
+        const customArea = document.createElement("div");
+        customArea.className = "sc-academic-custom";
+
+        const customMessage = document.createElement("p");
+        customMessage.textContent =
+            config.type === "school"
+                ? "School is not in our current list? Enter its full official name below."
+                : "Faculty is not in our current list? Enter its full name below.";
+
+        const customInput = document.createElement("input");
+        customInput.type = "text";
+        customInput.maxLength = 120;
+        customInput.autocomplete = "off";
+        customInput.placeholder =
+            config.type === "school"
+                ? "Enter full institution name"
+                : "Enter full faculty name";
+
+        const useNameButton = document.createElement("button");
+        useNameButton.type = "button";
+        useNameButton.className = "sc-academic-use-name";
+        useNameButton.textContent =
+            config.type === "school"
+                ? "Use this institution"
+                : "Use this faculty";
+        useNameButton.disabled = true;
+
+        customArea.append(
+            customMessage,
+            customInput,
+            useNameButton
+        );
+
+        dialog.append(
+            header,
+            search,
+            results,
+            customArea
+        );
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+        document.body.style.overflow = "hidden";
+        activeOverlay = overlay;
+
+        function chooseName(name, isCustom = false) {
+            name = cleanName(name);
+
+            if (!name) return;
+
+            if (isCustom) {
+                rememberCustomOption(config.type, name);
+            }
+
+            addOptionToSelect(select, name);
+            select.value = name;
+            select.dispatchEvent(
+                new Event("change", { bubbles: true })
+            );
+
+            trigger.querySelector(
+                ".sc-picker-value"
+            ).textContent = name;
+
+            closeOverlay();
+        }
+
+        function renderResults() {
+            const query = cleanName(search.value).toLowerCase();
+
+            const matches = getExistingOptions(
+                config.type
+            ).filter(name =>
+                name.toLowerCase().includes(query)
+            );
+
+            results.replaceChildren();
+
+            if (matches.length === 0) {
+                const empty = document.createElement("div");
+                empty.className = "sc-academic-empty";
+                empty.textContent =
+                    config.type === "school"
+                        ? "School is not in our current list. You can enter its full name below."
+                        : "Faculty is not in our current list. You can enter its full name below.";
+
+                results.appendChild(empty);
+            }
+
+            matches.forEach(name => {
+                const option = document.createElement("button");
+                option.type = "button";
+                option.className = "sc-academic-option";
+                option.textContent = name;
+
+                option.addEventListener("click", () => {
+                    chooseName(name);
+                });
+
+                results.appendChild(option);
+            });
+        }
+
+        function updateCustomButton() {
+            const value = cleanName(customInput.value);
+            const exists = getExistingOptions(
+                config.type
+            ).some(
+                name =>
+                    name.toLowerCase() === value.toLowerCase()
+            );
+
+            useNameButton.disabled =
+                value.length < 2 || exists;
+        }
+
+        closeButton.addEventListener(
+            "click",
+            closeOverlay
+        );
+
+        overlay.addEventListener("click", event => {
+            if (event.target === overlay) {
+                closeOverlay();
+            }
+        });
+
+        search.addEventListener(
+            "input",
+            renderResults
+        );
+
+        customInput.addEventListener(
+            "input",
+            updateCustomButton
+        );
+
+        customInput.addEventListener("keydown", event => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+
+                if (!useNameButton.disabled) {
+                    chooseName(customInput.value, true);
+                }
+            }
+        });
+
+        useNameButton.addEventListener("click", () => {
+            if (!useNameButton.disabled) {
+                chooseName(customInput.value, true);
+            }
+        });
+
+        overlay.addEventListener("keydown", event => {
+            if (event.key === "Escape") {
+                closeOverlay();
+            }
+        });
+
+        renderResults();
+        setTimeout(() => search.focus(), 50);
+    }
+
+    function initialisePicker(config) {
+        const select = document.getElementById(config.id);
+
+        if (!select || select.dataset.scPickerReady === "true") {
+            return;
+        }
+
+        select.dataset.scPickerReady = "true";
+
+        const trigger = document.createElement("button");
+        trigger.type = "button";
+        trigger.className = "sc-academic-picker-trigger";
+
+        const value = document.createElement("span");
+        value.className = "sc-picker-value";
+
+        const arrow = document.createElement("span");
+        arrow.className = "sc-picker-arrow";
+        arrow.textContent = "⌄";
+
+        trigger.append(value, arrow);
+
+        const selectedOption =
+            select.options[select.selectedIndex];
+
+        const selectedValue =
+            selectedOption &&
+            selectedOption.value.toLowerCase() !== "other"
+                ? selectedOption.value
+                : "";
+
+        value.textContent =
+            selectedValue ||
+            (
+                config.type === "school"
+                    ? "Select your institution"
+                    : "Select your faculty"
+            );
+
+        select.insertAdjacentElement("afterend", trigger);
+
+        /*
+         * Keep the original select in the document so the
+         * existing onboarding and profile-save code continues
+         * reading its value. Users interact with the overlay.
+         */
+        select.style.display = "none";
+
+        trigger.addEventListener("click", () => {
+            openPicker(select, config, trigger);
+        });
+
+        select.addEventListener("change", () => {
+            const current = cleanName(select.value);
+
+            value.textContent =
+                current && current.toLowerCase() !== "other"
+                    ? current
+                    : (
+                        config.type === "school"
+                            ? "Select your institution"
+                            : "Select your faculty"
+                    );
+        });
+
+        /*
+         * Existing profiles may contain a custom value that
+         * was not part of the original HTML option list.
+         */
+        const currentValue = cleanName(select.value);
+
+        if (
+            currentValue &&
+            currentValue.toLowerCase() !== "other"
+        ) {
+            addOptionToSelect(select, currentValue);
+            value.textContent = currentValue;
+        }
+    }
+
+    function initialiseAllPickers() {
+        addPickerStyles();
+
+        pickerFields.forEach(initialisePicker);
+
+        /*
+         * Load saved custom options into all matching fields.
+         */
+        const catalog = readCatalog();
+
+        ["school", "faculty"].forEach(type => {
+            const ids = type === "school"
+                ? ["institution", "edit-institution"]
+                : ["faculty", "edit-faculty"];
+
+            ids.forEach(id => {
+                const select = document.getElementById(id);
+
+                if (!select) return;
+
+                (catalog[type] || []).forEach(name => {
+                    addOptionToSelect(select, name);
+                });
+            });
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener(
+            "DOMContentLoaded",
+            initialiseAllPickers
+        );
+    } else {
+        initialiseAllPickers();
+    }
+
+    window.SC_AcademicPickers = {
+        refresh: initialiseAllPickers,
+        getCustomOptions: readCatalog
+    };
 })();
