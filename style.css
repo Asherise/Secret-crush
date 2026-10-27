@@ -32727,3 +32727,223 @@ MODULE: GLOBAL NOTIFICATIONS — COMPACT NEON UI
         animation: none;
     }
 }
+
+
+/* =====================================================
+   GUESS MY CRUSH — ROUND 2 & 3 BUILDER
+   ===================================================== */
+
+.sc-gmc-builder,
+.sc-gmc-next-round,
+.sc-gmc-preview-card {
+    color: #f5f3ff;
+    background: linear-gradient(145deg, #171326, #090812);
+    border: 1px solid rgba(173, 128, 255, 0.35);
+    border-radius: 20px;
+    padding: 20px;
+    margin: 14px 0;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.25);
+}
+
+.sc-gmc-heading > span,
+.sc-gmc-next-round > span {
+    color: #bca0ff;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 2px;
+}
+
+.sc-gmc-heading h2,
+.sc-gmc-next-round h3 {
+    margin: 9px 0;
+    color: #fff;
+}
+
+.sc-gmc-heading p,
+.sc-gmc-next-round p,
+.sc-gmc-clue-editor p {
+    color: #bcb6d0;
+    line-height: 1.6;
+    font-size: 13px;
+}
+
+.sc-gmc-question-editor,
+.sc-gmc-clue-editor {
+    margin-top: 20px;
+    padding: 16px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sc-gmc-question-editor h3,
+.sc-gmc-clue-editor h3 {
+    margin-top: 0;
+    color: #d7c5ff;
+}
+
+.sc-gmc-question-editor > label,
+.sc-gmc-clue-editor > label {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+    color: #e7e1f7;
+    font-size: 13px;
+}
+
+.sc-gmc-question-text,
+.sc-gmc-clue-editor textarea {
+    width: 100%;
+    min-height: 82px;
+    resize: vertical;
+}
+
+.sc-gmc-question-text,
+.sc-gmc-answer-text,
+.sc-gmc-clue-editor textarea {
+    box-sizing: border-box;
+    color: #fff;
+    background: #0d0b16;
+    border: 1px solid rgba(182, 148, 255, 0.28);
+    border-radius: 11px;
+    padding: 12px;
+    font: inherit;
+}
+
+.sc-gmc-answer-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.sc-gmc-answer-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.sc-gmc-answer-label > span {
+    display: grid;
+    place-items: center;
+    flex: 0 0 30px;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    color: #fff;
+    background: #6d42bd;
+    font-weight: 800;
+}
+
+.sc-gmc-answer-text {
+    width: 100%;
+    min-width: 0;
+}
+
+.sc-gmc-correct-choice {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #c9b7ff;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.sc-gmc-correct-choice input {
+    accent-color: #a879ff;
+}
+
+.sc-gmc-correct-help {
+    color: #aaa0c3;
+    font-size: 12px;
+}
+
+.sc-gmc-builder-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.sc-gmc-builder-actions button,
+.sc-gmc-next-round button {
+    border: 0;
+    border-radius: 12px;
+    padding: 13px 10px;
+    color: #fff;
+    background: linear-gradient(120deg, #7442d8, #a15cff);
+    font-weight: 800;
+}
+
+.sc-gmc-builder-actions button:first-child {
+    background: #282137;
+    border: 1px solid #6d568e;
+}
+
+.sc-gmc-preview-card article {
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.sc-gmc-preview-card article p {
+    color: #bcb6d0;
+    font-size: 13px;
+}
+
+.sc-gmc-preview-card .sc-gmc-answer-correct {
+    color: #8ef0c3;
+    font-weight: 700;
+}
+
+.sc-gmc-preview-card small {
+    display: block;
+    margin-top: 14px;
+    color: #bca0ff;
+}
+
+.sc-gmc-clue-list {
+    margin-bottom: 14px;
+    padding: 14px;
+    color: #e9e2ff;
+    background: rgba(133, 82, 221, 0.12);
+    border: 1px solid rgba(173, 128, 255, 0.3);
+    border-radius: 14px;
+}
+
+.sc-gmc-clue-list h3 {
+    margin-top: 0;
+    color: #d7c5ff;
+}
+
+.sc-gmc-clue-list p {
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.sc-gmc-correct-help {
+    line-height: 1.5;
+}
+
+@media (max-width: 420px) {
+    .sc-gmc-builder,
+    .sc-gmc-next-round,
+    .sc-gmc-preview-card {
+        padding: 14px;
+    }
+
+    .sc-gmc-answer-row {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .sc-gmc-correct-choice {
+        padding-left: 38px;
+    }
+
+    .sc-gmc-builder-actions {
+        grid-template-columns: 1fr;
+    }
+}

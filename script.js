@@ -13618,7 +13618,7 @@ function SC_OtherActivity_SyncCurrentData(){
                         1;
 
 
-                    SC_OtherActivity_Add({
+                                       SC_OtherActivity_Add({
 
                         id:
                             "game-progress-" +
@@ -13645,17 +13645,29 @@ function SC_OtherActivity_SyncCurrentData(){
 
                                 ? "You have a mutual crush"
 
-                                : `${actor.name} progressed to Round ${level}`,
+                                : crush.gmc && crush.gmc.finished
+
+                                    ? `${actor.name} finished all 3 rounds`
+
+                                    : crush.gmc && crush.gmc.awaitingRound
+
+                                        ? `${actor.name} passed Round ${crush.gmc.passed}`
+
+                                        : `${actor.name} progressed to Round ${level}`,
 
                         description:
                             crush.mutual === true
 
                                 ? `${actor.name} chose you back.`
 
-                                : (
-                                    crush.status ||
-                                    `Their game is currently on Round ${level}.`
-                                ),
+                                : crush.gmc && crush.gmc.awaitingRound
+
+                                    ? `Prepare the Round ${crush.gmc.awaitingRound} questions for them.`
+
+                                    : (
+                                        crush.status ||
+                                        `Their game is currently on Round ${level}.`
+                                    ),
 
                         timestamp:
                             Number(
@@ -13664,7 +13676,11 @@ function SC_OtherActivity_SyncCurrentData(){
                             ) ||
                             Date.now(),
 
-                        read:true,
+                        read:
+                            !(
+                                crush.gmc &&
+                                crush.gmc.awaitingRound
+                            ),
 
                         route:
                             crush.mutual === true
@@ -40026,8 +40042,9 @@ The two demo crushes are only shown when the user
 has never created any Sent Crush storage at all.
 ===================================================== */
 
-function getSentCrushDisplayData(){
-
+function SC_GMC_RawSentCrushDisplayData(){
+    
+    
     const saved =
         getSentCrushes();
 
@@ -41709,6 +41726,28 @@ function renderSentCrushGameProgress(
     }
 
 
+    const gmc =
+        sentCrush.gmc ||
+        null;
+
+    const passed =
+        gmc
+            ? gmc.passed
+            : 0;
+
+    const awaiting =
+        gmc
+            ? gmc.awaitingRound
+            : null;
+
+    const finished =
+        !!(gmc && gmc.finished);
+
+    const mutual =
+        sentCrushIsMutual(
+            sentCrush
+        );
+
     const level =
         Math.min(
             3,
@@ -41721,88 +41760,194 @@ function renderSentCrushGameProgress(
         );
 
 
-    const mutual =
-        sentCrushIsMutual(
-            sentCrush
-        );
+    let stateText;
+    let descText;
+
+    if(mutual){
+
+        stateText =
+            "💜 Mutual Crush";
+
+        descText =
+            "You both chose each other. The crush has become mutual.";
+
+    }else if(finished){
+
+        stateText =
+            "🏆 All 3 rounds completed";
+
+        descText =
+            "Your crush has finished the whole game.";
+
+    }else if(awaiting){
+
+        stateText =
+            `✅ Round ${passed} passed`;
+
+        descText =
+            `Your crush answered Round ${passed} (${gmc.scores[passed] ?? 0}/3). ` +
+            `Prepare the Round ${awaiting} questions for them.`;
+
+    }else{
+
+        stateText =
+            escapePostHTML(
+                sentCrush.status ||
+                `Round ${level} in progress`
+            );
+
+        descText =
+            `Your crush is currently working through Round ${level}.`;
+
+    }
+
+
+    const step = n => {
+
+        const done =
+            n <= passed;
+
+        const current =
+            !done &&
+            n === passed + 1 &&
+            !finished;
+
+        const note =
+            done
+                ? `Passed • ${gmc.scores[n] ?? 0}/3`
+                : current
+                    ? (
+                        awaiting === n
+                            ? "Waiting for you"
+                            : "In progress"
+                    )
+                    : "Locked";
+
+        return `
+            <div class="sent-crush-progress-step ${done ? "completed" : ""} ${current ? "current" : ""}">
+                <div class="sent-crush-progress-dot">
+                    ${done ? "✓" : n}
+                </div>
+                <strong>Round ${n}</strong>
+                <small>${note}</small>
+            </div>
+        `;
+
+    };
 
 
     sentCrushGameProgress.innerHTML = `
 
-        <div
-            class="
-                sent-crush-progress-card
-            "
-        >
+        <div class="sent-crush-progress-card">
 
-            <div
-                class="
-                    sent-crush-progress-state
-                "
-            >
-
-                ${
-                    mutual
-                        ? "💜 Mutual Crush"
-                        : escapePostHTML(
-                            sentCrush.status ||
-                            `Round ${level} in progress`
-                        )
-                }
-
+            <div class="sent-crush-progress-state">
+                ${stateText}
             </div>
 
-
-            <p
-                class="
-                    sent-crush-progress-description
-                "
-            >
-
-                ${
-                    mutual
-
-                        ?
-
-                        "You both chose each other. The crush has become mutual."
-
-                        :
-
-                        `Your crush is currently working through Round ${level}.`
-                }
-
+            <p class="sent-crush-progress-description">
+                ${descText}
             </p>
 
-
-            <div
-                class="
-                    sent-crush-progress-steps
-                "
-            >
-
-                ${createProgressStep(
-                    1,
-                    level,
-                    "Round 1"
-                )}
-
-                ${createProgressStep(
-                    2,
-                    level,
-                    "Round 2"
-                )}
-
-                ${createProgressStep(
-                    3,
-                    level,
-                    "Round 3"
-                )}
-
+            <div class="sent-crush-progress-steps">
+                ${step(1)}
+                ${step(2)}
+                ${step(3)}
             </div>
+
+            ${
+                awaiting
+                    ? `
+                        <button
+                            type="button"
+                            id="sc-gmc-sender-prepare"
+                            class="sent-crush-detail-gift"
+                        >
+                            ✍️ PREPARE ROUND ${awaiting} QUESTIONS
+                        </button>
+                    `
+                    : ""
+            }
 
         </div>
 
     `;
+
+
+    const prepareButton =
+        document.getElementById(
+            "sc-gmc-sender-prepare"
+        );
+
+    if(prepareButton){
+
+        prepareButton.addEventListener(
+            "click",
+            () => {
+
+                const game =
+                    getCrushGames().find(
+                        item =>
+                            item.crushId === gmc.crushId &&
+                            item.status === "in-progress"
+                    );
+
+                if(!game){
+
+                    alert(
+                        "This game is no longer active."
+                    );
+
+                    return;
+
+                }
+
+                const playerCrush =
+                    SC_DEMO_CRUSHES.find(
+                        item =>
+                            item.id === gmc.crushId
+                    ) ||
+                    { id: gmc.crushId };
+
+                SC_GMC_OpenQuestionBuilder(
+                    playerCrush,
+                    game,
+                    awaiting,
+                    {
+                        container:
+                            sentCrushGameProgress,
+
+                        onCancel:
+                            () => renderSentCrushGameProgress(
+                                sentCrush
+                            ),
+
+                        onSent:
+                            round => {
+
+                                SC_GMC_MarkQuestionsSent(
+                                    sentCrush.id,
+                                    round
+                                );
+
+                                const fresh =
+                                    getSentCrushDisplayData()
+                                        .find(
+                                            item =>
+                                                item.id === sentCrush.id
+                                        );
+
+                                renderSentCrushGameProgress(
+                                    fresh || sentCrush
+                                );
+
+                            }
+                    }
+                );
+
+            }
+        );
+
+    }
 
 }
 
@@ -53900,6 +54045,45 @@ Works in onboarding and Edit Profile.
         });
 
         const catalog = readCatalog();
+        
+        
+        /*
+         * MODULE: SYNC CUSTOM ACADEMIC OPTIONS
+         * Registration catalog → Home and Feed filters
+         */
+        ["school", "faculty"].forEach(type => {
+            if (!Array.isArray(SC_FILTER_OPTIONS[type])) {
+                SC_FILTER_OPTIONS[type] = [];
+            }
+
+            const filterOptions = SC_FILTER_OPTIONS[type];
+
+            (catalog[type] || []).forEach(item => {
+                const name = cleanName(item);
+
+                if (!name) return;
+
+                const alreadyExists = filterOptions.some(
+                    option =>
+                        String(option).trim().toLowerCase() ===
+                        name.toLowerCase()
+                );
+
+                if (!alreadyExists) {
+                    filterOptions.push(name);
+                }
+            });
+
+            filterOptions.sort((a, b) =>
+                a.localeCompare(b)
+            );
+        });
+
+        
+        
+        
+        
+        
 
         (catalog[type] || []).forEach(name => {
             name = cleanName(name);
@@ -54542,3 +54726,877 @@ Works in onboarding and Edit Profile.
         getCustomOptions: readCatalog
     };
 })();
+
+
+/* =====================================================
+   GUESS MY CRUSH — ROUND 2 & 3 SYSTEM
+   MODULE: Reusable rounds, question builder, clues
+   ===================================================== */
+
+const SC_GMC_ROUND_VERSION = 1;
+
+function SC_GMC_EnsureRoundData(game) {
+    if (!game.roundQuestions) {
+        game.roundQuestions = {};
+    }
+
+    if (!game.roundClues) {
+        game.roundClues = {};
+    }
+
+    if (!game.roundStates) {
+        game.roundStates = {
+            1: "active",
+            2: "locked",
+            3: "locked"
+        };
+    }
+
+    if (!game.roundQuestionDrafts) {
+        game.roundQuestionDrafts = {};
+    }
+
+    game.schemaVersion = SC_GMC_ROUND_VERSION;
+
+    return game;
+}
+
+function SC_GMC_GetQuestions(crush, game, round) {
+    SC_GMC_EnsureRoundData(game);
+
+    if (Number(round) === 1) {
+        return getRoundOneQuestions(crush);
+    }
+
+    return game.roundQuestions[round] || [];
+}
+
+function SC_GMC_Escape(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+/* -----------------------------------------------------
+   QUESTION BUILDER
+----------------------------------------------------- */
+
+function SC_GMC_OpenQuestionBuilder(crush, game, round, opts) {
+    opts = opts || {};
+    
+    
+    if (![2, 3].includes(Number(round))) {
+        return;
+    }
+
+    if (Number(round) !== Number(game.currentRound) + 1) {
+        alert("Complete the previous round first.");
+        return;
+    }
+
+    const existing =
+        game.roundQuestionDrafts[round] ||
+        game.roundQuestions[round] ||
+        [];
+
+        const container =
+        opts.container ||
+        document.getElementById("crush-current-question");
+    if (!container) {
+        return;
+    }
+
+    const draft = Array.from({ length: 3 }, (_, index) => {
+        const question = existing[index] || {};
+
+        return {
+            question: question.question || "",
+            options: Array.from({ length: 4 }, (_, optionIndex) =>
+                question.options?.[optionIndex] || ""
+            ),
+            correctIndex:
+                Number.isInteger(question.correctIndex)
+                    ? question.correctIndex
+                    : question.options && question.answer
+                        ? question.options.indexOf(question.answer)
+                        : -1
+        };
+    });
+
+    container.innerHTML = `
+        <div class="sc-gmc-builder">
+            <div class="sc-gmc-heading">
+                <span>GUESS MY CRUSH</span>
+                <h2>Prepare Round ${round}</h2>
+                <p>
+                    Create three questions with four choices each.
+                    Select one correct answer for every question.
+                </p>
+            </div>
+
+            <form id="sc-gmc-question-form">
+                ${draft.map((item, questionIndex) => `
+                    <section class="sc-gmc-question-editor">
+                        <h3>Question ${questionIndex + 1}</h3>
+
+                        <label>
+                            Your question
+                            <textarea
+                                class="sc-gmc-question-text"
+                                data-question="${questionIndex}"
+                                maxlength="250"
+                                required
+                            >${SC_GMC_Escape(item.question)}</textarea>
+                        </label>
+
+                        <p class="sc-gmc-correct-help">
+                            Choose the correct answer below.
+                        </p>
+
+                        ${item.options.map((option, optionIndex) => `
+                            <div class="sc-gmc-answer-row">
+                                <label class="sc-gmc-answer-label">
+                                    <span>${String.fromCharCode(65 + optionIndex)}</span>
+                                    <input
+                                        type="text"
+                                        class="sc-gmc-answer-text"
+                                        data-question="${questionIndex}"
+                                        data-option="${optionIndex}"
+                                        maxlength="150"
+                                        value="${SC_GMC_Escape(option)}"
+                                        placeholder="Enter answer ${String.fromCharCode(65 + optionIndex)}"
+                                        required
+                                    >
+                                </label>
+
+                                <label class="sc-gmc-correct-choice">
+                                    <input
+                                        type="radio"
+                                        name="sc-gmc-correct-${questionIndex}"
+                                        value="${optionIndex}"
+                                        ${item.correctIndex === optionIndex ? "checked" : ""}
+                                        required
+                                    >
+                                    Correct
+                                </label>
+                            </div>
+                        `).join("")}
+                    </section>
+                `).join("")}
+
+                <section class="sc-gmc-clue-editor">
+                    <h3>Round ${round} clues</h3>
+                    <p>
+                        Your first clue is free.
+                        Each additional clue costs 10 coins.
+                    </p>
+
+                    <label>
+                        Free clue
+                        <textarea
+                            id="sc-gmc-free-clue"
+                            maxlength="250"
+                            placeholder="Write your first clue"
+                        >${SC_GMC_Escape(game.roundClues[round]?.[0] || "")}</textarea>
+                    </label>
+
+                    <label>
+                        Additional clue
+                        <textarea
+                            id="sc-gmc-extra-clue"
+                            maxlength="250"
+                            placeholder="Optional — costs 10 coins"
+                        ></textarea>
+                    </label>
+                </section>
+
+                <div class="sc-gmc-builder-actions">
+                    <button type="button" id="sc-gmc-preview">
+                        Preview questions
+                    </button>
+
+                    <button type="submit" id="sc-gmc-send">
+                        Send Round ${round}
+                    </button>
+                </div>
+            </form>
+
+            <div id="sc-gmc-preview-area"></div>
+        </div>
+    `;
+
+    const form =
+        document.getElementById("sc-gmc-question-form");
+        
+        
+            if (opts.onCancel) {
+        const back = document.createElement("button");
+        back.type = "button";
+        back.textContent = "← Back to progress";
+        back.className = "sc-gmc-back";
+        back.addEventListener("click", opts.onCancel);
+        container.prepend(back);
+    }
+
+    const collectQuestions = () => {
+        const questions = [];
+
+        for (let questionIndex = 0; questionIndex < 3; questionIndex++) {
+            const questionInput = form.querySelector(
+                `.sc-gmc-question-text[data-question="${questionIndex}"]`
+            );
+
+            const optionInputs = [
+                ...form.querySelectorAll(
+                    `.sc-gmc-answer-text[data-question="${questionIndex}"]`
+                )
+            ];
+
+            const correctInput = form.querySelector(
+                `input[name="sc-gmc-correct-${questionIndex}"]:checked`
+            );
+
+            const questionText = questionInput.value.trim();
+            const options = optionInputs.map(input => input.value.trim());
+
+            if (!questionText || options.some(option => !option)) {
+                throw new Error(
+                    `Complete Question ${questionIndex + 1} and all four answers.`
+                );
+            }
+
+            if (new Set(options.map(option => option.toLowerCase())).size !== 4) {
+                throw new Error(
+                    `Question ${questionIndex + 1} must have four different answers.`
+                );
+            }
+
+            if (!correctInput) {
+                throw new Error(
+                    `Select the correct answer for Question ${questionIndex + 1}.`
+                );
+            }
+
+            const correctIndex = Number(correctInput.value);
+
+            questions.push({
+                question: questionText,
+                options,
+                correctIndex,
+                answer: options[correctIndex]
+            });
+        }
+
+        return questions;
+    };
+
+    document.getElementById("sc-gmc-preview").addEventListener(
+        "click",
+        () => {
+            try {
+                const questions = collectQuestions();
+
+                const preview =
+                    document.getElementById("sc-gmc-preview-area");
+
+                preview.innerHTML = `
+                    <div class="sc-gmc-preview-card">
+                        <h3>Question preview — Round ${round}</h3>
+
+                        ${questions.map((question, index) => `
+                            <article>
+                                <strong>${index + 1}. ${
+                                    SC_GMC_Escape(question.question)
+                                }</strong>
+
+                                ${question.options.map((option, optionIndex) => `
+                                    <p class="${
+                                        optionIndex === question.correctIndex
+                                            ? "sc-gmc-answer-correct"
+                                            : ""
+                                    }">
+                                        ${String.fromCharCode(65 + optionIndex)}.
+                                        ${SC_GMC_Escape(option)}
+                                        ${
+                                            optionIndex === question.correctIndex
+                                                ? " ✓ Correct answer"
+                                                : ""
+                                        }
+                                    </p>
+                                `).join("")}
+                            </article>
+                        `).join("")}
+
+                        <small>
+                            This preview shows the correct answers to the setter.
+                        </small>
+                    </div>
+                `;
+
+                game.roundQuestionDrafts[round] = questions;
+                updateCrushGame(game.id, current => {
+                    SC_GMC_EnsureRoundData(current);
+                    current.roundQuestionDrafts[round] = questions;
+                    return current;
+                });
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+    );
+
+    form.addEventListener("submit", event => {
+        event.preventDefault();
+
+        try {
+            const questions = collectQuestions();
+
+            const freeClue =
+                document.getElementById("sc-gmc-free-clue")
+                    .value.trim();
+
+            const extraClue =
+                document.getElementById("sc-gmc-extra-clue")
+                    .value.trim();
+
+            const existingClues =
+                game.roundClues[round] || [];
+
+            const clues = [...existingClues];
+
+            if (freeClue) {
+                if (clues.length === 0) {
+                    clues.push(freeClue);
+                } else {
+                    clues[0] = freeClue;
+                }
+            }
+
+            if (extraClue) {
+                if (!spendBankCoins(10, `Guess My Crush — Round ${round} extra clue`)) {
+                    alert("You do not have enough coins for the additional clue.");
+                    return;
+                }
+
+                clues.push(extraClue);
+            }
+
+            updateCrushGame(game.id, current => {
+                SC_GMC_EnsureRoundData(current);
+
+                current.roundQuestions[round] = questions;
+                current.roundClues[round] = clues;
+                current.roundStates[round] = "active";
+                current.currentRound = Number(round);
+                current.currentQuestion = 0;
+                current.roundQuestionDrafts[round] = [];
+
+                return current;
+            });
+            if (opts.onSent) {
+                opts.onSent(Number(round));
+                return;
+            }
+
+
+            activeCrushGame = getCrushGameForPerson(crush.id);
+
+            SC_GMC_RenderClues(crush, activeCrushGame);
+
+            renderCrushGame(crush, activeCrushGame);
+        } catch (error) {
+            alert(error.message);
+        }
+    });
+}
+
+/* -----------------------------------------------------
+   SHOW CLUES
+----------------------------------------------------- */
+
+function SC_GMC_RenderClues(crush, game) {
+    const clues =
+        game.roundClues?.[game.currentRound] || [];
+
+    if (!clues.length) {
+        return;
+    }
+
+    const container =
+        document.getElementById("crush-current-question");
+
+    if (!container) {
+        return;
+    }
+
+    const clueBox = document.createElement("div");
+    clueBox.className = "sc-gmc-clue-list";
+
+    clueBox.innerHTML = `
+        <h3>Round ${game.currentRound} clues</h3>
+        ${clues.map((clue, index) => `
+            <p>
+                <strong>Clue ${index + 1}:</strong>
+                ${SC_GMC_Escape(clue)}
+            </p>
+        `).join("")}
+    `;
+
+    container.prepend(clueBox);
+}
+
+/* -----------------------------------------------------
+   RENDER ROUND QUESTIONS
+----------------------------------------------------- */
+
+function renderCurrentCrushQuestion(crush, game) {
+    SC_GMC_EnsureRoundData(game);
+
+    const container =
+        document.getElementById("crush-current-question");
+
+    if (!container) {
+        return;
+    }
+
+    const round = Number(game.currentRound);
+
+    if (round > 3) {
+        return;
+    }
+    if (round > 1 && !game.roundQuestions[round]) {
+        container.innerHTML = `
+            <div class="sc-gmc-next-round">
+                <span>ROUND ${round}</span>
+                <h3>Waiting for Round ${round}</h3>
+                <p>
+                    Your crush is preparing the next set of questions.
+                    You will be able to continue as soon as they send them.
+                </p>
+            </div>
+        `;
+
+        return;
+    }
+
+    const questions =
+        SC_GMC_GetQuestions(crush, game, round);
+
+    const question =
+        questions[game.currentQuestion];
+
+    if (!question) {
+        renderRoundFinished(crush, game);
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="crush-question-card">
+            <div class="crush-question-top">
+                <span>ROUND ${round}</span>
+                <small>
+                    Question ${game.currentQuestion + 1} of ${questions.length}
+                </small>
+            </div>
+
+            <h3>${SC_GMC_Escape(question.question)}</h3>
+
+            <div class="crush-question-options">
+                ${question.options.map((option, index) => `
+                    <button
+                        type="button"
+                        class="crush-question-option"
+                        data-answer-index="${index}"
+                    >
+                        <span>${String.fromCharCode(65 + index)}</span>
+                        ${SC_GMC_Escape(option)}
+                    </button>
+                `).join("")}
+            </div>
+
+            <button
+                type="button"
+                id="crush-submit-answer"
+                class="crush-submit-answer"
+                disabled
+            >
+                SUBMIT ANSWER
+            </button>
+        </div>
+    `;
+
+    let selectedIndex = null;
+
+    const buttons =
+        container.querySelectorAll(".crush-question-option");
+
+    buttons.forEach(button => {
+        button.addEventListener("click", () => {
+            buttons.forEach(item => item.classList.remove("selected"));
+
+            button.classList.add("selected");
+            selectedIndex = Number(button.dataset.answerIndex);
+
+            const submit =
+                document.getElementById("crush-submit-answer");
+
+            if (submit) {
+                submit.disabled = false;
+            }
+        });
+    });
+
+    document.getElementById("crush-submit-answer")
+        .addEventListener("click", () => {
+            if (selectedIndex === null) {
+                return;
+            }
+
+            submitCrushAnswer(
+                crush,
+                game,
+                question.options[selectedIndex],
+                question
+            );
+        });
+
+    SC_GMC_RenderClues(crush, game);
+}
+
+/* -----------------------------------------------------
+   SUBMIT ANSWER — ALL THREE ROUNDS
+----------------------------------------------------- */
+
+function submitCrushAnswer(crush, game, selectedAnswer, question) {
+    if (selectedAnswer === null || selectedAnswer === undefined) {
+        return;
+    }
+
+    const round = Number(game.currentRound);
+
+    const correct =
+        selectedAnswer === question.answer;
+
+    updateCrushGame(game.id, current => {
+        SC_GMC_EnsureRoundData(current);
+
+        current.answers = current.answers || [];
+
+        const alreadyAnswered = current.answers.some(answer =>
+            answer.round === round &&
+            answer.question === current.currentQuestion
+        );
+
+        if (alreadyAnswered) {
+            return current;
+        }
+
+        current.answers.push({
+            round,
+            question: current.currentQuestion,
+            selected: selectedAnswer,
+            correct,
+            submittedAt: Date.now()
+        });
+
+        current.currentQuestion += 1;
+
+        return current;
+    });
+
+    activeCrushGame =
+        getCrushGameForPerson(crush.id);
+
+    renderCrushGame(crush, activeCrushGame);
+}
+
+/* -----------------------------------------------------
+   ROUND COMPLETION AND PROGRESSION
+----------------------------------------------------- */
+
+function renderRoundFinished(crush, game) {
+    const container =
+        document.getElementById("crush-current-question");
+
+    if (!container) {
+        return;
+    }
+
+    SC_GMC_EnsureRoundData(game);
+
+    const round = Number(game.currentRound);
+
+    const roundAnswers =
+        (game.answers || []).filter(answer =>
+            answer.round === round
+        );
+
+    const score =
+        roundAnswers.filter(answer => answer.correct).length;
+
+    const alreadyCompleted =
+        game.roundStates[round] === "completed";
+
+    if (!alreadyCompleted) {
+        updateCrushGame(game.id, current => {
+            SC_GMC_EnsureRoundData(current);
+
+            current.roundScores[round] = score;
+            current.roundStates[round] = "completed";
+            current.roundCompletedAt =
+                current.roundCompletedAt || {};
+
+            current.roundCompletedAt[round] = Date.now();
+
+            if (round === 3) {
+                current.status = "completed";
+                current.completedAt = Date.now();
+            }
+
+            return current;
+        });
+                /* tell the SENDER of this crush that the round is done */
+        SC_GMC_PublishProgress(crush, round, score);
+    }
+
+    activeCrushGame =
+        getCrushGameForPerson(crush.id) || game;
+
+    if (round === 3) {
+        container.innerHTML = `
+            <div class="crush-round-result-card">
+                <span>ROUND 3</span>
+                <h3>Game complete!</h3>
+                <strong>${score}/3</strong>
+                <p>You have completed all three rounds.</p>
+            </div>
+        `;
+
+        renderGameProgress(activeCrushGame);
+        return;
+    }
+
+        const nextRound = round + 1;
+
+    container.innerHTML = `
+        <div class="crush-round-result-card">
+            <span>ROUND ${round}</span>
+            <h3>Round complete!</h3>
+            <strong>${score}/3</strong>
+            <p>
+                Your result has been sent to your crush.
+                Round ${nextRound} will unlock as soon as they
+                prepare and send the questions.
+            </p>
+        </div>
+    `;
+
+    renderGameProgress(activeCrushGame);
+}
+/* -----------------------------------------------------
+   ROUND PROGRESS DISPLAY
+----------------------------------------------------- */
+
+function renderGameProgress(game) {
+    const container =
+        document.getElementById("crush-round-progress");
+
+    if (!container || !game) {
+        return;
+    }
+
+    SC_GMC_EnsureRoundData(game);
+
+    container.innerHTML = `
+        <div class="crush-progress-line">
+            ${[1, 2, 3].map(round => {
+                const score = game.roundScores?.[round];
+
+                const current =
+                    Number(game.currentRound) === round &&
+                    game.status !== "completed";
+
+                const completed =
+                    game.roundStates[round] === "completed" ||
+                    (score !== null && score !== undefined);
+
+                return `
+                    <div class="
+                        crush-progress-round
+                        ${current ? "current" : ""}
+                        ${completed ? "completed" : ""}
+                    ">
+                        <span class="crush-progress-number">
+                            ${round}
+                        </span>
+
+                        <div>
+                            <strong>Round ${round}</strong>
+                            <small>
+                                ${completed ? `${score ?? 0}/3` : "Not completed"}
+                            </small>
+                        </div>
+                    </div>
+                `;
+            }).join("")}
+        </div>
+    `;
+}
+
+/* =====================================================
+   END GUESS MY CRUSH — ROUND 2 & 3 SYSTEM
+   ===================================================== */
+   
+   
+   /* =====================================================
+   GUESS MY CRUSH — PLAYER ↔ SENDER PROGRESS BRIDGE
+   ===================================================== */
+
+const SC_GMC_SYNC_KEY = "secretCrushRoundSync";
+
+function SC_GMC_ReadSync() {
+    try {
+        const data = JSON.parse(
+            localStorage.getItem(SC_GMC_SYNC_KEY) || "{}"
+        );
+
+        return data && typeof data === "object" && !Array.isArray(data)
+            ? data
+            : {};
+    } catch (error) {
+        return {};
+    }
+}
+
+function SC_GMC_WriteSync(data) {
+    localStorage.setItem(SC_GMC_SYNC_KEY, JSON.stringify(data));
+}
+
+/* Which Sent Crush belongs to the person who is playing? */
+function SC_GMC_FindSentCrushFor(crush) {
+    const sent = SC_GMC_RawSentCrushDisplayData()
+        .filter(item => item.type === "crush");
+
+    return (
+        sent.find(item =>
+            item.id === crush.sentCrushId ||
+            item.targetId === crush.id ||
+            item.targetSnapshot?.id === crush.id ||
+            (crush.name && item.targetName === crush.name)
+        ) ||
+        /* single-device testing fallback */
+        sent[0] ||
+        null
+    );
+}
+
+/* PLAYER finished a round -> record it for the sender */
+function SC_GMC_PublishProgress(crush, round, score) {
+    const sent = SC_GMC_FindSentCrushFor(crush);
+
+    if (!sent) {
+        return;
+    }
+
+    const sync = SC_GMC_ReadSync();
+
+    const entry = sync[sent.id] || {
+        crushId: crush.id,
+        passed: {},
+        questionsSent: {}
+    };
+
+    entry.crushId = crush.id;
+    entry.passed[round] = { score, at: Date.now() };
+    entry.highestPassed = Math.max(
+        Number(entry.highestPassed) || 0,
+        Number(round)
+    );
+    entry.updatedAt = Date.now();
+
+    sync[sent.id] = entry;
+    SC_GMC_WriteSync(sync);
+
+    if (typeof SC_OtherActivity_SyncCurrentData === "function") {
+        SC_OtherActivity_SyncCurrentData();
+    }
+
+    if (typeof SC_OtherActivity_UpdateBadge === "function") {
+        SC_OtherActivity_UpdateBadge();
+    }
+}
+
+/* SENDER sent the next round's questions */
+function SC_GMC_MarkQuestionsSent(sentCrushId, round) {
+    const sync = SC_GMC_ReadSync();
+    const entry = sync[sentCrushId];
+
+    if (!entry) {
+        return;
+    }
+
+    entry.questionsSent = entry.questionsSent || {};
+    entry.questionsSent[round] = true;
+    entry.updatedAt = Date.now();
+
+    SC_GMC_WriteSync(sync);
+
+    if (typeof SC_OtherActivity_SyncCurrentData === "function") {
+        SC_OtherActivity_SyncCurrentData();
+    }
+}
+
+/* Merge the player's progress into the Sent Crush records */
+function SC_GMC_ApplySync(items) {
+    const sync = SC_GMC_ReadSync();
+
+    return items.map(item => {
+        const entry = sync[item.id];
+
+        if (!entry || !entry.highestPassed) {
+            return item;
+        }
+
+        const passed = Number(entry.highestPassed);
+        const finished = passed >= 3;
+        const next = passed + 1;
+
+        const awaiting =
+            !finished && !entry.questionsSent?.[next]
+                ? next
+                : null;
+
+        const scores = {};
+
+        Object.keys(entry.passed || {}).forEach(round => {
+            scores[round] = entry.passed[round].score;
+        });
+
+        return {
+            ...item,
+            level: finished ? 3 : Math.min(3, next),
+            updatedAt: entry.updatedAt,
+            status: finished
+                ? "All 3 rounds completed"
+                : awaiting
+                    ? `Round ${passed} passed — prepare Round ${awaiting}`
+                    : `Round ${next} in progress`,
+            gmc: {
+                passed,
+                finished,
+                awaitingRound: awaiting,
+                scores,
+                crushId: entry.crushId
+            }
+        };
+    });
+}
+
+function getSentCrushDisplayData() {
+    return SC_GMC_ApplySync(
+        SC_GMC_RawSentCrushDisplayData()
+    );
+}
