@@ -56436,3 +56436,372 @@ function SC_Reveal_InjectStyles() {
 try {
     SC_Reveal_ApplyAll();
 } catch (error) {}
+
+
+
+
+/* =====================================================
+MODULE: SECRET CRUSH FIRST-TIME ONBOARDING ENGINE
+
+Purpose:
+- Explain unfamiliar features on first encounter.
+- Remember completed explanations.
+- Never repeat an explanation for the same account
+  on the same device.
+- Continue the user's original action after explanation.
+===================================================== */
+
+(() => {
+    "use strict";
+
+    const STORAGE_PREFIX = "scOnboardingSeen_v1_";
+
+    const overlay = document.getElementById(
+        "sc-onboarding-overlay"
+    );
+
+    if (!overlay) return;
+
+    const titleElement = document.getElementById(
+        "sc-onboarding-title"
+    );
+
+    const messageElement = document.getElementById(
+        "sc-onboarding-message"
+    );
+
+    const iconElement = document.getElementById(
+        "sc-onboarding-icon"
+    );
+
+    const continueButton = document.getElementById(
+        "sc-onboarding-continue"
+    );
+
+    let pendingAction = null;
+    let replayingAction = false;
+
+    /*
+     * Identify the current account.
+     */
+    function getAccountKey() {
+        try {
+            const profile = JSON.parse(
+                localStorage.getItem("secretCrushProfile") || "{}"
+            );
+
+            if (profile.userId) {
+                return String(profile.userId);
+            }
+
+            const session = JSON.parse(
+                localStorage.getItem("secretCrushSession") || "{}"
+            );
+
+            if (session.userId) {
+                return String(session.userId);
+            }
+        } catch (error) {
+            console.warn(
+                "Onboarding account identification failed:",
+                error
+            );
+        }
+
+        return "local-device";
+    }
+
+    function getStorageKey() {
+        return STORAGE_PREFIX + getAccountKey();
+    }
+
+    function getSeenTutorials() {
+        try {
+            return JSON.parse(
+                localStorage.getItem(getStorageKey()) || "{}"
+            );
+        } catch (error) {
+            return {};
+        }
+    }
+
+    function hasSeen(tutorialId) {
+        return Boolean(
+            getSeenTutorials()[tutorialId]
+        );
+    }
+
+    function markAsSeen(tutorialId) {
+        const seen = getSeenTutorials();
+
+        seen[tutorialId] = {
+            seen: true,
+            completedAt: Date.now()
+        };
+
+        localStorage.setItem(
+            getStorageKey(),
+            JSON.stringify(seen)
+        );
+    }
+
+    /*
+     * All first-time explanations.
+     */
+    const tutorials = {
+        homepage: {
+            icon: "💜",
+            title: "Welcome to Secret Crush!",
+            message:
+                "Discover people, share moments, send secret crushes and find out who's secretly interested in you."
+        },
+
+        feed: {
+            icon: "✦",
+            title: "Your discovery space",
+            message:
+                "Explore posts shared by other users, interact with content and discover interesting people."
+        },
+
+        bank: {
+            icon: "🪙",
+            title: "Your Crush Bank",
+            message:
+                "This is where you keep track of your coins, available game credits and activities that use them."
+        },
+
+        chats: {
+            icon: "💬",
+            title: "Your conversations",
+            message:
+                "This is where your conversations with people you've connected with appear."
+        },
+
+        incomingCrushes: {
+            icon: "💘",
+            title: "Your secret admirers",
+            message:
+                "This is where crushes sent to you appear. Open a crush to explore its details and play Guess My Crush."
+        },
+
+        sentCrushes: {
+            icon: "💌",
+            title: "Crushes you've sent",
+            message:
+                "Keep track of the crushes you've sent and follow their progress through the game and reveal stages."
+        },
+
+        mutualCrushes: {
+            icon: "💕",
+            title: "It's mutual!",
+            message:
+                "When two people send each other a crush, it becomes a mutual crush. Your mutual connections appear here."
+        },
+
+        guessMyCrush: {
+            icon: "🎯",
+            title: "Guess My Crush",
+            message:
+                "Answer questions about your secret admirer across three rounds. Earn points, use clues when you need help and see whether you can uncover their identity."
+        },
+
+        secretNotes: {
+            icon: "✉️",
+            title: "Secret Notes",
+            message:
+                "This is where secret notes sent to you appear. You can explore the messages and respond where the available options allow."
+        },
+
+        sendCrush: {
+            icon: "💘",
+            title: "Send a secret crush",
+            message:
+                "Send someone a crush anonymously. They'll receive it and can play Guess My Crush to try to discover who's behind it."
+        },
+
+        sendSecretNote: {
+            icon: "✉️",
+            title: "Send a Secret Note",
+            message:
+                "Write a personal message and send it to someone without starting a chat."
+        },
+
+        createMoment: {
+            icon: "📸",
+            title: "Share a Moment",
+            message:
+                "Share a photo, video or thought with the Secret Crush community. Add a caption to give your moment some personality."
+        }
+    };
+
+    /*
+     * Show an explanation only if it has never
+     * appeared for this account.
+     */
+    function showTutorial(tutorialId, action) {
+        const tutorial = tutorials[tutorialId];
+
+        if (!tutorial || hasSeen(tutorialId)) {
+            if (typeof action === "function") action();
+            return;
+        }
+
+        if (!overlay.hidden) return;
+
+        pendingAction = action || null;
+
+        iconElement.textContent = tutorial.icon;
+        titleElement.textContent = tutorial.title;
+        messageElement.textContent = tutorial.message;
+
+        continueButton.textContent = "Got it";
+
+        overlay.hidden = false;
+    }
+
+    /*
+     * Complete the explanation and continue the
+     * action the user originally selected.
+     */
+    continueButton.addEventListener("click", () => {
+        const activeTutorial = Object.keys(tutorials).find(
+            id =>
+                titleElement.textContent === tutorials[id].title
+        );
+
+        if (activeTutorial) {
+            markAsSeen(activeTutorial);
+        }
+
+        const action = pendingAction;
+
+        pendingAction = null;
+        overlay.hidden = true;
+
+        if (typeof action === "function") {
+            action();
+        }
+    });
+
+    /*
+     * Identify first-time feature visits and actions.
+     */
+    function identifyTutorial(target) {
+        if (!target || !target.closest) return null;
+
+        const nav = target.closest(".nav-item");
+
+        if (nav) {
+            const page = nav.dataset.page;
+
+            const navTutorials = {
+                feed: "feed",
+                bank: "bank",
+                chats: "chats"
+            };
+
+            if (navTutorials[page]) {
+                return navTutorials[page];
+            }
+        }
+
+        const activity = target.closest(
+            ".activity-card[data-activity]"
+        );
+
+        if (activity) {
+            const activityTutorials = {
+                "incoming-crushes": "incomingCrushes",
+                "sent-crushes": "sentCrushes",
+                "new-mutuals": "mutualCrushes",
+                "guess-my-crush": "guessMyCrush",
+                "secret-notes": "secretNotes"
+            };
+
+            return activityTutorials[
+                activity.dataset.activity
+            ] || null;
+        }
+
+        if (target.closest(".crush-action")) {
+            return "sendCrush";
+        }
+
+        if (target.closest(".note-action")) {
+            return "sendSecretNote";
+        }
+
+        if (target.closest("#post-moment-button")) {
+            return "createMoment";
+        }
+
+        return null;
+    }
+
+    /*
+     * Intercept first-time navigation and actions.
+     * The original click is replayed after the user
+     * acknowledges the explanation.
+     */
+    document.addEventListener("click", event => {
+        if (replayingAction || !overlay.hidden) return;
+
+        const target = event.target.closest(
+            "button, a, [role='button']"
+        );
+
+        if (!target) return;
+
+        const tutorialId = identifyTutorial(target);
+
+        if (!tutorialId || hasSeen(tutorialId)) return;
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+
+        showTutorial(tutorialId, () => {
+            replayingAction = true;
+
+            try {
+                if (target.isConnected) {
+                    target.click();
+                }
+            } finally {
+                replayingAction = false;
+            }
+        });
+    }, true);
+
+    /*
+     * First homepage introduction.
+     * It appears only for a new account when the
+     * homepage is first opened.
+     */
+    const originalOpenHomepage = window.openHomepage;
+
+    if (typeof originalOpenHomepage === "function") {
+        window.openHomepage = function (...args) {
+            const isNewUser = !hasSeen("homepage");
+
+            if (isNewUser) {
+                showTutorial("homepage", () => {
+                    originalOpenHomepage.apply(this, args);
+                });
+
+                return;
+            }
+
+            return originalOpenHomepage.apply(this, args);
+        };
+    }
+
+    /*
+     * Public helper for future onboarding triggers.
+     */
+    window.SC_Onboarding = {
+        show: showTutorial,
+        hasSeen: hasSeen,
+        markAsSeen: markAsSeen
+    };
+
+})();
