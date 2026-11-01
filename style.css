@@ -32680,6 +32680,10 @@ MODULE: GLOBAL NOTIFICATIONS — COMPACT NEON UI
     border-left: 3px solid #8fcaff;
 }
 
+.sc-notification[data-type="error"] {
+    border-left: 3px solid #ff6b81;
+}
+
 .sc-notification.sc-notification-leaving {
     animation: sc-notification-exit 180ms ease-in forwards;
 }

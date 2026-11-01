@@ -4730,14 +4730,29 @@ function openSendRevealModal(
     article
 ){
 
+        if (
+        type === "crush" &&
+        SC_IsOwnTarget(article)
+    ) {
+        
+        SC_ShowError(
+            "Can't send a crush",
+            "You can't send a crush to yourself."
+        );
+        
+        return;
+        
+    }
+    
+    
     outgoingMessageType =
         type;
-
-
+    
+    
     outgoingTargetPost =
         article;
-
-
+    
+    
     const personName =
         article.querySelector(
             ".feed-user-info h3"
@@ -4858,11 +4873,26 @@ sendRevealSubmit?.addEventListener(
     "click",
     () => {
 
-        if(!outgoingTargetPost){
+        if (!outgoingTargetPost) {
             return;
         }
-
-
+        
+        
+        if (
+            outgoingMessageType === "crush" &&
+            SC_IsOwnTarget(outgoingTargetPost)
+        ) {
+            
+            SC_ShowError(
+                "Can't send a crush",
+                "You can't send a crush to yourself."
+            );
+            
+            return;
+            
+        }
+        
+        
         const selectedFields =
             Array.from(
                 document.querySelectorAll(
@@ -8535,23 +8565,31 @@ function openFollowingProfile(person){
             null;
 
 
-    const profilePerson =
-
-        SC_ProfileNetwork_NormalizePerson({
-
-            ...person,
-
-            ...(liveCrush || {})
-
-        });
-
-
+        const profilePerson =
+        
+        SC_Canonical_ResolvePerson(
+            
+            SC_ProfileNetwork_NormalizePerson({
+                
+                ...person,
+                
+                ...(liveCrush || {})
+                
+            }),
+            
+            { keepId: true }
+            
+        );
+    
+    
     renderMutualProfileContent(
         profilePerson,
         {
-            mode:"following"
+            mode: "following"
         }
     );
+    
+    
 
 
     if(mutualProfileView){
@@ -8599,24 +8637,30 @@ function openFollowerProfile(person){
             null;
 
 
-    const profilePerson =
-
-        SC_ProfileNetwork_NormalizePerson({
-
-            ...person,
-
-            ...(liveCrush || {})
-
-        });
-
-
+        const profilePerson =
+        
+        SC_Canonical_ResolvePerson(
+            
+            SC_ProfileNetwork_NormalizePerson({
+                
+                ...person,
+                
+                ...(liveCrush || {})
+                
+            }),
+            
+            { keepId: true }
+            
+        );
+    
+    
     renderMutualProfileContent(
-        profilePerson,
-        {
-
-            mode:
-
-                SC_ProfileNetwork_IsFollowing(
+            profilePerson,
+            {
+                
+                mode:
+                    
+                    SC_ProfileNetwork_IsFollowing(
                     person.id
                 )
 
@@ -18212,19 +18256,27 @@ function openSecretCrushUserProfile(
     }
 
 
+    /*
+     * Every public profile goes through the same canonical
+     * resolver, so it always has the same ID, details and
+     * moments (including videos) no matter where it was opened.
+     */
     const normalized =
         SC_Search_MakePublicDemoPerson(
-            person
+            SC_Canonical_ResolvePerson(
+                person
+            )
         );
-
-
+    
+    
     renderMutualProfileContent(
         normalized,
         {
-            mode:"public"
+            mode: "public"
         }
     );
-
+    
+    
 
     mutualProfileView.classList.add(
         "active"
@@ -18584,9 +18636,11 @@ function SC_OpenProfileSendComposer(
         document.createElement("article");
 
 
-    article.dataset.postId =
+        article.dataset.postId =
         person.id;
 
+    article.dataset.ownerId =
+        person.id;
 
     article.innerHTML = `
 
@@ -22668,7 +22722,7 @@ function sendRevealRequest(
     Later this function will call the backend.
     */
 
-    button.textContent =
+        button.textContent =
         "REQUEST SENT";
 
     button.classList.add(
@@ -22677,6 +22731,13 @@ function sendRevealRequest(
 
     button.disabled = true;
 
+
+    /* deliver the request to the person who sent the crush */
+
+    SC_Reveal_PublishRequest(
+        crushId,
+        field
+    );
 
     /*
     DEMO ONLY
@@ -33870,6 +33931,9 @@ function SC_OpenProfileChat(person) {
         return;
     }
 
+        /* same person already has a conversation? reuse its ID */
+    person = SC_Canonical_ReuseChatId(person);
+
     const contact = SC_SaveOpenChatContact(person);
 
     if (!contact) {
@@ -41025,49 +41089,11 @@ function renderSentCrushDetail(
 
     }
 
-
-    /* REVEALED INFORMATION */
-
-    const selected =
-        sentCrush.selectedFields ||
-        [];
-
-
-    if(sentCrushDetailInfo){
-
-        sentCrushDetailInfo.innerHTML = `
-
-            ${createDetailInformation(
-                "Name",
-                selected.includes("name")
-                    ? target?.name || sentCrush.targetName
-                    : null
-            )}
-
-            ${createDetailInformation(
-                "Faculty",
-                selected.includes("faculty")
-                    ? target?.faculty
-                    : null
-            )}
-
-            ${createDetailInformation(
-                "Year",
-                selected.includes("year")
-                    ? target?.year
-                    : null
-            )}
-
-            ${createDetailInformation(
-                "Profile Picture",
-                selected.includes("picture")
-                    ? "Revealed"
-                    : null
-            )}
-
-        `;
-
-    }
+    /* REVEALED INFORMATION — the SENDER's own details */
+    
+    SC_Reveal_RenderInfoGrid(
+        sentCrush
+    );
 
 
     /* CLUES */
@@ -41264,189 +41290,14 @@ function createDetailInformation(
 /* =====================================================
 REVEAL REQUESTS
 ===================================================== */
-
 function renderSentCrushRevealRequests(
     sentCrush
-){
-
-    if(!sentCrushDetailReveals){
-
-        return;
-
-    }
-
-
-    const requests =
-        Array.isArray(
-            sentCrush.revealRequests
-        )
-            ? sentCrush.revealRequests
-            : [];
-
-
-    if(!requests.length){
-
-        sentCrushDetailReveals.innerHTML = `
-
-            <div
-                class="
-                    sent-crush-no-requests
-                "
-            >
-
-                <div
-                    class="
-                        sent-crush-no-requests-icon
-                    "
-                >
-                    🔐
-                </div>
-
-                <strong>
-                    No reveal requests yet
-                </strong>
-
-                <p>
-                    If your crush asks you to reveal
-                    part of your identity, their
-                    request will appear here.
-                </p>
-
-            </div>
-
-        `;
-
-        return;
-
-    }
-
-
-    sentCrushDetailReveals.innerHTML =
-        requests.map(
-            field => `
-
-                <div
-                    class="
-                        sent-crush-reveal-card
-                    "
-                >
-
-                    <div
-                        class="
-                            sent-crush-reveal-title
-                        "
-                    >
-                        🔐 Reveal Request
-                    </div>
-
-
-                    <p
-                        class="
-                            sent-crush-reveal-text
-                        "
-                    >
-                        Your crush is asking you to
-                        reveal your
-                        <strong>
-                            ${escapePostHTML(
-                                field
-                            )}
-                        </strong>.
-                    </p>
-
-
-                    <div
-                        class="
-                            sent-crush-reveal-actions
-                        "
-                    >
-
-                        <button
-                            type="button"
-                            class="
-                                sent-crush-reveal-accept
-                            "
-                            data-accept-detail-reveal="${sentCrush.id}|${escapePostHTML(field)}"
-                        >
-                            ACCEPT
-                        </button>
-
-
-                        <button
-                            type="button"
-                            class="
-                                sent-crush-reveal-decline
-                            "
-                            data-decline-detail-reveal="${sentCrush.id}|${escapePostHTML(field)}"
-                        >
-                            DECLINE
-                        </button>
-
-                    </div>
-
-                </div>
-
-            `
-        ).join("");
-
-
-    sentCrushDetailReveals
-        .querySelectorAll(
-            "[data-accept-detail-reveal]"
-        )
-        .forEach(
-            button => {
-
-                button.addEventListener(
-                    "click",
-                    () => {
-
-                        const parts =
-                            button.dataset
-                                .acceptDetailReveal
-                                .split("|");
-
-
-                        acceptSentCrushRevealRequest(
-                            parts[0],
-                            parts[1]
-                        );
-
-                    }
-                );
-
-            }
-        );
-
-
-    sentCrushDetailReveals
-        .querySelectorAll(
-            "[data-decline-detail-reveal]"
-        )
-        .forEach(
-            button => {
-
-                button.addEventListener(
-                    "click",
-                    () => {
-
-                        const parts =
-                            button.dataset
-                                .declineDetailReveal
-                                .split("|");
-
-
-                        declineSentCrushRevealRequest(
-                            parts[0],
-                            parts[1]
-                        );
-
-                    }
-                );
-
-            }
-        );
-
+) {
+    
+    SC_Reveal_RenderRequestCards(
+        sentCrush
+    );
+    
 }
 
 
@@ -53282,12 +53133,20 @@ and a backend event listener in the future.
             fallback: "Someone has sent you a secret note."
         },
 
-        mutualCrush: {
-            setting: "mutualCrush",
-            title: "It's mutual!",
-            fallback: "You have a new mutual crush."
-        }
-    };
+                mutualCrush: {
+                setting: "mutualCrush",
+                title: "It's mutual!",
+                fallback: "You have a new mutual crush."
+            },
+            
+            /* Errors are always shown, whatever the settings say. */
+            error: {
+                setting: "notifications",
+                always: true,
+                title: "Something went wrong",
+                fallback: "Something went wrong."
+            }
+        };
 
     const activeNotifications = new Map();
         const seenEventIds = new Set();
@@ -53347,7 +53206,9 @@ and a backend event listener in the future.
 
         const config = notificationTypes[type];
 
-        if (!config) return false;
+                if (!config) return false;
+
+        if (config.always) return true;
 
         const settings = readSettings();
 
@@ -55455,7 +55316,7 @@ function renderGameProgress(game) {
    GUESS MY CRUSH — PLAYER ↔ SENDER PROGRESS BRIDGE
    ===================================================== */
 
-const SC_GMC_SYNC_KEY = "secretCrushRoundSync";
+var SC_GMC_SYNC_KEY = "secretCrushRoundSync";
 
 function SC_GMC_ReadSync() {
     try {
@@ -55596,7 +55457,982 @@ function SC_GMC_ApplySync(items) {
 }
 
 function getSentCrushDisplayData() {
-    return SC_GMC_ApplySync(
-        SC_GMC_RawSentCrushDisplayData()
+    return SC_Reveal_ApplySync(
+        SC_GMC_ApplySync(
+            SC_GMC_RawSentCrushDisplayData()
+        )
     );
 }
+
+
+
+/* =====================================================
+   CANONICAL PROFILE — ONE DETAILED VIEW EVERYWHERE
+   -----------------------------------------------------
+   Every "open someone's profile" entry point ends in the
+   same renderer. This resolver makes sure they all hand
+   it the SAME person: same permanent ID, same details and
+   the owner's saved moments (so videos play properly).
+   It mirrors what the feed full-screen view always did.
+   ===================================================== */
+
+function SC_Canonical_Norm(value) {
+    return String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/^@/, "");
+}
+
+function SC_Canonical_MomentPool() {
+    var saved = [];
+
+    try {
+        var stored = JSON.parse(
+            localStorage.getItem("secretCrushMoments") || "[]"
+        );
+
+        if (Array.isArray(stored)) {
+            saved = stored.filter(function (post) {
+                return post && post.id;
+            });
+        }
+    } catch (error) {
+        saved = [];
+    }
+
+    var feed = (
+        typeof SC_FeedMomentItems !== "undefined" &&
+        Array.isArray(SC_FeedMomentItems)
+    )
+        ? SC_FeedMomentItems.filter(function (post) {
+            return post && post.id;
+        })
+        : [];
+
+    return saved.concat(feed);
+}
+
+function SC_Canonical_ResolvePerson(input, opts) {
+    opts = opts || {};
+
+    if (!input || typeof input !== "object") {
+        return input;
+    }
+
+    var ownerOf = function (post) {
+        return String(post.ownerId || post.userId || "");
+    };
+
+    var ids = [input.id, input.userId, input.ownerId]
+        .map(function (v) { return String(v || ""); })
+        .filter(Boolean);
+
+    var names = [input.name, input.username]
+        .map(SC_Canonical_Norm)
+        .filter(Boolean);
+
+    var pool = SC_Canonical_MomentPool();
+
+    var byName = function (post) {
+        return [post.name, post.username]
+            .map(SC_Canonical_Norm)
+            .some(function (n) {
+                return n && names.indexOf(n) > -1;
+            });
+    };
+
+    /* 1) permanent owner ID, 2) same name on a post that has an owner ID,
+       3) same name on an older post without one */
+    var match =
+        pool.find(function (post) {
+            return ownerOf(post) && ids.indexOf(ownerOf(post)) > -1;
+        }) ||
+        pool.find(function (post) {
+            return ownerOf(post) && byName(post);
+        }) ||
+        pool.find(byName) ||
+        null;
+
+    var post = match || {};
+
+    var canonicalId;
+
+    if (opts.keepId && ids.length) {
+        canonicalId = ids[0];
+    } else if (match) {
+        canonicalId = ownerOf(match) ||
+            String(match.username || match.name || "");
+    } else {
+        canonicalId = String(
+            input.id || input.username || input.name || ""
+        );
+    }
+
+    var result = Object.assign({}, input, { id: canonicalId });
+
+    result.name = input.name || post.name || "";
+    result.username = input.username || post.username || result.name;
+    result.photo =
+        input.photo || input.profilePicture ||
+        post.profilePicture || post.photo || "";
+    result.school = input.school || input.institution || post.institution || "";
+    result.faculty = input.faculty || post.faculty || "";
+    result.year = input.year || post.year || "";
+    result.gender = input.gender || post.gender || "";
+    result.about = input.about || post.about || "";
+    result.interests =
+        Array.isArray(input.interests) && input.interests.length
+            ? input.interests
+            : (Array.isArray(post.interests) ? post.interests : []);
+
+    var owned = SC_Profile_FindSource({
+        id: canonicalId,
+        userId: canonicalId,
+        name: result.name,
+        username: result.username
+    });
+
+    /* the owner's saved moments (they carry the video media IDs) */
+    result.posts = owned.posts.length
+        ? owned.posts
+        : (Array.isArray(input.posts) ? input.posts : []);
+
+    if (!result.about && owned.about) {
+        result.about = owned.about;
+    }
+
+    if (!result.interests.length && owned.interests.length) {
+        result.interests = owned.interests;
+    }
+
+    /* the current user's own profile always uses the latest saved data */
+    try {
+        var me = getCurrentProfile();
+
+        if (me && me.userId && String(me.userId) === canonicalId) {
+            result.name = me.name || result.name;
+            result.username = me.username || result.username;
+            result.photo = me.profilePicture || result.photo;
+            result.school = me.institution || result.school;
+            result.faculty = me.faculty || result.faculty;
+            result.year = me.year || result.year;
+            result.gender = me.gender || result.gender;
+            result.about = me.about || result.about;
+            result.interests = Array.isArray(me.interests)
+                ? me.interests
+                : result.interests;
+        }
+    } catch (error) {}
+
+    return result;
+}
+
+/* One person = one conversation. */
+function SC_Canonical_ReuseChatId(person) {
+    if (!person) {
+        return person;
+    }
+
+    var contacts = [];
+
+    try {
+        contacts = SC_GetOpenChatContacts();
+    } catch (error) {
+        contacts = [];
+    }
+
+    var name = SC_Canonical_Norm(person.name);
+    var username = SC_Canonical_Norm(person.username);
+
+    var existing =
+        contacts.find(function (c) {
+            return String(c.id) === String(person.id);
+        }) ||
+        contacts.find(function (c) {
+            return (
+                (name && SC_Canonical_Norm(c.name) === name) ||
+                (username && SC_Canonical_Norm(c.username) === username)
+            );
+        });
+
+    if (existing && String(existing.id) !== String(person.id)) {
+        return Object.assign({}, person, { id: String(existing.id) });
+    }
+
+    return person;
+}
+
+
+/* =====================================================
+   ERROR NOTIFICATION + "CRUSH ON YOURSELF" GUARD
+   ===================================================== */
+
+function SC_ShowError(title, message) {
+    var icon =
+        "data:image/svg+xml," +
+        encodeURIComponent(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
+            '<rect width="64" height="64" rx="32" fill="#3a1620"/>' +
+            '<path d="M32 14 54 50H10Z" fill="#ff6b81"/>' +
+            '<rect x="29" y="26" width="6" height="14" rx="3" fill="#3a1620"/>' +
+            '<circle cx="32" cy="45" r="3.5" fill="#3a1620"/></svg>'
+        );
+
+    var shown = false;
+
+    try {
+        if (window.SC_Notifications) {
+            shown = window.SC_Notifications.notify({
+                id: "error-" + Date.now() + "-" +
+                    Math.random().toString(36).slice(2, 7),
+                type: "error",
+                actor: { id: "sc-error", name: title, photo: icon },
+                message: message,
+                duration: 6000
+            });
+        }
+    } catch (error) {
+        shown = false;
+    }
+
+    if (!shown) {
+        alert(title + "\n\n" + message);
+    }
+}
+
+/* Is the person on this card the current user? */
+function SC_IsOwnTarget(article) {
+    if (!article) {
+        return false;
+    }
+
+    var me = null;
+
+    try {
+        me = getCurrentProfile();
+    } catch (error) {
+        me = null;
+    }
+
+    if (!me || !me.userId) {
+        return false;
+    }
+
+    var meId = String(me.userId);
+    var ds = article.dataset || {};
+
+    var ownerIds = [ds.ownerId, ds.userId]
+        .map(function (v) { return String(v || ""); })
+        .filter(Boolean);
+
+    var postId = String(ds.postId || "");
+
+    if (ownerIds.indexOf(meId) > -1 || postId === meId) {
+        return true;
+    }
+
+    var moment = null;
+
+    try {
+        var saved = JSON.parse(
+            localStorage.getItem("secretCrushMoments") || "[]"
+        );
+
+        if (Array.isArray(saved) && postId) {
+            moment = saved.find(function (p) {
+                return p && String(p.id) === postId;
+            }) || null;
+        }
+    } catch (error) {
+        moment = null;
+    }
+
+    if (moment) {
+        var momentOwner = String(moment.ownerId || moment.userId || "");
+
+        if (momentOwner) {
+            return momentOwner === meId;
+        }
+
+        if (moment.isUserPost === true) {
+            return true;
+        }
+    }
+
+    if (ownerIds.length) {
+        return false;
+    }
+
+    /* older cards with no owner information: compare names */
+    var heading = article.querySelector(".feed-user-info h3");
+    var name = SC_Canonical_Norm(heading && heading.textContent);
+
+    return !!name && (
+        name === SC_Canonical_Norm(me.name) ||
+        name === SC_Canonical_Norm(me.username)
+    );
+}
+
+
+/* =====================================================
+   REVEAL SYSTEM — SENT CRUSH ↔ RECEIVER
+   -----------------------------------------------------
+   Sent crush card = what YOU (the sender) have revealed.
+   Locked fields can be revealed by tapping them, and
+   reveal requests from your crush open the same prompt.
+   Stored in "secretCrushRevealSync" so a backend can
+   replace it later:
+     { [sentCrushId]: { crushId, requests:{field:ts},
+                        revealed:{field:ts}, declined:{field:ts} } }
+   ===================================================== */
+
+var SC_REVEAL_SYNC_KEY = "secretCrushRevealSync";
+
+function SC_Reveal_Meta() {
+    return {
+        name: { label: "Name", icon: "👤" },
+        school: { label: "Institution", icon: "🏫" },
+        faculty: { label: "Faculty", icon: "🎓" },
+        year: { label: "Year", icon: "📚" },
+        picture: { label: "Profile Picture", icon: "🖼️" },
+        about: { label: "About", icon: "📝" },
+        interests: { label: "Interests", icon: "✨" }
+    };
+}
+
+function SC_Reveal_Order() {
+    return [
+        "name", "school", "faculty", "year",
+        "picture", "about", "interests"
+    ];
+}
+
+function SC_Reveal_Normalize(field) {
+    var key = String(field || "").trim();
+
+    var map = {
+        institution: "school",
+        profilePicture: "picture",
+        profile_picture: "picture",
+        photo: "picture"
+    };
+
+    return map[key] || key;
+}
+
+function SC_Reveal_Unique(list) {
+    return list.filter(function (item, index) {
+        return item && list.indexOf(item) === index;
+    });
+}
+
+function SC_Reveal_ReadSync() {
+    try {
+        var data = JSON.parse(
+            localStorage.getItem(SC_REVEAL_SYNC_KEY) || "{}"
+        );
+
+        return data && typeof data === "object" && !Array.isArray(data)
+            ? data
+            : {};
+    } catch (error) {
+        return {};
+    }
+}
+
+function SC_Reveal_WriteSync(data) {
+    localStorage.setItem(SC_REVEAL_SYNC_KEY, JSON.stringify(data));
+}
+
+function SC_Reveal_Entry(sync, sentId) {
+    var entry = sync[sentId] || {};
+
+    entry.requests = entry.requests || {};
+    entry.revealed = entry.revealed || {};
+    entry.declined = entry.declined || {};
+
+    sync[sentId] = entry;
+
+    return entry;
+}
+
+/* Merge reveal state into every Sent Crush record. */
+function SC_Reveal_ApplySync(items) {
+    var sync = SC_Reveal_ReadSync();
+
+    return items.map(function (item) {
+        var entry = sync[item.id] || {};
+
+        var revealed = [];
+
+        (item.selectedFields || []).forEach(function (field) {
+            revealed.push(SC_Reveal_Normalize(field));
+        });
+
+        (item.acceptedRevealFields || []).forEach(function (field) {
+            revealed.push(SC_Reveal_Normalize(field));
+        });
+
+        Object.keys(entry.revealed || {}).forEach(function (field) {
+            revealed.push(SC_Reveal_Normalize(field));
+        });
+
+        revealed = SC_Reveal_Unique(revealed);
+
+        var requested = [];
+
+        (item.revealRequests || []).forEach(function (field) {
+            requested.push(SC_Reveal_Normalize(field));
+        });
+
+        Object.keys(entry.requests || {}).forEach(function (field) {
+            requested.push(SC_Reveal_Normalize(field));
+        });
+
+        requested = SC_Reveal_Unique(requested).filter(function (field) {
+            return !(entry.declined && entry.declined[field]);
+        });
+
+        return Object.assign({}, item, {
+            revealedFieldKeys: revealed,
+            revealRequestHistory: requested,
+            /* pending only — drives the notifications */
+            revealRequests: requested.filter(function (field) {
+                return revealed.indexOf(field) < 0;
+            })
+        });
+    });
+}
+
+/* Make the receiver's side show what the sender revealed. */
+function SC_Reveal_ApplyToReceiver(sentId, entry) {
+    var sent = null;
+
+    try {
+        sent = SC_GMC_RawSentCrushDisplayData().find(function (item) {
+            return item.id === sentId;
+        }) || null;
+    } catch (error) {
+        sent = null;
+    }
+
+    var crush = SC_DEMO_CRUSHES.find(function (c) {
+        return (
+            (entry.crushId && c.id === entry.crushId) ||
+            (sent && (
+                c.id === sent.targetId ||
+                (sent.targetSnapshot && c.id === sent.targetSnapshot.id) ||
+                (c.name && c.name === sent.targetName)
+            ))
+        );
+    });
+
+    if (!crush) {
+        return null;
+    }
+
+    crush.revealed = crush.revealed || {};
+
+    Object.keys(entry.revealed || {}).forEach(function (field) {
+        crush.revealed[field] = true;
+    });
+
+    return crush;
+}
+
+function SC_Reveal_ApplyAll() {
+    var sync = SC_Reveal_ReadSync();
+
+    Object.keys(sync).forEach(function (sentId) {
+        try {
+            SC_Reveal_ApplyToReceiver(sentId, sync[sentId]);
+        } catch (error) {}
+    });
+}
+
+/* Receiver tapped REQUEST -> deliver it to the sender's card. */
+function SC_Reveal_PublishRequest(crushId, field) {
+    try {
+        var crush = SC_DEMO_CRUSHES.find(function (c) {
+            return c.id === crushId;
+        });
+
+        if (!crush) {
+            return;
+        }
+
+        var sent = SC_GMC_FindSentCrushFor(crush);
+
+        if (!sent) {
+            return;
+        }
+
+        var key = SC_Reveal_Normalize(field);
+        var sync = SC_Reveal_ReadSync();
+        var entry = SC_Reveal_Entry(sync, sent.id);
+
+        entry.crushId = crush.id;
+        entry.requests[key] = Date.now();
+        delete entry.declined[key];
+
+        SC_Reveal_WriteSync(sync);
+
+        if (typeof SC_OtherActivity_SyncCurrentData === "function") {
+            SC_OtherActivity_SyncCurrentData();
+        }
+
+        if (typeof SC_OtherActivity_UpdateBadge === "function") {
+            SC_OtherActivity_UpdateBadge();
+        }
+    } catch (error) {
+        console.warn("Could not deliver the reveal request.", error);
+    }
+}
+
+/* ---------- the sender's own value for each field ---------- */
+
+function SC_Reveal_Value(me, field) {
+    switch (field) {
+        case "name":
+            return me.name || me.username || "Not set";
+        case "school":
+            return me.institution || "Not set";
+        case "faculty":
+            return me.faculty || "Not set";
+        case "year":
+            return me.year || "Not set";
+        case "picture":
+            return "Revealed";
+        case "about":
+            return me.about
+                ? String(me.about).slice(0, 60) +
+                    (String(me.about).length > 60 ? "…" : "")
+                : "Not set";
+        case "interests":
+            return Array.isArray(me.interests) && me.interests.length
+                ? me.interests.slice(0, 4).join(", ")
+                : "Not set";
+        default:
+            return "Not set";
+    }
+}
+
+/* ---------- INFORMATION REVEALED grid (sender's info) ---------- */
+
+function SC_Reveal_RenderInfoGrid(sentCrush) {
+    if (!sentCrushDetailInfo) {
+        return;
+    }
+
+    SC_Reveal_InjectStyles();
+
+    var me = {};
+
+    try {
+        me = getCurrentProfile() || {};
+    } catch (error) {
+        me = {};
+    }
+
+    var meta = SC_Reveal_Meta();
+    var revealed = sentCrush.revealedFieldKeys || [];
+
+    sentCrushDetailInfo.innerHTML = SC_Reveal_Order().map(function (field) {
+        var isRevealed = revealed.indexOf(field) > -1;
+        var label = meta[field].label;
+
+        var avatar =
+            field === "picture" && isRevealed && me.profilePicture
+                ? '<img class="sc-reveal-mini-avatar" alt="" src="' +
+                    escapePostHTML(me.profilePicture) + '">'
+                : "";
+
+        return '' +
+            '<div class="sent-crush-detail-info-item sc-reveal-item ' +
+                (isRevealed ? "is-revealed" : "is-hidden") + '"' +
+                ' data-reveal-field="' + field + '"' +
+                ' role="button" tabindex="0">' +
+                '<strong>' + escapePostHTML(label) + '</strong>' +
+                (isRevealed
+                    ? '<span class="revealed">✓ ' + avatar +
+                        escapePostHTML(SC_Reveal_Value(me, field)) + '</span>'
+                    : '<span class="hidden">🔒 Hidden · tap to reveal</span>') +
+            '</div>';
+    }).join("");
+
+    sentCrushDetailInfo
+        .querySelectorAll("[data-reveal-field]")
+        .forEach(function (card) {
+            var open = function () {
+                SC_Reveal_OpenModal(
+                    sentCrush.id,
+                    card.dataset.revealField
+                );
+            };
+
+            card.addEventListener("click", open);
+
+            card.addEventListener("keydown", function (event) {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    open();
+                }
+            });
+        });
+}
+
+/* ---------- REVEAL REQUEST cards ---------- */
+
+function SC_Reveal_RenderRequestCards(sentCrush) {
+    if (!sentCrushDetailReveals) {
+        return;
+    }
+
+    SC_Reveal_InjectStyles();
+
+    var history = sentCrush.revealRequestHistory || [];
+    var revealed = sentCrush.revealedFieldKeys || [];
+    var meta = SC_Reveal_Meta();
+
+    if (!history.length) {
+        sentCrushDetailReveals.innerHTML =
+            '<div class="sent-crush-no-requests">' +
+                '<div class="sent-crush-no-requests-icon">🔐</div>' +
+                '<strong>No reveal requests yet</strong>' +
+                '<p>If your crush asks you to reveal part of your ' +
+                'identity, their request will appear here.</p>' +
+            '</div>';
+
+        return;
+    }
+
+    sentCrushDetailReveals.innerHTML = history.map(function (field) {
+        var isRevealed = revealed.indexOf(field) > -1;
+        var label = (meta[field] && meta[field].label) || field;
+
+        return '' +
+            '<div class="sent-crush-reveal-card sc-reveal-request ' +
+                (isRevealed ? "is-revealed" : "") + '"' +
+                ' data-reveal-card="' + escapePostHTML(field) + '"' +
+                ' role="button" tabindex="0">' +
+                '<div class="sent-crush-reveal-title">🔐 Reveal Request</div>' +
+                '<p class="sent-crush-reveal-text">' +
+                    'Your crush is asking you to reveal your <strong>' +
+                    escapePostHTML(label.toLowerCase()) + '</strong>.' +
+                '</p>' +
+                (isRevealed
+                    ? '<div class="sc-reveal-done">✓ Revealed</div>'
+                    : '<div class="sent-crush-reveal-actions">' +
+                        '<button type="button" class="sent-crush-reveal-accept"' +
+                            ' data-reveal-yes="' + escapePostHTML(field) + '">' +
+                            'REVEAL</button>' +
+                        '<button type="button" class="sent-crush-reveal-decline"' +
+                            ' data-reveal-no="' + escapePostHTML(field) + '">' +
+                            'DECLINE</button>' +
+                    '</div>') +
+            '</div>';
+    }).join("");
+
+    sentCrushDetailReveals
+        .querySelectorAll("[data-reveal-card]")
+        .forEach(function (card) {
+            var open = function () {
+                SC_Reveal_OpenModal(
+                    sentCrush.id,
+                    card.dataset.revealCard
+                );
+            };
+
+            card.addEventListener("click", open);
+
+            card.addEventListener("keydown", function (event) {
+                if (
+                    event.target === card &&
+                    (event.key === "Enter" || event.key === " ")
+                ) {
+                    event.preventDefault();
+                    open();
+                }
+            });
+        });
+
+    sentCrushDetailReveals
+        .querySelectorAll("[data-reveal-yes]")
+        .forEach(function (button) {
+            button.addEventListener("click", function (event) {
+                event.stopPropagation();
+                SC_Reveal_OpenModal(
+                    sentCrush.id,
+                    button.dataset.revealYes
+                );
+            });
+        });
+
+    sentCrushDetailReveals
+        .querySelectorAll("[data-reveal-no]")
+        .forEach(function (button) {
+            button.addEventListener("click", function (event) {
+                event.stopPropagation();
+                SC_Reveal_Decline(
+                    sentCrush.id,
+                    button.dataset.revealNo
+                );
+            });
+        });
+}
+
+/* ---------- the prompt ---------- */
+
+function SC_Reveal_OpenModal(sentId, field) {
+    var sent = getSentCrushDisplayData().find(function (item) {
+        return item.id === sentId;
+    });
+
+    if (!sent) {
+        return;
+    }
+
+    var key = SC_Reveal_Normalize(field);
+    var meta = SC_Reveal_Meta()[key] || { label: key, icon: "🔐" };
+    var label = meta.label.toLowerCase();
+
+    if ((sent.revealedFieldKeys || []).indexOf(key) > -1) {
+        SC_Reveal_Modal({
+            icon: "✅",
+            title: "Already revealed",
+            message: "Your " + label +
+                " has already been revealed to this person.",
+            confirmText: "OK",
+            hideCancel: true
+        });
+
+        return;
+    }
+
+    var target = null;
+
+    try {
+        target = getSentCrushTarget(sent);
+    } catch (error) {
+        target = null;
+    }
+
+    var who = (target && target.name) || sent.targetName || "your crush";
+
+    SC_Reveal_Modal({
+        icon: meta.icon,
+        title: "Reveal your " + label + "?",
+        message: "Are you ready to reveal this part of your identity? " +
+            "Once you confirm, " + who + " will be able to see your " +
+            label + ".",
+        confirmText: "Yes, reveal",
+        cancelText: "Not yet",
+        onConfirm: function () {
+            SC_Reveal_Commit(sentId, key);
+        }
+    });
+}
+
+function SC_Reveal_Commit(sentId, field) {
+    var sync = SC_Reveal_ReadSync();
+    var entry = SC_Reveal_Entry(sync, sentId);
+
+    entry.revealed[field] = Date.now();
+    delete entry.declined[field];
+
+    SC_Reveal_WriteSync(sync);
+
+    /* reveal on the receiver's side too */
+    var receiver = SC_Reveal_ApplyToReceiver(sentId, entry);
+
+    if (receiver && !entry.crushId) {
+        entry.crushId = receiver.id;
+        SC_Reveal_WriteSync(sync);
+    }
+
+    var fresh = getSentCrushDisplayData().find(function (item) {
+        return item.id === sentId;
+    });
+
+    if (fresh && typeof SC_OtherActivity_Add === "function") {
+        try {
+            var target = getSentCrushTarget(fresh) || {};
+            var label =
+                (SC_Reveal_Meta()[field] || { label: field })
+                    .label.toLowerCase();
+
+            SC_OtherActivity_Add({
+                id: "reveal-accepted-" + sentId + "-" + field,
+                actorId: target.id || fresh.targetId || fresh.id,
+                actorSnapshot: {
+                    id: target.id || fresh.targetId || fresh.id,
+                    name: target.name || fresh.targetName || "Mystery sender",
+                    username: target.username || "",
+                    photo: target.photo || target.profilePicture || ""
+                },
+                type: "reveal_accepted",
+                title: "You revealed your " + label + " to " +
+                    (target.name || fresh.targetName || "your crush"),
+                description:
+                    "The reveal has been recorded in your activity history.",
+                timestamp: Date.now(),
+                read: true,
+                route: {
+                    type: "sent-crush-reveal",
+                    crushId: sentId,
+                    slide: 1
+                },
+                meta: { field: field }
+            });
+        } catch (error) {}
+    }
+
+    if (
+        fresh &&
+        typeof renderSentCrushDetail === "function" &&
+        typeof activeSentCrushId !== "undefined" &&
+        activeSentCrushId === sentId
+    ) {
+        renderSentCrushDetail(fresh);
+    }
+
+    /* refresh the receiver's game screen if it is open */
+    try {
+        if (
+            receiver &&
+            typeof activeCrushGame !== "undefined" &&
+            activeCrushGame &&
+            activeCrushGame.crushId === receiver.id &&
+            typeof crushGameModal !== "undefined" &&
+            crushGameModal &&
+            crushGameModal.classList.contains("active")
+        ) {
+            renderCrushGame(receiver, activeCrushGame);
+        }
+    } catch (error) {}
+}
+
+function SC_Reveal_Decline(sentId, field) {
+    var sync = SC_Reveal_ReadSync();
+    var entry = SC_Reveal_Entry(sync, sentId);
+
+    entry.declined[SC_Reveal_Normalize(field)] = Date.now();
+
+    SC_Reveal_WriteSync(sync);
+
+    var fresh = getSentCrushDisplayData().find(function (item) {
+        return item.id === sentId;
+    });
+
+    if (fresh && typeof renderSentCrushDetail === "function") {
+        renderSentCrushDetail(fresh);
+    }
+}
+
+/* ---------- small self-contained modal + styles ---------- */
+
+function SC_Reveal_Modal(options) {
+    SC_Reveal_InjectStyles();
+
+    var previous = document.getElementById("sc-reveal-modal");
+
+    if (previous) {
+        previous.remove();
+    }
+
+    var overlay = document.createElement("div");
+
+    overlay.id = "sc-reveal-modal";
+    overlay.className = "sc-reveal-modal";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+
+    overlay.innerHTML =
+        '<div class="sc-reveal-modal-card">' +
+            '<div class="sc-reveal-modal-icon">' +
+                escapePostHTML(options.icon || "🔐") + '</div>' +
+            '<h3>' + escapePostHTML(options.title || "") + '</h3>' +
+            '<p>' + escapePostHTML(options.message || "") + '</p>' +
+            '<div class="sc-reveal-modal-actions">' +
+                (options.hideCancel
+                    ? ""
+                    : '<button type="button" data-act="cancel">' +
+                        escapePostHTML(options.cancelText || "Cancel") +
+                      '</button>') +
+                '<button type="button" class="primary" data-act="ok">' +
+                    escapePostHTML(options.confirmText || "OK") +
+                '</button>' +
+            '</div>' +
+        '</div>';
+
+    var close = function () {
+        overlay.remove();
+        document.removeEventListener("keydown", onKey);
+    };
+
+    var onKey = function (event) {
+        if (event.key === "Escape") {
+            close();
+        }
+    };
+
+    overlay.addEventListener("click", function (event) {
+        if (event.target === overlay) {
+            close();
+        }
+    });
+
+    overlay
+        .querySelector('[data-act="ok"]')
+        .addEventListener("click", function () {
+            close();
+
+            if (typeof options.onConfirm === "function") {
+                options.onConfirm();
+            }
+        });
+
+    var cancel = overlay.querySelector('[data-act="cancel"]');
+
+    if (cancel) {
+        cancel.addEventListener("click", close);
+    }
+
+    document.addEventListener("keydown", onKey);
+    document.body.appendChild(overlay);
+}
+
+function SC_Reveal_InjectStyles() {
+    if (document.getElementById("sc-reveal-styles")) {
+        return;
+    }
+
+    var style = document.createElement("style");
+
+    style.id = "sc-reveal-styles";
+
+    style.textContent =
+        ".sc-reveal-item{cursor:pointer;transition:transform .12s ease,background .12s ease;}" +
+        ".sc-reveal-item:active{transform:scale(.97);}" +
+        ".sc-reveal-item.is-hidden{border:1px dashed rgba(170,145,232,.4);}" +
+        ".sc-reveal-item.is-revealed{border:1px solid rgba(101,230,176,.28);}" +
+        ".sc-reveal-mini-avatar{width:16px;height:16px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:5px;}" +
+        ".sc-reveal-request{cursor:pointer;}" +
+        ".sc-reveal-request.is-revealed{border-color:rgba(101,230,176,.5)!important;background:rgba(101,230,176,.07)!important;}" +
+        ".sc-reveal-done{margin-top:10px;color:#65e6b0;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;}" +
+        ".sc-reveal-modal{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(8,6,16,.72);backdrop-filter:blur(4px);}" +
+        ".sc-reveal-modal-card{width:100%;max-width:340px;padding:24px 20px 18px;border-radius:20px;background:#1b1530;border:1px solid rgba(170,145,232,.3);box-shadow:0 20px 60px rgba(0,0,0,.5);text-align:center;color:#ece7f6;}" +
+        ".sc-reveal-modal-icon{font-size:34px;margin-bottom:8px;}" +
+        ".sc-reveal-modal-card h3{margin:0 0 8px;font-size:17px;}" +
+        ".sc-reveal-modal-card p{margin:0 0 18px;font-size:13px;line-height:1.5;color:#b9b1c9;}" +
+        ".sc-reveal-modal-actions{display:flex;gap:10px;}" +
+        ".sc-reveal-modal-actions button{flex:1;padding:12px 10px;border-radius:12px;border:1px solid rgba(170,145,232,.35);background:transparent;color:#ece7f6;font-weight:700;font-size:13px;cursor:pointer;}" +
+        ".sc-reveal-modal-actions button.primary{background:linear-gradient(135deg,#8f6bff,#c46bff);border-color:transparent;color:#fff;}";
+
+    document.head.appendChild(style);
+}
+
+/* apply any saved reveals to the receiver's side on startup */
+try {
+    SC_Reveal_ApplyAll();
+} catch (error) {}
